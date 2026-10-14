@@ -67,6 +67,9 @@ export interface Ingredient {
   unitMl?: number;
 }
 
+/** 每周菜单：日期 key（YYYY-MM-DD）→ 当天的菜品 id 列表 */
+export type WeeklyPlans = Record<string, string[]>;
+
 export interface MergedItem {
   ingredientId: string;
   ingredientName: string;

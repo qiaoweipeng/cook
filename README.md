@@ -1,6 +1,6 @@
 # 🍳 Cook · 我的厨房笔记
 
-> 一套**纯前端**的单页面做饭系统，把「菜谱 → 食材 → 价格」三件事串起来。  
+> 一套**纯前端**的单页面做饭系统，把「菜谱 → 食材 → 价格 → 购物清单」四件事串起来。
 > 灵感来源：每次想做菜都得翻小红书/抖音找菜谱，买菜时又算不清要花多少钱，这个工具就是为「想做饭 + 不想动脑」的人准备的。
 
 ---
@@ -10,9 +10,7 @@
 1. **菜谱管理**：收藏喜欢的菜，写下做法，不用再翻收藏夹里沉睡的链接。
 2. **食材库**：所有食材集中管理，每条都有单价（比如「五花肉 ¥28/斤」「鸡蛋 ¥1.2/个」），数据可随时改。
 3. **自动算账**：点开一道菜，能立刻看到这份菜**大概要花多少钱**；勾选几道想做的菜，自动合并出一份**带总价的购物清单**。
-4. **完全本地**：数据存在浏览器 `localStorage`，刷新不丢、清缓存即重置，不依赖任何后端。
-
-> 后续如果想加云同步、登录、多人协作，再把数据层抽出来换成 API 即可，UI 和 store 不动。
+4. **家庭共享**：支持多用户（昵称+密码），家人登录后看到同一份菜单/食材库；购物清单各自独立。
 
 ---
 
@@ -27,26 +25,25 @@
 
 ---
 
-## 🧩 功能清单
+## 🧩 已完成功能
 
-### V1（首版必须）
-- [ ] **菜单首页**：卡片网格浏览所有菜品，支持分类筛选（家常 / 川菜 / 粤菜 / 快手…）和关键词搜索。
-- [ ] **菜品详情**：展示食材清单（含用量 & 单份成本）、分步做法、难度/用时/标签。
-- [ ] **食材库 CRUD**：新增 / 编辑 / 删除食材，维护名称、单位、单价、备注。
-- [ ] **购物清单**：多选菜品 → 自动合并相同食材 → 计算总花费 → 单条勾选已购买。
-- [ ] **数据持久化**：用 `localStorage` 存，刷新不丢。
-- [ ] **种子数据**：内置 ~10 道家常菜 + ~30 种常见食材，开箱即用。
+### V1（全部完成 ✅）
+- [x] **菜单首页**：卡片网格浏览所有菜品，支持分类筛选（家常 / 川菜 / 粤菜 / 快手…）和关键词搜索。
+- [x] **菜品详情**：展示食材清单（含用量 & 单份成本）、分步做法、难度/用时/标签。
+- [x] **食材库 CRUD**：新增 / 编辑 / 删除食材，维护名称、单位、单价、备注。
+- [x] **购物清单**：多选菜品 → 自动合并相同食材 → 计算总花费 → 单条勾选已购买。
+- [x] **数据持久化**：从 localStorage 升级到 **腾讯云 CloudBase PostgreSQL**（PostgREST + Publishable Key）。
+- [x] **种子数据**：内置 **58 道家常菜** + **83 种常见食材**。
+- [x] **多用户系统**：昵称+密码注册登录，会话持久化，购物清单按用户隔离。
 
-### V2（进阶）
-- [ ] 收藏 & "我做过" 标记，按时间轴展示做菜记录。
-- [ ] 一周菜单计划：拖拽排菜，自动汇总一周食材采购单。
-- [ ] 价格波动记录：同一食材可记多个时点的价格，画折线图。
-- [ ] 菜谱导入：粘贴一段文本（抖音/小红书常见格式），用规则解析成结构化数据。
-- [ ] 打印 / 导出购物清单为图片 / PDF。
-
-### V3（想法，可能不做）
-- [ ] 接入食材电商 API，实时拉价格（贵且不必要，列出供参考）。
-- [ ] 多用户分享菜谱（这时候确实要后端了）。
+### V2（已实现部分）
+- [x] 收藏 / 取消收藏（红心按钮）
+- [x] "我做过" 标记 + 做菜记录时间轴
+- [x] 菜品封面图（AI 生成，风格统一）
+- [x] 多人共享菜单（家人加菜，所有人都能看到）
+- [x] 一周菜单计划（周一~周日，默认定位今天，可查看/编辑本周任意一天，每天可加 2-3 道菜）
+- [ ] 价格波动记录
+- [ ] 打印 / 导出购物清单为图片 / PDF
 
 ---
 
@@ -54,14 +51,18 @@
 
 | 分类 | 选型 | 理由 |
 | --- | --- | --- |
-| 框架 | **React 18 + TypeScript** | 主流、类型安全 |
-| 构建 | **Vite** | 启动快、HMR 舒服 |
+| 框架 | **React 18 + TypeScript 5** | 主流、类型安全 |
+| 构建 | **Vite 5** | 启动快、HMR 舒服 |
 | UI | **Ant Design 5** | 组件全（Card/Table/Form/Drawer/Statistic…都现成） |
 | 路由 | **React Router v6** | 单页多视图 |
-| 状态 | **Zustand** | 比 Redux 轻很多，配 `persist` 中间件直接对接 `localStorage` |
-| 工具 | Day.js（AntD 内置） | 日期处理 |
-
-> 不用 Next.js（不需要 SSR）、不用 UI 路由库、状态也用不上 Redux Toolkit。一个 Vite 工程即可。
+| 状态 | **Zustand 4** + `persist` | 比 Redux 轻很多，菜品/食材/购物清单各自独立持久化 |
+| 日期 | **dayjs** | AntD 内置日期库，用于格式化与"做菜记录"时间戳 |
+| 表格导入导出 | **SheetJS (`xlsx`)** | 食材库支持 Excel 导入 / 导出 / 下载模板 |
+| 后端 | **腾讯云 CloudBase PostgreSQL** | 文档数据库坑太多，PG 模式 + PostgREST 更稳 |
+| 数据库访问 | **PostgREST** (REST API) | 前端 `fetch` 直接调，不用 `@cloudbase/js-sdk` 中间层 |
+| 鉴权 | **Publishable Key** (匿名 JWT) | 前端可公开，无密码也能注册 |
+| 工程 | **TS 路径别名 `@/*`** | `@/types`、`@/lib/...` 引用更短（见 `tsconfig.json`） |
+| 部署 | **CloudBase 静态网站托管** | 免备案，CDN 加速 |
 
 ---
 
@@ -69,33 +70,41 @@
 
 ```
 cook/
-├── public/
+├── public/                         # 静态资源（菜品封面图、logo）
+│   └── dishes/                     # 58 张 AI 生成菜品图
 ├── src/
-│   ├── assets/              # 图片/logo
-│   ├── components/          # 通用组件（菜品卡片、食材单价输入框等）
-│   │   ├── DishCard/
-│   │   ├── IngredientTag/
-│   │   └── PriceTag/
+│   ├── assets/                     # 图片/logo
+│   ├── components/                 # 通用组件
+│   │   ├── DishCard/               # 菜品卡片
+│   │   ├── IngredientTag/          # 食材标签
+│   │   ├── PriceTag/               # 价格展示
+│   │   ├── AppLayout/              # 全局布局
+│   │   └── ShoppingListPanel/      # 购物清单侧栏
 │   ├── pages/
-│   │   ├── Menu/            # 菜单首页（卡片网格 + 筛选）
-│   │   ├── DishDetail/      # 菜品详情（drawer 或独立路由）
-│   │   ├── Ingredients/     # 食材库管理（Table + Form）
-│   │   └── ShoppingList/    # 购物清单
+│   │   ├── Menu/                   # 菜单首页（卡片网格 + 筛选）
+│   │   ├── DishDetail/             # 菜品详情
+│   │   ├── Ingredients/            # 食材库管理（Table + Form）
+│   │   ├── Weekly/                 # 每周菜单（周一~周日计划，默认今天）
+│   │   └── Login/                  # 登录/注册页
 │   ├── store/
-│   │   ├── useDishStore.ts       # 菜品 CRUD
-│   │   ├── useIngredientStore.ts # 食材 CRUD + 价格
-│   │   └── useShoppingStore.ts   # 当前购物清单（多页面共享）
+│   │   ├── useAuthStore.ts         # 当前用户会话
+│   │   ├── useDishStore.ts         # 菜品 CRUD（云端）
+│   │   ├── useIngredientStore.ts   # 食材 CRUD（云端）
+│   │   ├── useShoppingStore.ts     # 当前购物清单（按用户隔离）
+│   │   └── useWeeklyStore.ts       # 每周菜单（按用户隔离）
 │   ├── data/
-│   │   ├── seedDishes.ts         # 内置 ~10 道菜
-│   │   └── seedIngredients.ts    # 内置 ~30 种食材
-│   ├── types/
-│   │   └── index.ts              # Dish / Ingredient / Step 类型定义
-│   ├── utils/
-│   │   ├── price.ts              # 单价计算、单位换算
-│   │   └── merge.ts              # 购物清单合并
-│   ├── theme.ts                  # AntD ConfigProvider 主题
+│   │   ├── seedDishes.ts           # 58 道种子菜
+│   │   └── seedIngredients.ts      # 83 种种子食材
+│   ├── lib/
+│   │   ├── cloudbase.ts            # PostgREST 客户端（fetch 封装）
+│   │   ├── cloudSync.ts            # 嵌套结构 ↔ 多表 互转
+│   │   └── userAuth.ts             # 自建账号体系（昵称+密码+盐+SHA-256）
+│   ├── types/                      # 类型定义
+│   ├── utils/                      # 价格/合并/计算/一周日期工具
+│   ├── theme.ts                    # AntD ConfigProvider 主题
 │   ├── App.tsx
 │   └── main.tsx
+├── .env.example                    # 环境变量模板
 ├── index.html
 ├── package.json
 ├── tsconfig.json
@@ -105,122 +114,148 @@ cook/
 
 ---
 
-## 📐 数据模型（核心）
+## 💾 数据库结构（PostgreSQL）
 
-> 这一层定好，后续加后端时几乎不用改 UI，只换数据源。
+后端是腾讯云 CloudBase 的 **PostgreSQL 模式**（不是文档数据库），前端用 **PostgREST** 直接调 REST API。
 
-```ts
-// 一道菜
-interface Dish {
-  id: string;
-  name: string;                    // "番茄炒蛋"
-  category: '家常' | '川菜' | '粤菜' | '快手' | '烘焙' | '其他';
-  cover?: string;                  // 封面图
-  tags: string[];                  // ["下饭", "10 分钟", "新手"]
-  difficulty: 1 | 2 | 3;           // 难度
-  cookTimeMin: number;             // 烹饪用时
-  servings: number;                // 几人份
-  ingredients: DishIngredient[];   // 用到的食材 + 用量
-  steps: Step[];                   // 烹饪步骤
-  tips?: string;                   // 小贴士
-  favorite: boolean;
-  createdAt: number;
-}
+### 表（8 张）
 
-interface DishIngredient {
-  ingredientId: string;            // 关联食材库
-  amount: number;                  // 用量（数字，配合 unit）
-  unit: string;                    // "g" / "个" / "勺" / "ml"
-}
+| 表名 | 用途 | 关键字段 |
+| --- | --- | --- |
+| `dishes` | 菜品主表 | `id` (text PK), `name`, `category`, `difficulty`, `cook_time_min`, `servings`, `cover_color`, `favorite`, `created_at` |
+| `ingredients` | 食材库 | `id` (text PK), `name`, `category`, `price_per_unit`, `unit`, `spec` |
+| `dish_tags` | 菜-标签（多对多） | `dish_id`, `tag`（联合主键） |
+| `dish_ingredients` | 菜-食材（多对多，含用量） | `dish_id`, `ingredient_id`, `amount`, `unit` |
+| `dish_steps` | 烹饪步骤 | `dish_id`, `step_order`, `step_text`（联合主键） |
+| `users` | 用户账号 | `id` (text PK, 归一化昵称), `nick`, `display_name`, `salt`, `password_hash` |
+| `shopping_lists` | 购物清单（按用户隔离） | `id` (text PK, =uid), `data` (jsonb), `updated_at` |
+| `weekly_menus` | 每周菜单（按用户隔离） | `id` (text PK, =uid), `data` (jsonb, `{ 日期key: 菜品id[] }`), `updated_at` |
 
-interface Step {
-  order: number;
-  text: string;
-  image?: string;
-}
+> 新增 `weekly_menus` 表的建表 SQL：
+>
+> ```sql
+> CREATE TABLE weekly_menus (
+>   id text PRIMARY KEY,
+>   data jsonb NOT NULL DEFAULT '{}'::jsonb,
+>   updated_at timestamptz NOT NULL DEFAULT now()
+> );
+> ```
+> 建表后记得执行下面的 RLS 放行。
 
-// 食材库
-interface Ingredient {
-  id: string;
-  name: string;                    // "五花肉"
-  category: '蔬菜' | '肉类' | '调料' | '主食' | '蛋奶' | '其他';
-  pricePerUnit: number;            // 单价
-  unit: string;                    // "斤" / "个" / "g" / "ml"
-  spec?: string;                   // 规格备注，如 "土鸡蛋，盒装"
-  note?: string;
-}
+### RLS（行级安全）
 
-// 一份菜的成本 = Σ (amount 换算到 pricePerUnit 同一单位后 × price)
+所有表都启用 RLS，给 `anon` 角色（对应 Publishable Key）全开：
+
+```sql
+ALTER TABLE <表名> ENABLE ROW LEVEL SECURITY;
+CREATE POLICY p_anon_all ON <表名> FOR ALL TO anon USING (true) WITH CHECK (true);
+GRANT USAGE ON SCHEMA public TO anon;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO anon;
 ```
 
-**购物清单合并逻辑**：
-按 `ingredientId` 分组，相同食材的 `amount` 按统一单位累加，再乘以 `pricePerUnit`，得到总价。
+> ⚠️ 这是个人项目的「全开」配置，**不适合生产多人共用**。生产场景应该用 `authenticated` 角色 + JWT 携带 uid 做行级隔离。
+
+### 鉴权
+
+- 前端用 **Publishable Key**（`VITE_TCB_PUBLISHABLE_KEY`）作为 Bearer Token
+- 服务端 PostgREST 把 anon 角色赋给请求，所有 SQL 都按 RLS 规则过滤
+- **没有邮箱/手机号要求**，用户只用昵称+密码
 
 ---
 
-## 💾 数据存储方案
+## 🔐 账号系统
 
-- **首屏**：读取 `localStorage`，没有则写入 `seedDishes.ts` + `seedIngredients.ts` 的内置数据。
-- **更新**：Zustand `persist` 中间件自动同步 `localStorage`，组件通过 hook 读取，不会出现脏数据。
-- **重置**：导航栏一个「恢复示例数据」按钮，清空 `localStorage` 后重新加载 seed。
-- **导入导出**：设置页支持下载/上传一份 JSON 备份（避免换浏览器数据丢失）。
+自建，不依赖 CloudBase Auth（CloudBase Auth 强制要邮箱/手机号）：
+
+1. **注册**：`uid = 昵称归一化（小写、去空格）`，密码用 `SHA-256(随机盐 + 密码)` 存
+2. **登录**：查 users 表，比对 hash
+3. **会话**：登录后 `uid` 存到 `localStorage('cook.auth.session')`，刷新保持
+4. **购物清单**：`shopping_lists.id = uid`，所以每人清单天然隔离
+
+> 安全性是「防君子不防小人」—— 密码是 SHA-256 单向（没有迭代、没 bcrypt），他人拿到数据库 hash 配合彩虹表可以爆破。家用场景够用，不要存重要密码。
 
 ---
 
 ## 🚀 本地开发
 
-代码已经全部生成，按以下命令运行即可。
-
-需要使用 **pnpm**（项目已声明 `packageManager: pnpm@9.12.3`）。如果还没装：
-
 ```bash
-# 方式一：corepack（Node 16.13+ 自带，推荐）
-corepack enable
-corepack prepare pnpm@9.12.3 --activate
-
-# 方式二：直接用 npm 全局装
-npm i -g pnpm@9
-```
-
-日常开发：
-
-```bash
-# 1. 安装依赖（首次需要，自动写 pnpm-lock.yaml）
+# 1. 安装依赖（pnpm 9）
+corepack enable && corepack prepare pnpm@9.12.3 --activate
 pnpm install
 
-# 2. 启动开发服务器
-pnpm dev
-# → 访问 http://localhost:5173
+# 2. 配置环境变量
+cp .env.example .env
+# 填入 VITE_TCB_ENV_ID 和 VITE_TCB_PUBLISHABLE_KEY
 
-# 3. 打生产包
-pnpm build && pnpm preview
+# 3. 启动开发服务器
+pnpm dev          # → http://localhost:5173
+
+# 4. 打生产包
+pnpm build
 ```
 
-> 项目根目录的 `.npmrc` 已经设置 `shamefully-hoist=true`，避免 AntD 在 pnpm 严格模式下找不到子依赖的问题。
-
 ---
 
-## 🗺 迭代路线
+## ☁️ 部署到 CloudBase
 
-1. **Day 1**：脚手架 + 主题 + 类型定义 + seed 数据，跑通「浏览菜品 → 看详情」闭环。
-2. **Day 2**：食材库 CRUD + 价格维护；菜品详情里显示成本。
-3. **Day 3**：购物清单（多选菜品 → 合并 → 总价 → 勾选）。
-4. **Day 4**：打磨样式、搜索/筛选、做菜记录、空状态。
-5. **后续**：按 V2 清单挑感兴趣的做。
+### 前置
 
----
+1. 腾讯云账号 + CloudBase 环境（创建环境时**选 PostgreSQL 模式**，不是默认的文档数据库）
+2. 在 CloudBase 控制台 → 静态网站托管 → **开通**（必须手动点一次，CLI 无法开通）
+3. 在控制台 → PostgreSQL → SQL 窗口跑建表 SQL + RLS SQL（见上面「RLS」一节）
+4. 用 **Publishable Key**（不是 API Key），在 **环境 → 安全配置 → 客户端密钥** 里复制
 
-## 🤔 几个待你拍板的点
+### 一键部署
 
-| # | 问题 | 我的默认选择 |
+```bash
+# 1) 装 CLI
+npm i -g @cloudbase/cli
+tcb login                                  # 浏览器扫码
+
+# 2) 部署
+pnpm build
+tcb hosting deploy dist -e <你的ENV_ID>
+```
+
+部署完默认域名：`https://<env-id>-<appid>.tcloudbaseapp.com`
+
+### 关键坑（已踩过）
+
+| 坑 | 症状 | 解法 |
 | --- | --- | --- |
-| 1 | 项目名 | `cook`（简单直接） |
-| 2 | 是否用 TypeScript | ✅ 用（数据模型多，类型能省很多 bug） |
-| 3 | 路由方案 | React Router v6（菜单 / 详情 / 食材库 / 清单各占一个路由） |
-| 4 | 主色调 | 暖橙 `#E8743C`（接近厨房氛围） |
-| 5 | 是否需要登录/同步 | V1 不做，纯本地 |
+| 静态托管没在控制台开通 | 部署"成功"但什么也访问不到 | 控制台手动点「开通」 |
+| `VITE_TCB_ENV_ID` 没注入 | 页面打开白屏 | `.env` 填了之后**重新 `pnpm build`** |
+| RLS 没放行 anon | 注册/登录报 `permission denied for table users` | 跑上面 RLS SQL |
+| SPA 刷新 404 | F5 报 404 | 控制台 → 静态托管 → 设置 → 错误页面 → 404 用 `/index.html` 兜底 |
+| PostgREST 0 行返回 406 | `pgSelectOne` 改成 `pgSelect`（数组） | 已修 |
+| 默认域名访问偶尔 418 | 边缘节点风控，**用无痕窗口**打开 | 不要带 `?v=xxx` 查询参数 |
+| 静态页面 `VM169:1 cls is not defined` | CloudBase CDN 注入的引导脚本 | 配 404 → index.html 兜底后自动消失 |
 
-你看完 Idea 后告诉我：
-- 想不想调名字 / 配色 / 功能？
-- V1 那 6 项里有没有要砍掉或加的？
-- 要不要我**直接开始干**（按 Day 1 → Day 3 的顺序把代码写出来）？
+---
+
+## 📊 迭代日志
+
+- **Day 1**：脚手架 + 主题 + 类型定义 + seed 数据，浏览菜品 → 看详情闭环。
+- **Day 2**：食材库 CRUD + 价格维护；菜品详情里显示成本。
+- **Day 3**：购物清单（多选菜品 → 合并 → 总价 → 勾选）。
+- **Day 4**：打磨样式、搜索/筛选、做菜记录、空状态。
+- **Day 5**：从 localStorage 切到 **CloudBase 文档数据库**，再切到 **PostgreSQL + PostgREST**。
+- **Day 6**：自建账号体系（昵称+密码），RLS 放行 anon，部署上线。
+- **Day 7**：AI 生成 58 张菜品封面图，统一风格。
+
+---
+
+## 🎯 已知限制 / 后续 TODO
+
+- [ ] 食材价格随时间变化（历史曲线）
+- [ ] 菜谱导入（解析小红书/抖音文本）
+- [ ] 打印 / 导出购物清单为图片
+- [ ] 把 anon 全开 RLS 改成 authenticated 角色 + JWT 携带 uid
+- [ ] 密码哈希升级到 bcrypt
+- [ ] 多人同时编辑菜品时的冲突合并（last-write-wins 暂用）
+
+---
+
+## 📜 License
+
+MIT

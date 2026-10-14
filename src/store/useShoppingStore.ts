@@ -1,40 +1,99 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { isCloudEnabled } from '@/lib/cloudbase';
+import { cloudList, cloudSet } from '@/lib/cloudSync';
+import { useAuthStore } from './useAuthStore';
 
 interface ShoppingState {
   selectedDishIds: string[];
-  checkedKeys: string[]; // ingredientId_unit 的拼接
-  toggleDish: (id: string) => void;
-  clearDishes: () => void;
-  toggleCheckedKey: (key: string) => void;
+  checkedKeys: string[];
+  /** 云端已拉取（per-user） */
+  loaded: boolean;
+
+  load: () => Promise<void>;
+  toggleDish: (id: string) => Promise<void>;
+  clearDishes: () => Promise<void>;
+  toggleCheckedKey: (key: string) => Promise<void>;
   setCheckedKeys: (keys: string[]) => void;
-  clearChecked: () => void;
+  clearChecked: () => Promise<void>;
+  resetForUser: () => void;
+}
+
+async function writeShopping(uid: string, payload: { selectedDishIds: string[]; checkedKeys: string[] }) {
+  await cloudSet('shopping_lists', uid, {
+    data: payload,
+    updated_at: Date.now(),
+  });
 }
 
 export const useShoppingStore = create<ShoppingState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       selectedDishIds: [],
       checkedKeys: [],
-      toggleDish: (id) =>
-        set((s) => ({
-          selectedDishIds: s.selectedDishIds.includes(id)
-            ? s.selectedDishIds.filter((x) => x !== id)
-            : [...s.selectedDishIds, id],
-        })),
-      clearDishes: () => set({ selectedDishIds: [] }),
-      toggleCheckedKey: (key) =>
-        set((s) => ({
-          checkedKeys: s.checkedKeys.includes(key)
-            ? s.checkedKeys.filter((x) => x !== key)
-            : [...s.checkedKeys, key],
-        })),
+      loaded: false,
+
+      load: async () => {
+        if (!isCloudEnabled()) {
+          set({ loaded: true });
+          return;
+        }
+        // 拉自己那份
+        const remote = await cloudList<{ selectedDishIds: string[]; checkedKeys: string[] }>('shopping_lists');
+        const me = useAuthStore.getState().user?.uid;
+        if (me) {
+          const mine = remote.find((r: { id: string }) => r.id === me);
+          set({
+            selectedDishIds: mine?.data.selectedDishIds ?? [],
+            checkedKeys: mine?.data.checkedKeys ?? [],
+            loaded: true,
+          });
+        } else {
+          set({ loaded: true });
+        }
+      },
+
+      toggleDish: async (id) => {
+        const next = get().selectedDishIds.includes(id)
+          ? get().selectedDishIds.filter((x) => x !== id)
+          : [...get().selectedDishIds, id];
+        set({ selectedDishIds: next });
+        const me = useAuthStore.getState().user?.uid;
+        if (me) await writeShopping(me, { selectedDishIds: next, checkedKeys: get().checkedKeys });
+      },
+
+      clearDishes: async () => {
+        set({ selectedDishIds: [] });
+        const me = useAuthStore.getState().user?.uid;
+        if (me) await writeShopping(me, { selectedDishIds: [], checkedKeys: get().checkedKeys });
+      },
+
+      toggleCheckedKey: async (key) => {
+        const next = get().checkedKeys.includes(key)
+          ? get().checkedKeys.filter((x) => x !== key)
+          : [...get().checkedKeys, key];
+        set({ checkedKeys: next });
+        const me = useAuthStore.getState().user?.uid;
+        if (me) await writeShopping(me, { selectedDishIds: get().selectedDishIds, checkedKeys: next });
+      },
+
       setCheckedKeys: (keys) => set({ checkedKeys: keys }),
-      clearChecked: () => set({ checkedKeys: [] }),
+
+      clearChecked: async () => {
+        set({ checkedKeys: [] });
+        const me = useAuthStore.getState().user?.uid;
+        if (me) await writeShopping(me, { selectedDishIds: get().selectedDishIds, checkedKeys: [] });
+      },
+
+      resetForUser: () => {
+        set({ selectedDishIds: [], checkedKeys: [], loaded: false });
+      },
     }),
     {
       name: 'cook-shopping',
-      version: 1,
+      version: 2,
+      // 不持久化云端模式的数据（per-user 实时从云端拉）
+      partialize: (s) => (isCloudEnabled() ? {} : { selectedDishIds: s.selectedDishIds, checkedKeys: s.checkedKeys }),
     }
   )
 );
