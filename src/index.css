@@ -1,0 +1,87 @@
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background: #faf7f2;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC',
+    'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  text-decoration: none;
+}
+
+.price-tag {
+  font-weight: 600;
+  color: #e8743c;
+  font-variant-numeric: tabular-nums;
+}
+
+.price-tag-muted {
+  color: #999;
+  text-decoration: line-through;
+  margin-right: 8px;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 28px 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #2d2a26;
+}
+
+.section-title::before {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 18px;
+  background: #e8743c;
+  border-radius: 2px;
+}
+
+.steps-row {
+  display: flex;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px dashed #f0eee9;
+}
+
+.steps-row:last-child {
+  border-bottom: none;
+}
+
+.step-num {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #e8743c;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.brand {
+  font-size: 20px;
+  font-weight: 700;
+  color: #e8743c;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
