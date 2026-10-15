@@ -23,6 +23,7 @@ function dishToRow(d: Dish) {
     difficulty: d.difficulty,
     cook_time_min: d.cookTimeMin,
     servings: d.servings,
+    cover_image: d.coverImage ?? null,
     cover_color: d.coverColor ?? null,
     favorite: d.favorite ? 1 : 0,
     created_at: new Date(d.createdAt).toISOString(),
@@ -39,6 +40,7 @@ function rowToDish(r: any): Dish {
     difficulty: r.difficulty,
     cookTimeMin: r.cook_time_min,
     servings: r.servings,
+    coverImage: r.cover_image ?? undefined,
     coverColor: r.cover_color ?? '#FFE5DC',
     favorite: !!r.favorite,
     createdAt: new Date(r.created_at).getTime(),
@@ -77,9 +79,58 @@ function rowToIng(r: any): Ingredient {
 
 // ======================== dishes（4 张表） ========================
 
+/**
+ * cover_image 列可能还没建（需要在控制台跑 ALTER TABLE dishes ADD COLUMN cover_image text）。
+ * 探测到列不存在后缓存标记，后续写入自动省略该字段，避免整个写入失败。
+ */
+let coverImageColumnMissing = false;
+
+async function insertDishRow(d: Dish): Promise<void> {
+  const row: Record<string, unknown> = dishToRow(d);
+  if (coverImageColumnMissing) delete row.cover_image;
+  try {
+    await pgInsert('dishes', row);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '';
+    if (!coverImageColumnMissing && msg.includes('cover_image')) {
+      coverImageColumnMissing = true;
+      console.warn('[cloud] dishes.cover_image 列不存在，已跳过封面字段。请执行 ALTER TABLE dishes ADD COLUMN cover_image text;');
+      delete row.cover_image;
+      await pgInsert('dishes', row);
+      return;
+    }
+    throw e;
+  }
+}
+
+/**
+ * 菜品主表 upsert：先 PATCH 更新已存在的行，0 行才走 INSERT。
+ * （之前直接 INSERT，编辑已有菜时撞主键被 PostgREST 拒绝且错误被吞掉，
+ *  造成「界面提示已保存、刷新后编辑丢失」的假象）
+ */
+async function upsertDishRow(d: Dish): Promise<void> {
+  const row: Record<string, unknown> = dishToRow(d);
+  try {
+    const updated = await pgUpdateById('dishes', d.id, row);
+    if (updated && updated.length > 0) return;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '';
+    if (!coverImageColumnMissing && msg.includes('cover_image')) {
+      coverImageColumnMissing = true;
+      console.warn('[cloud] dishes.cover_image 列不存在，已跳过封面字段。请执行 ALTER TABLE dishes ADD COLUMN cover_image text;');
+      delete row.cover_image;
+      const updated = await pgUpdateById('dishes', d.id, row);
+      if (updated && updated.length > 0) return;
+    } else {
+      throw e;
+    }
+  }
+  await insertDishRow(d);
+}
+
 async function saveDishFull(d: Dish): Promise<void> {
   // 1. 主表 upsert
-  await pgInsert('dishes', dishToRow(d));
+  await upsertDishRow(d);
   // 2. 关联表先删后插
   await pgFetch('dish_tags', { method: 'DELETE', query: { dish_id: `eq.${d.id}` } });
   await pgFetch('dish_ingredients', { method: 'DELETE', query: { dish_id: `eq.${d.id}` } });

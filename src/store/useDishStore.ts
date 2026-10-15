@@ -1,9 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Dish } from '@/types';
-import { seedDishes } from '@/data/seedDishes';
+import { seedDishes, RETIRED_DISH_IDS } from '@/data/seedDishes';
 import { isCloudEnabled } from '@/lib/cloudbase';
 import { cloudDelete, cloudList, cloudSet } from '@/lib/cloudSync';
+import { checkDishUsage } from '@/lib/usage';
+import { idbStorage, whenHydrated } from '@/lib/persistStorage';
 import { useAuthStore } from './useAuthStore';
 
 interface DishState {
@@ -37,13 +39,21 @@ export const useDishStore = create<DishState>()(
       cloudAvailable: false,
 
       load: async () => {
+        // 先等 IndexedDB 缓存恢复完，避免云端新数据被旧缓存覆盖
+        await whenHydrated(useDishStore);
         if (!isCloudEnabled()) {
           set({ loaded: true, cloudAvailable: false });
           return;
         }
         set({ loading: true });
         const remote = await cloudList<Dish>('dishes');
-        if (remote.length === 0) {
+        // 清理已下架的菜（连云端一起删）
+        const retired = new Set(RETIRED_DISH_IDS);
+        for (const r of remote) {
+          if (retired.has(r.data.id)) await cloudDelete('dishes', r.data.id);
+        }
+        const valid = remote.filter((r) => !retired.has(r.data.id));
+        if (valid.length === 0) {
           // 云端是空表 → 上传种子
           for (const dish of seedDishes) await writeCloud(dish);
           set({ items: seedDishes, loaded: true, loading: false, cloudAvailable: true });
@@ -51,7 +61,7 @@ export const useDishStore = create<DishState>()(
           // 云端已有数据 → 直接以云端为准，不做「localOnly 补传」
           // 原因：localStorage 里的旧数据可能引用了已被替换/重命名的 ingredientId，
           // 补传会触发外键约束冲突
-          const items = remote.map((r) => r.data).sort((a, b) => a.createdAt - b.createdAt);
+          const items = valid.map((r) => r.data).sort((a, b) => a.createdAt - b.createdAt);
           set({ items, loaded: true, loading: false, cloudAvailable: true });
         }
       },
@@ -70,6 +80,8 @@ export const useDishStore = create<DishState>()(
       },
 
       remove: async (id) => {
+        const usage = await checkDishUsage(id);
+        if (!usage.ok) throw new Error(usage.reason ?? '该菜品正在被使用，无法删除');
         set((s) => ({ items: s.items.filter((it) => it.id !== id) }));
         await cloudDelete('dishes', id);
       },
@@ -94,9 +106,19 @@ export const useDishStore = create<DishState>()(
     }),
     {
       name: 'cook-dishes',
-      version: 3,
+      version: 4,
+      storage: idbStorage,
       // 只缓存 items，其他 cloud 状态不持久化
       partialize: (s) => ({ items: s.items }),
+      // v4：从本地缓存里清掉已下架的菜（如「番茄炒蛋」）
+      migrate: (persisted: any) => {
+        if (Array.isArray(persisted?.items)) {
+          persisted.items = persisted.items.filter(
+            (d: Dish) => !RETIRED_DISH_IDS.includes(d.id)
+          );
+        }
+        return persisted;
+      },
     }
   )
 );

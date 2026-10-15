@@ -2,36 +2,13 @@ import type { Dish } from '@/types';
 
 const baseTime = 1704067200000; // 2024-01-01
 
+/**
+ * 已下架的菜（种子中移除，但旧数据/云端可能还有）：
+ * - dish_tomato_egg「番茄炒蛋」：与 dish_fanqie_chao_egg「西红柿炒鸡蛋」重复
+ */
+export const RETIRED_DISH_IDS = ['dish_tomato_egg'];
+
 export const seedDishes: Dish[] = [
-  {
-    id: 'dish_tomato_egg',
-    name: '番茄炒蛋',
-    emoji: '🍅',
-    category: '家常',
-    tags: ['下饭', '快手', '新手'],
-    difficulty: 1,
-    cookTimeMin: 10,
-    servings: 2,
-    coverColor: '#FFE5DC',
-    favorite: true,
-    createdAt: baseTime,
-    ingredients: [
-      { ingredientId: 'ing_tomato', amount: 2, unit: '个' },
-      { ingredientId: 'ing_egg', amount: 4, unit: '个' },
-      { ingredientId: 'ing_scallion', amount: 5, unit: 'g' },
-      { ingredientId: 'ing_salt', amount: 2, unit: 'g' },
-      { ingredientId: 'ing_sugar', amount: 5, unit: 'g' },
-      { ingredientId: 'ing_oil', amount: 10, unit: 'ml' },
-    ],
-    steps: [
-      { order: 1, text: '番茄顶部划十字，开水烫 30 秒后剥皮切块' },
-      { order: 2, text: '鸡蛋打散，加少许盐和水淀粉' },
-      { order: 3, text: '热油大火倒入蛋液，凝固立刻盛出' },
-      { order: 4, text: '余油炒番茄出沙，加少许糖' },
-      { order: 5, text: '倒回鸡蛋翻匀，撒葱花起锅' },
-    ],
-    tips: '番茄要炒到绵软出汁才够味，糖只放一点点提鲜即可。',
-  },
   {
     id: 'dish_garlic_green',
     name: '蒜蓉炒青菜',
@@ -1737,6 +1714,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'dish_fanqie_chao_egg',
     name: '西红柿炒鸡蛋',
+    coverImage: '/dishes/dish_fanqie_chao_egg.jpg',
     category: '家常',
     tags: ['下饭', '快手'],
     difficulty: 1,
@@ -1759,6 +1737,6 @@ export const seedDishes: Dish[] = [
       { order: 3, text: '原锅下番茄中火炒到出沙（3 分钟）' },
       { order: 4, text: '加糖提鲜，倒回鸡蛋翻匀，撒葱花起锅' },
     ],
-    tips: '糖是点睛之笔，能中和番茄的酸；和「番茄炒蛋」的区别在于糖多放、番茄炖更烂。',
+    tips: '糖是点睛之笔，能中和番茄的酸；番茄多炖一会儿，炒到出沙更浓郁。',
   },
 ];

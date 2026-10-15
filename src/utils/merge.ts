@@ -2,7 +2,7 @@ import type { Dish, Ingredient, MergedItem } from '@/types';
 import { normalizeToBase } from './price';
 
 /**
- * 把多道菜的食材清单合并成一份购物清单
+ * 把多道菜的食材清单合并成一份采购清单
  * - 同食材按基础单位 (g / ml / 个) 累加
  * - 总价 = 累加后的数量 × 该食材的基础单价
  */

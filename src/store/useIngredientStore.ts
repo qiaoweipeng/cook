@@ -4,6 +4,8 @@ import type { Ingredient } from '@/types';
 import { seedIngredients } from '@/data/seedIngredients';
 import { isCloudEnabled } from '@/lib/cloudbase';
 import { cloudDelete, cloudList, cloudSet } from '@/lib/cloudSync';
+import { checkIngredientUsage } from '@/lib/usage';
+import { idbStorage, whenHydrated } from '@/lib/persistStorage';
 import { useAuthStore } from './useAuthStore';
 
 interface IngredientState {
@@ -40,6 +42,8 @@ export const useIngredientStore = create<IngredientState>()(
       cloudAvailable: false,
 
       load: async () => {
+        // 先等 IndexedDB 缓存恢复完，避免云端新数据被旧缓存覆盖
+        await whenHydrated(useIngredientStore);
         if (!isCloudEnabled()) {
           set({ loaded: true, cloudAvailable: false });
           return;
@@ -75,6 +79,8 @@ export const useIngredientStore = create<IngredientState>()(
       },
 
       remove: async (id) => {
+        const usage = await checkIngredientUsage(id);
+        if (!usage.ok) throw new Error(usage.reason ?? '该食材被引用，无法删除');
         set((s) => ({ items: s.items.filter((it) => it.id !== id) }));
         await cloudDelete('ingredients', id);
       },
@@ -116,6 +122,7 @@ export const useIngredientStore = create<IngredientState>()(
     {
       name: 'cook-ingredients',
       version: 3,
+      storage: idbStorage,
       partialize: (s) => ({ items: s.items }),
     }
   )

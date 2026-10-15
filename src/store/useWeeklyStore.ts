@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { WeeklyPlans } from '@/types';
 import { isCloudEnabled } from '@/lib/cloudbase';
 import { cloudList, cloudSet } from '@/lib/cloudSync';
+import { idbStorage, whenHydrated } from '@/lib/persistStorage';
 import { useAuthStore } from './useAuthStore';
 
 interface WeeklyState {
@@ -34,6 +35,8 @@ export const useWeeklyStore = create<WeeklyState>()(
       loaded: false,
 
       load: async () => {
+        // 先等 IndexedDB 缓存恢复完，避免云端新数据被旧缓存覆盖
+        await whenHydrated(useWeeklyStore);
         if (!isCloudEnabled()) {
           set({ loaded: true });
           return;
@@ -73,7 +76,8 @@ export const useWeeklyStore = create<WeeklyState>()(
     {
       name: 'cook-weekly',
       version: 1,
-      // 云端模式下不持久化（per-user 实时从云端拉），本地模式才存 localStorage
+      storage: idbStorage,
+      // 云端模式下不持久化（per-user 实时从云端拉），本地模式才存缓存
       partialize: (s) => (isCloudEnabled() ? {} : { plans: s.plans }),
     }
   )

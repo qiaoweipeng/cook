@@ -27,7 +27,7 @@ import PriceTag from '@/components/PriceTag';
 const { Text } = Typography;
 
 /**
- * 购物清单面板
+ * 采购清单面板
  * - 用作 /shopping 路由的内容（独立页面）
  * - 也被 AppLayout 顶部购物车按钮唤起的 Drawer 复用
  *
@@ -93,7 +93,7 @@ export default function ShoppingListPanel() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <ShoppingOutlined style={{ color: '#E8743C', fontSize: 18 }} />
         <Text strong style={{ fontSize: 17 }}>
-          购物清单
+          采购清单
         </Text>
         <Text type="secondary" style={{ fontSize: 12 }}>
           勾选几道菜，自动汇总食材 + 价格

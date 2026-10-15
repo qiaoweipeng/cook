@@ -7,11 +7,13 @@ import DishDetail from './pages/DishDetail';
 import Ingredients from './pages/Ingredients';
 import Login from './pages/Login';
 import Weekly from './pages/Weekly';
+import AdminUsers from './pages/Admin/Users';
 import { useAuthStore } from './store/useAuthStore';
 import { useDishStore } from './store/useDishStore';
 import { useIngredientStore } from './store/useIngredientStore';
 import { useShoppingStore } from './store/useShoppingStore';
 import { useWeeklyStore } from './store/useWeeklyStore';
+import { ensureAdminRow } from './lib/userAdmin';
 import { isCloudEnabled } from './lib/cloudbase';
 import { loadSession } from './lib/userAuth';
 
@@ -44,6 +46,10 @@ export default function App() {
       if (isCloudEnabled()) {
         // 从 localStorage 恢复登录态（自建账号体系）
         useAuthStore.getState().setUser(loadSession());
+        // 确保 users 表里有超级管理员那一行（用于存头像）
+        await ensureAdminRow();
+        // 重新拉一次头像（管理员刚改过头像会反映到顶栏）
+        await useAuthStore.getState().refreshAvatar();
       } else {
         useAuthStore.getState().setUser(null);
       }
@@ -87,6 +93,7 @@ export default function App() {
         <Route path="/menu/:id" element={<DishDetail />} />
         <Route path="/ingredients" element={<Ingredients />} />
         <Route path="/weekly" element={<Weekly />} />
+        <Route path="/admin/users" element={<AdminUsers />} />
         <Route path="*" element={<Navigate to="/menu" replace />} />
       </Route>
     </Routes>

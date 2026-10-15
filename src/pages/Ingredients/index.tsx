@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Table,
   Button,
@@ -23,12 +23,13 @@ import {
 import {
   PlusOutlined,
   EditOutlined,
-  DeleteOutlined,
   DownloadOutlined,
   UploadOutlined,
   FileExcelOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
 import { useIngredientStore } from '@/store/useIngredientStore';
+import { useIsAdmin } from '@/store/useAuthStore';
 import type { Ingredient, IngredientCategory } from '@/types';
 import PriceTag from '@/components/PriceTag';
 import {
@@ -80,20 +81,16 @@ type ImportMode = 'merge' | 'replace';
 const PREVIEW_COUNT = 100;
 
 export default function Ingredients() {
-  const {
-    items,
-    add,
-    update,
-    remove,
-    replaceAll,
-    bulkMerge,
-  } = useIngredientStore();
-  const { message } = AntApp.useApp();
-  const [open, setOpen] = useState(false);
+  const { items, add, update, remove, replaceAll, bulkMerge } = useIngredientStore();
+  const isAdmin = useIsAdmin();
+  const { message, modal } = AntApp.useApp();
+  const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Ingredient | null>(null);
   const [form] = Form.useForm<FormValues>();
   const [keyword, setKeyword] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<IngredientCategory | undefined>();
+  const [selectedRowKey, setSelectedRowKey] = useState<string | undefined>(undefined);
+  const [removing, setRemoving] = useState(false);
 
   // —— 导入相关 ——
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -106,37 +103,72 @@ export default function Ingredients() {
     setEditing(null);
     form.resetFields();
     form.setFieldsValue({ category: '蔬菜', unit: '斤' });
-    setOpen(true);
+    setEditorOpen(true);
   };
 
-  const openEdit = (record: Ingredient) => {
-    setEditing(record);
-    form.setFieldsValue(record);
-    setOpen(true);
-  };
-
-  const onSubmit = async () => {
-    const values = await form.validateFields();
-    if (editing) {
-      update(editing.id, values);
-      message.success('已更新');
-    } else {
-      const newIng: Ingredient = {
-        id: 'ing_' + Date.now().toString(36),
-        ...values,
-      };
-      add(newIng);
-      message.success('已添加');
+  const openEdit = () => {
+    if (!selectedRowKey) {
+      message.warning('请先在表格里选一行');
+      return;
     }
-    setOpen(false);
+    const row = items.find((i) => i.id === selectedRowKey);
+    if (!row) {
+      message.error('找不到选中的食材，刷新后重试');
+      return;
+    }
+    setEditing(row);
+    form.resetFields();
+    form.setFieldsValue(row);
+    setEditorOpen(true);
   };
 
-  const filtered = items.filter((it) => {
-    if (categoryFilter && it.category !== categoryFilter) return false;
-    const k = keyword.trim().toLowerCase();
-    if (k && !it.name.toLowerCase().includes(k)) return false;
-    return true;
-  });
+  const onSave = async () => {
+    try {
+      const values = await form.validateFields();
+      if (editing) {
+        await update(editing.id, values);
+        message.success('已更新');
+      } else {
+        const newIng: Ingredient = {
+          id: 'ing_' + Date.now().toString(36),
+          ...values,
+        };
+        await add(newIng);
+        message.success('已添加');
+      }
+      setEditorOpen(false);
+    } catch (e) {
+      const msg = (e as Error).message;
+      if (msg) message.error(msg);
+    }
+  };
+
+  const onDelete = async () => {
+    if (!editing) return;
+    setRemoving(true);
+    try {
+      await remove(editing.id);
+      message.success('已删除');
+      setEditorOpen(false);
+      setSelectedRowKey(undefined);
+    } catch (e) {
+      // 占用检查在 store 里抛出
+      message.error((e as Error).message);
+    } finally {
+      setRemoving(false);
+    }
+  };
+
+  const filtered = useMemo(
+    () =>
+      items.filter((it) => {
+        if (categoryFilter && it.category !== categoryFilter) return false;
+        const k = keyword.trim().toLowerCase();
+        if (k && !it.name.toLowerCase().includes(k)) return false;
+        return true;
+      }),
+    [items, keyword, categoryFilter]
+  );
 
   const total = items.reduce((sum, i) => sum + i.pricePerUnit, 0);
 
@@ -150,13 +182,11 @@ export default function Ingredients() {
     message.success(`已导出 ${items.length} 条`);
   };
 
-  // —— 触发文件选择 ——
   const handleImportClick = () => fileInputRef.current?.click();
 
-  // —— 文件选择后解析 ——
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    e.target.value = ''; // 让下一次选同名文件也能触发
+    e.target.value = '';
     if (!file) return;
     try {
       const parsed = await parseIngredientsExcel(file);
@@ -172,21 +202,32 @@ export default function Ingredients() {
     }
   };
 
-  // —— 确认导入 ——
   const confirmImport = () => {
     if (parsedItems.length === 0) return;
     if (importMode === 'replace') {
-      replaceAll(parsedItems);
-      message.success(`已替换为 ${parsedItems.length} 条食材`);
+      modal.confirm({
+        title: '确认要替换全部食材吗？',
+        content: `将清空当前 ${items.length} 条食材，替换为这 ${parsedItems.length} 条`,
+        okText: '替换',
+        okButtonProps: { danger: true },
+        cancelText: '取消',
+        onOk: () => {
+          replaceAll(parsedItems);
+          message.success(`已替换为 ${parsedItems.length} 条食材`);
+          setImportModalOpen(false);
+          setParsedItems([]);
+          setFileName('');
+        },
+      });
     } else {
       bulkMerge(parsedItems);
       const added = parsedItems.filter((p) => !items.some((i) => i.id === p.id)).length;
       const updated = parsedItems.length - added;
       message.success(`合并完成：新增 ${added} 条，覆盖 ${updated} 条`);
+      setImportModalOpen(false);
+      setParsedItems([]);
+      setFileName('');
     }
-    setImportModalOpen(false);
-    setParsedItems([]);
-    setFileName('');
   };
 
   const handleDownloadTemplate = () => {
@@ -257,39 +298,80 @@ export default function Ingredients() {
             onChange={setCategoryFilter}
           />
         </Space>
-        <Space wrap>
-          <Tooltip title="下载一份带示例的空白 Excel，方便照着填">
-            <Button icon={<FileExcelOutlined />} onClick={handleDownloadTemplate}>
-              下载模板
+        {isAdmin ? (
+          <Space wrap>
+            <Tooltip title="下载一份带示例的空白 Excel，方便照着填">
+              <Button icon={<FileExcelOutlined />} onClick={handleDownloadTemplate}>
+                下载模板
+              </Button>
+            </Tooltip>
+            <Tooltip title="把当前食材库导出为 Excel 文件">
+              <Button icon={<DownloadOutlined />} onClick={handleExport}>
+                导出 Excel
+              </Button>
+            </Tooltip>
+            <Tooltip title="从 Excel 文件导入，可选合并或替换现有数据">
+              <Button icon={<UploadOutlined />} onClick={handleImportClick}>
+                导入 Excel
+              </Button>
+            </Tooltip>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              style={{ display: 'none' }}
+              onChange={handleFileChange}
+            />
+            <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>
+              新增食材
             </Button>
-          </Tooltip>
-          <Tooltip title="把当前食材库导出为 Excel 文件">
-            <Button icon={<DownloadOutlined />} onClick={handleExport}>
-              导出 Excel
+            <Button
+              icon={<EditOutlined />}
+              onClick={openEdit}
+              disabled={!selectedRowKey}
+            >
+              编辑食材
             </Button>
-          </Tooltip>
-          <Tooltip title="从 Excel 文件导入，可选合并或替换现有数据">
-            <Button icon={<UploadOutlined />} onClick={handleImportClick}>
-              导入 Excel
-            </Button>
-          </Tooltip>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls"
-            style={{ display: 'none' }}
-            onChange={handleFileChange}
-          />
-          <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>
-            新增食材
-          </Button>
-        </Space>
+          </Space>
+        ) : (
+          <Text type="secondary" style={{ fontSize: 12 }}>
+             食材库由超级管理员维护
+          </Text>
+        )}
       </div>
+
+      {isAdmin && selectedRowKey && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message={
+            <span>
+              已选中：
+              <Text strong>
+                {items.find((i) => i.id === selectedRowKey)?.name}
+              </Text>
+              ，点右上角「编辑食材」可修改或删除它
+            </span>
+          }
+        />
+      )}
 
       <Table<Ingredient>
         rowKey="id"
         dataSource={filtered}
         pagination={{ pageSize: 10, showSizeChanger: false }}
+        rowSelection={
+          isAdmin
+            ? {
+                type: 'radio',
+                selectedRowKeys: selectedRowKey ? [selectedRowKey] : [],
+                onChange: (keys) => setSelectedRowKey(keys[0] as string | undefined),
+                preserveSelectedRowKeys: true,
+                columnWidth: 48,
+              }
+            : undefined
+        }
         columns={[
           { title: '名称', dataIndex: 'name', render: (v: string) => <Text strong>{v}</Text> },
           {
@@ -322,40 +404,42 @@ export default function Ingredients() {
               return <Text type="secondary">-</Text>;
             },
           },
-          {
-            title: '操作',
-            width: 140,
-            render: (_, r) => (
-              <Space>
-                <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(r)} />
-                <Popconfirm
-                  title="确认删除？"
-                  okText="删除"
-                  cancelText="取消"
-                  okButtonProps={{ danger: true }}
-                  onConfirm={() => {
-                    remove(r.id);
-                    message.success('已删除');
-                  }}
-                >
-                  <Button size="small" danger icon={<DeleteOutlined />} />
-                </Popconfirm>
-              </Space>
-            ),
-          },
         ]}
       />
 
       {/* 新增 / 编辑弹窗 */}
       <Modal
-        title={editing ? '编辑食材' : '新增食材'}
-        open={open}
-        onCancel={() => setOpen(false)}
-        onOk={onSubmit}
-        okText="保存"
-        cancelText="取消"
-        destroyOnClose
+        title={editing ? `编辑食材：${editing.name}` : '新增食材'}
+        open={editorOpen}
+        onCancel={() => setEditorOpen(false)}
         width={560}
+        forceRender
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            {editing ? (
+              <Popconfirm
+                title="删除这个食材？"
+                description="如果有任何菜品正在使用，会被拒"
+                okText="删除"
+                cancelText="取消"
+                okButtonProps={{ danger: true }}
+                onConfirm={onDelete}
+              >
+                <Button danger icon={<DeleteOutlined />} loading={removing}>
+                  删除
+                </Button>
+              </Popconfirm>
+            ) : (
+              <span />
+            )}
+            <Space>
+              <Button onClick={() => setEditorOpen(false)}>取消</Button>
+              <Button type="primary" onClick={onSave}>
+                保存
+              </Button>
+            </Space>
+          </div>
+        }
       >
         <Form form={form} layout="vertical" preserve={false}>
           <Row gutter={12}>

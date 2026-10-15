@@ -8,7 +8,7 @@ interface Props {
   cost: number;
 }
 
-const COVER_HEIGHT = 160;
+const COVER_HEIGHT = 300;
 
 const placeholderStyle: React.CSSProperties = {
   height: COVER_HEIGHT,
@@ -33,7 +33,7 @@ export default function DishCard({ dish, cost }: Props) {
               <img
                 src={dish.coverImage}
                 alt={dish.name}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' , borderRadius: '16px 16px 0 0'}}
               />
             ) : (
               <span>图片</span>

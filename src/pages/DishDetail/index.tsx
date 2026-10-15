@@ -13,11 +13,15 @@ import {
   Descriptions,
   App as AntApp,
 } from 'antd';
+import { EditOutlined } from '@ant-design/icons';
+import { useState } from 'react';
 import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
+import { useIsAdmin } from '@/store/useAuthStore';
 import { calcDishCost, lineCost } from '@/utils/price';
 import PriceTag from '@/components/PriceTag';
+import DishEditor from '@/components/DishEditor';
 
 const { Title, Text } = Typography;
 
@@ -47,6 +51,8 @@ export default function DishDetail() {
   const inShopping = useShoppingStore((s) =>
     id ? s.selectedDishIds.includes(id) : false
   );
+  const isAdmin = useIsAdmin();
+  const [editorOpen, setEditorOpen] = useState(false);
 
   if (!dish) {
     return (
@@ -198,11 +204,11 @@ export default function DishDetail() {
             size="large"
             onClick={() => {
               toggleDishInShopping(dish.id);
-              message.success(inShopping ? '已从购物清单移除' : '已加入购物清单');
+              message.success(inShopping ? '已从采购清单移除' : '已加入采购清单');
             }}
             style={{ minWidth: 180 }}
           >
-            {inShopping ? '已加入购物清单' : '加入购物清单'}
+            {inShopping ? '已加入采购清单' : '加入采购清单'}
           </Button>
           <Button
             size="large"
@@ -213,8 +219,25 @@ export default function DishDetail() {
           >
             {dish.favorite ? '已收藏' : '收藏'}
           </Button>
+          {isAdmin && (
+            <Button
+              size="large"
+              icon={<EditOutlined />}
+              onClick={() => setEditorOpen(true)}
+            >
+              编辑
+            </Button>
+          )}
         </Space>
       </Card>
+
+      <DishEditor
+        mode="edit"
+        open={editorOpen}
+        dish={dish}
+        onClose={() => setEditorOpen(false)}
+        onDeleted={() => navigate('/menu')}
+      />
     </div>
   );
 }

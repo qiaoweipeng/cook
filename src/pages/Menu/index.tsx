@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Input, Segmented, Empty, Row, Col, Switch, Space, Typography, Spin } from 'antd';
-import { SearchOutlined, StarFilled } from '@ant-design/icons';
+import { Input, Segmented, Empty, Row, Col, Switch, Space, Typography, Spin, Button } from 'antd';
+import { PlusOutlined, SearchOutlined, StarFilled } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
 import { calcDishCost } from '@/utils/price';
 import DishCard from '@/components/DishCard';
+import DishEditor from '@/components/DishEditor';
+import { useIsAdmin } from '@/store/useAuthStore';
 import type { DishCategory } from '@/types';
 
 const { Text } = Typography;
@@ -26,12 +29,15 @@ const categories: Array<DishCategory | '全部'> = [
 const PAGE_SIZE = 8;
 
 export default function Menu() {
+  const navigate = useNavigate();
   const dishes = useDishStore((s) => s.items);
   const ingredients = useIngredientStore((s) => s.items);
+  const isAdmin = useIsAdmin();
   const [keyword, setKeyword] = useState('');
   const [category, setCategory] = useState<DishCategory | '全部'>('全部');
   const [favOnly, setFavOnly] = useState(false);
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
+  const [editorOpen, setEditorOpen] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   const filtered = useMemo(() => {
@@ -79,11 +85,27 @@ export default function Menu() {
 
   return (
     <div>
-      <div style={{ marginBottom: 8 }}>
-        <Text style={{ fontSize: 22, fontWeight: 700, color: '#2D2A26' }}>今天想吃点啥？</Text>
-        <div style={{ color: '#888', marginTop: 4 }}>
-          收录 {dishes.length} 道菜 · 每份成本按当前食材库价格实时估算
+      <div
+        style={{
+          marginBottom: 8,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-end',
+          flexWrap: 'wrap',
+          gap: 12,
+        }}
+      >
+        <div>
+          <Text style={{ fontSize: 22, fontWeight: 700, color: '#2D2A26' }}>今天想吃点啥？</Text>
+          <div style={{ color: '#888', marginTop: 4 }}>
+            收录 {dishes.length} 道菜 · 每份成本按当前食材库价格实时估算
+          </div>
         </div>
+        {isAdmin && (
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditorOpen(true)}>
+            添加菜品
+          </Button>
+        )}
       </div>
 
       <div
@@ -161,6 +183,13 @@ export default function Menu() {
           </div>
         </>
       )}
+
+      <DishEditor
+        mode="create"
+        open={editorOpen}
+        onClose={() => setEditorOpen(false)}
+        onCreated={(d) => navigate('/menu/' + d.id)}
+      />
     </div>
   );
 }

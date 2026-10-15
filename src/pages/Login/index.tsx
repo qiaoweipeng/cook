@@ -6,7 +6,7 @@ import { isCloudEnabled, getEnvId } from '@/lib/cloudbase';
 import {
   registerUser,
   loginUser,
-  saveSession,
+  tryAdminLogin,
   type SessionUser,
 } from '@/lib/userAuth';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -38,8 +38,12 @@ export default function Login() {
   const validPwd = password.length >= 6;
 
   const afterLogin = async (u: SessionUser) => {
-    saveSession(u);
-    setUser({ uid: u.uid, nickName: u.nickName });
+    setUser({
+      uid: u.uid,
+      nickName: u.nickName,
+      role: u.role,
+      avatar: u.avatar,
+    });
     await Promise.all([
       useDishStore.getState().load(),
       useIngredientStore.getState().load(),
@@ -60,6 +64,14 @@ export default function Login() {
     }
     setSubmitting(true);
     try {
+      // 优先尝试硬编码的超级管理员登录
+      const admin = await tryAdminLogin(nickname, password);
+      if (admin) {
+        message.success('已登录超级管理员');
+        await afterLogin(admin);
+        setSubmitting(false);
+        return;
+      }
       if (tab === 'signup') {
         const u = await registerUser(nickname, password);
         message.success('注册成功，已自动登录');
@@ -75,6 +87,8 @@ export default function Login() {
         message.error('这个昵称已经被用了，换一个或直接登录');
       } else if (code === 'USER_NOT_FOUND') {
         message.error('昵称不存在，请先注册');
+      } else if (code === 'USER_DISABLED') {
+        message.error('该账号已被停用，请联系管理员');
       } else if (code === 'BAD_PASSWORD') {
         message.error('密码不对');
       } else {
@@ -108,13 +122,13 @@ export default function Login() {
         styles={{ body: { padding: '32px 36px' } }}
       >
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          <div style={{ fontSize: 40, marginBottom: 8 }}>🍳</div>
-          <Title level={3} style={{ margin: 0 }}>
-            Cook · 厨房笔记
+          {/* <div style={{ fontSize: 40, marginBottom: 8 }}>🍳</div> */}
+          <Title level={3} style={{ margin: 0, color: '#e8743c' }}>
+            大厨房
           </Title>
-          <Text type="secondary" style={{ fontSize: 13 }}>
+          {/* <Text type="secondary" style={{ fontSize: 13 }}>
             昵称 + 密码，登录后开启家庭共享
-          </Text>
+          </Text> */}
         </div>
 
         <Tabs
@@ -162,7 +176,7 @@ export default function Login() {
           数据安全
         </Divider>
         <Text type="secondary" style={{ fontSize: 12, lineHeight: 1.6, display: 'block' }}>
-          登录后菜单和食材库会与家人共享；购物清单各自独立。
+          登录后菜单和食材库会与家人共享；采购清单各自独立。
           <br />
           环境 ID：<code style={{ background: '#f5f0e8', padding: '0 4px', borderRadius: 3 }}>{getEnvId() || '未配置'}</code>
         </Text>

@@ -1,6 +1,15 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Layout, Menu, Badge, Button, Drawer, Dropdown, Avatar, App as AntApp } from 'antd';
+import {
+  Layout,
+  Menu,
+  Badge,
+  Button,
+  Drawer,
+  Dropdown,
+  Avatar,
+  App as AntApp,
+} from 'antd';
 import {
   AppstoreOutlined,
   CalendarOutlined,
@@ -9,33 +18,49 @@ import {
   UserOutlined,
   LogoutOutlined,
   LoginOutlined,
+  TeamOutlined,
+  CameraOutlined,
 } from '@ant-design/icons';
 import { useShoppingStore } from '@/store/useShoppingStore';
-import { useAuthStore } from '@/store/useAuthStore';
+import { useAuthStore, useIsAdmin } from '@/store/useAuthStore';
 import { useWeeklyStore } from '@/store/useWeeklyStore';
 import { isCloudEnabled } from '@/lib/cloudbase';
+import { ADMIN_UID, setUserAvatar } from '@/lib/userAdmin';
 import ShoppingListPanel from '@/components/ShoppingListPanel';
 
 const { Header, Content, Footer } = Layout;
 
-const navItems = [
+const baseNavItems = [
   { key: '/menu', icon: <AppstoreOutlined />, label: '菜单' },
   { key: '/weekly', icon: <CalendarOutlined />, label: '每周菜单' },
   { key: '/ingredients', icon: <DatabaseOutlined />, label: '食材库' },
 ];
 
+const adminNavItem = {
+  key: '/admin/users',
+  icon: <TeamOutlined />,
+  label: '用户管理',
+};
+
 export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { message } = AntApp.useApp();
-  const selectedKey = '/' + (location.pathname.split('/')[1] || 'menu');
+  const segs = location.pathname.split('/');
+  const selectedKey =
+    '/' + (segs[1] || 'menu') + (segs[2] ? '/' + segs[2] : '');
   const selectedDishCount = useShoppingStore((s) => s.selectedDishIds.length);
   const user = useAuthStore((s) => s.user);
+  const setAvatar = useAuthStore((s) => s.setAvatar);
   const signOut = useAuthStore((s) => s.signOut);
   const resetForUser = useShoppingStore((s) => s.resetForUser);
   const resetWeekly = useWeeklyStore((s) => s.resetForUser);
+  const isAdmin = useIsAdmin();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const cloud = isCloudEnabled();
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const navItems = isAdmin ? [...baseNavItems, adminNavItem] : baseNavItems;
 
   const handleSignOut = async () => {
     await signOut();
@@ -45,45 +70,88 @@ export default function AppLayout() {
     navigate('/login', { replace: true });
   };
 
-  // 用户菜单项
+  // —— 头像上传 ——
+  const handleAvatarPick = () => avatarInputRef.current?.click();
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 1.5 * 1024 * 1024) {
+      message.error('头像文件不能超过 1.5MB');
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      message.error('请选择图片文件');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = String(reader.result || '');
+      if (!dataUrl) {
+        message.error('读取图片失败');
+        return;
+      }
+      setAvatar(dataUrl);
+      if (cloud && user) {
+        try {
+          await setUserAvatar(user.uid, dataUrl);
+          message.success('头像已更新');
+        } catch (err) {
+          message.error('头像已保存到本地，但上传云端失败：' + (err as Error).message);
+        }
+      } else {
+        message.success('头像已更新');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // —— 用户菜单项 ——
   const userMenuItems = cloud
     ? user
       ? [
-          {
-            key: 'profile',
-            label: (
-              <div style={{ padding: '4px 0' }}>
-                <div style={{ fontWeight: 500 }}>已登录</div>
-                <div style={{ fontSize: 12, color: '#999' }}>
-                  {user.nickName || user.uid}
-                </div>
-              </div>
-            ),
-            disabled: true,
-          },
-          { type: 'divider' as const },
-          {
-            key: 'signout',
-            label: '退出登录',
-            icon: <LogoutOutlined />,
-            onClick: handleSignOut,
-          },
-        ]
-      : [
-          {
-            key: 'login',
-            label: '登录',
-            icon: <LoginOutlined />,
-            onClick: () => navigate('/login'),
-          },
-        ]
-    : [
         {
-          key: 'offline',
-          label: <span style={{ color: '#999' }}>本地模式（未配置云端）</span>,
+          key: 'profile',
+          label: (
+            <div style={{ padding: '4px 0' }}>
+              <div style={{ fontWeight: 500 }}>
+                {user.uid === ADMIN_UID ? '超级管理员' : user.nickName || user.uid}
+              </div>
+              <div style={{ fontSize: 12, color: '#999' }}>ID: {user.uid}</div>
+            </div>
+          ),
           disabled: true,
         },
-      ];
+        { type: 'divider' as const },
+        {
+          key: 'avatar',
+          label: '上传头像',
+          icon: <CameraOutlined />,
+          onClick: handleAvatarPick,
+        },
+        { type: 'divider' as const },
+        {
+          key: 'signout',
+          label: '退出登录',
+          icon: <LogoutOutlined />,
+          onClick: handleSignOut,
+        },
+      ]
+      : [
+        {
+          key: 'login',
+          label: '登录',
+          icon: <LoginOutlined />,
+          onClick: () => navigate('/login'),
+        },
+      ]
+    : [
+      {
+        key: 'offline',
+        label: <span style={{ color: '#999' }}>本地模式（未配置云端）</span>,
+        disabled: true,
+      },
+    ];
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -104,7 +172,7 @@ export default function AppLayout() {
           style={{ marginRight: 40, cursor: 'pointer' }}
           onClick={() => navigate('/menu')}
         >
-          🍳 Cook · 厨房笔记
+          大厨房
         </div>
         <Menu
           mode="horizontal"
@@ -134,7 +202,7 @@ export default function AppLayout() {
                 color: selectedDishCount > 0 ? '#E8743C' : '#666',
               }}
             >
-              购物清单
+              采购清单
             </Button>
           </Badge>
 
@@ -146,22 +214,30 @@ export default function AppLayout() {
                 alignItems: 'center',
                 gap: 8,
                 height: 40,
-                padding: '0 8px 0 12px',
+                padding: '0 8px 0 8px',
                 borderRadius: 10,
               }}
             >
               <Avatar
-                size={28}
+                size={32}
+                src={user?.avatar || undefined}
                 style={{
-                  background: user ? '#E8743C' : '#ccc',
+                  background: user?.avatar ? 'transparent' : '#E8743C',
+                  cursor: 'pointer',
                 }}
-                icon={<UserOutlined />}
-              />
-              {cloud && user?.nickName ? (
-                <span style={{ fontSize: 13 }}>{user.nickName}</span>
-              ) : null}
+                icon={user?.avatar ? undefined : <UserOutlined />}
+              >
+                {!user?.avatar && (user?.nickName?.[0] ?? '?')}
+              </Avatar>
             </Button>
           </Dropdown>
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={handleAvatarChange}
+          />
         </div>
       </Header>
 

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { isCloudEnabled } from '@/lib/cloudbase';
 import { cloudList, cloudSet } from '@/lib/cloudSync';
+import { idbStorage, whenHydrated } from '@/lib/persistStorage';
 import { useAuthStore } from './useAuthStore';
 
 interface ShoppingState {
@@ -34,6 +35,8 @@ export const useShoppingStore = create<ShoppingState>()(
       loaded: false,
 
       load: async () => {
+        // 先等 IndexedDB 缓存恢复完，避免云端新数据被旧缓存覆盖
+        await whenHydrated(useShoppingStore);
         if (!isCloudEnabled()) {
           set({ loaded: true });
           return;
@@ -92,7 +95,8 @@ export const useShoppingStore = create<ShoppingState>()(
     {
       name: 'cook-shopping',
       version: 2,
-      // 不持久化云端模式的数据（per-user 实时从云端拉）
+      storage: idbStorage,
+      // 不持久化云端模式的数据（per-user 实时从云端拉），本地模式才存缓存
       partialize: (s) => (isCloudEnabled() ? {} : { selectedDishIds: s.selectedDishIds, checkedKeys: s.checkedKeys }),
     }
   )
