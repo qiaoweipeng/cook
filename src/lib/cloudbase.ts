@@ -126,4 +126,23 @@ export async function pgUpdateById<T = any>(table: string, id: string, patch: ob
   })) as T[];
 }
 
+/** 统计表行数：HEAD + Prefer: count=exact，从 Content-Range 头解析（形如 `*\/42`）。
+ *  select 用 * 而不是 id：有的表（如 dish_ingredients）没有 id 列。 */
+export async function pgCount(table: string): Promise<number> {
+  if (!isCloudEnabled()) throw new PgError(0, 'CloudBase 未配置');
+  const url = `${getBaseUrl()}/${table}?select=*&limit=0`;
+  const res = await fetch(url, {
+    method: 'HEAD',
+    headers: {
+      Authorization: `Bearer ${PUBLISHABLE_KEY}`,
+      Prefer: 'count=exact',
+    },
+  });
+  if (!res.ok) throw new PgError(res.status, `PostgREST ${res.status}`);
+  const cr = res.headers.get('content-range') ?? '';
+  const m = cr.match(/\/(\d+)/);
+  if (!m) throw new PgError(0, `无法解析行数：${cr || '无 content-range 头'}`);
+  return Number(m[1]);
+}
+
 export { PgError };

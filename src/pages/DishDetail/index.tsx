@@ -13,7 +13,13 @@ import {
   Descriptions,
   App as AntApp,
 } from 'antd';
-import { EditOutlined } from '@ant-design/icons';
+import {
+  CheckOutlined,
+  EditOutlined,
+  ShoppingCartOutlined,
+  StarFilled,
+  StarOutlined,
+} from '@ant-design/icons';
 import { useState } from 'react';
 import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
@@ -202,6 +208,7 @@ export default function DishDetail() {
           <Button
             type="primary"
             size="large"
+            icon={inShopping ? <CheckOutlined /> : <ShoppingCartOutlined />}
             onClick={() => {
               toggleDishInShopping(dish.id);
               message.success(inShopping ? '已从采购清单移除' : '已加入采购清单');
@@ -212,6 +219,7 @@ export default function DishDetail() {
           </Button>
           <Button
             size="large"
+            icon={dish.favorite ? <StarFilled style={{ color: '#F0AD4E' }} /> : <StarOutlined />}
             onClick={() => {
               toggleFavorite(dish.id);
               message.success(dish.favorite ? '已取消收藏' : '已收藏');

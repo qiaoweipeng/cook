@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Input, Segmented, Empty, Row, Col, Switch, Space, Typography, Spin, Button } from 'antd';
-import { PlusOutlined, SearchOutlined, StarFilled } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
@@ -98,7 +98,7 @@ export default function Menu() {
         <div>
           <Text style={{ fontSize: 22, fontWeight: 700, color: '#2D2A26' }}>今天想吃点啥？</Text>
           <div style={{ color: '#888', marginTop: 4 }}>
-            收录 {dishes.length} 道菜 · 每份成本按当前食材库价格实时估算
+            收录 {dishes.length} 道菜 ｜ 每道菜的成本按当前食材库价格实时估算
           </div>
         </div>
         {isAdmin && (
@@ -132,15 +132,12 @@ export default function Menu() {
             value={category}
             onChange={(v) => setCategory(v as DishCategory | '全部')}
           />
-          <Space>
-            <StarFilled style={{ color: favOnly ? '#F0AD4E' : '#ccc' }} />
-            <Switch
-              checked={favOnly}
-              onChange={setFavOnly}
-              checkedChildren="只看收藏"
-              unCheckedChildren="全部"
-            />
-          </Space>
+          <Switch
+            checked={favOnly}
+            onChange={setFavOnly}
+            checkedChildren="我的收藏"
+            unCheckedChildren="全部菜品"
+          />
         </Space>
       </div>
 

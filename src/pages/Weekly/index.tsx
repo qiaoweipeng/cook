@@ -1,10 +1,23 @@
-import { useMemo, useState } from 'react';
-import { Button, Empty, Input, Modal, Popconfirm, Tag, Typography, App as AntApp } from 'antd';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Button,
+  Empty,
+  Input,
+  Modal,
+  Popconfirm,
+  Switch,
+  Tag,
+  Tooltip,
+  Typography,
+  App as AntApp,
+} from 'antd';
 import { PlusOutlined, SearchOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
 import { useWeeklyStore } from '@/store/useWeeklyStore';
+import { useFamilyStore } from '@/store/useFamilyStore';
+import FamilyMenuHistory from '@/components/FamilyMenuHistory';
 import { calcDishCost } from '@/utils/price';
 import { WEEKDAY_LABELS, getWeekDays, dayKey, today } from '@/utils/week';
 import type { Dayjs } from 'dayjs';
@@ -40,15 +53,34 @@ export default function Weekly() {
   const { message } = AntApp.useApp();
   const dishes = useDishStore((s) => s.items);
   const ingredients = useIngredientStore((s) => s.items);
-  const plans = useWeeklyStore((s) => s.plans);
+  const personalPlans = useWeeklyStore((s) => s.plans);
+  const familyPlans = useWeeklyStore((s) => s.familyPlans);
+  const mode = useWeeklyStore((s) => s.mode);
+  const setMode = useWeeklyStore((s) => s.setMode);
+  const family = useFamilyStore((s) => s.family);
+  const myRole = useFamilyStore((s) => s.myRole);
+  const myPermission = useFamilyStore((s) => s.myPermission);
   const addDishToDay = useWeeklyStore((s) => s.addDishToDay);
   const removeDishFromDay = useWeeklyStore((s) => s.removeDishFromDay);
   const clearDay = useWeeklyStore((s) => s.clearDay);
+
+  const familyId = family?.id ?? null;
+  const familyMode = mode === 'family' && Boolean(familyId);
+  /** 家庭模式下我是否为只读（非管理员且无修改权限） */
+  const familyReadOnly = familyMode && myRole !== 'admin' && myPermission !== 'edit';
+  /** 当前展示/编辑的菜单：家庭模式用共享菜单，个人模式用私有菜单 */
+  const plans = familyMode ? familyPlans : personalPlans;
+
+  // 绑定被解除时自动切回个人菜单
+  useEffect(() => {
+    if (mode === 'family' && !familyId) setMode('personal');
+  }, [mode, familyId, setMode]);
 
   const days = useMemo<Dayjs[]>(() => getWeekDays(), []);
   const todayKey = dayKey(today());
   const [selectedDay, setSelectedDay] = useState<string>(todayKey);
   const [addOpen, setAddOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [keyword, setKeyword] = useState('');
 
   const dishById = useMemo(() => {
@@ -100,12 +132,40 @@ export default function Weekly() {
 
   return (
     <div>
-      {/* 标题 */}
+      {/* 标题 + 个人/家庭切换 */}
       <div style={{ marginBottom: 20 }}>
-        <Text style={{ fontSize: 22, fontWeight: 700, color: '#2D2A26' }}>每周菜单</Text>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <Text style={{ fontSize: 22, fontWeight: 700, color: '#2D2A26' }}>每周菜单</Text>
+          <Tooltip
+            title={
+              family
+                ? familyMode
+                  ? `正在查看「${family.adminName}的家庭」共享菜单，点一下切回个人菜单`
+                  : `切到「${family.adminName}的家庭」共享菜单（和家人看到同一份）`
+                : '先在右上角头像菜单「我的家庭」里创建或加入家庭'
+            }
+          >
+            <Switch
+              checked={familyMode}
+              disabled={!family}
+              checkedChildren="我的家庭"
+              unCheckedChildren="个人"
+              onChange={(v) => setMode(v ? 'family' : 'personal')}
+            />
+          </Tooltip>
+          {familyReadOnly && <Tag>仅查看</Tag>}
+          {familyMode && (
+            <Button size="small" onClick={() => setHistoryOpen(true)}>
+              历史记录
+            </Button>
+          )}
+        </div>
         <div style={{ color: '#888', marginTop: 4 }}>
-          {days[0].format('M月D日')} ~ {days[6].format('M月D日')} · 本周已安排 {weekDishCount} 道菜
-          · 默认显示今天，点击任意一天切换查看
+          {familyMode
+            ? familyReadOnly
+              ? `「${family?.adminName}的家庭」共享菜单 · 你只有查看权限，修改请联系管理员`
+              : `「${family?.adminName}的家庭」共享菜单 · 家人看到并编辑的是同一份`
+            : `${days[0].format('M月D日')} ~ ${days[6].format('M月D日')} · 本周已安排 ${weekDishCount} 道菜 · 默认显示今天，点击任意一天切换查看`}
         </div>
       </div>
 
@@ -193,10 +253,12 @@ export default function Weekly() {
           </span>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddOpen(true)}>
-            添加菜品
-          </Button>
-          {selectedDishes.length > 0 && (
+          {!familyReadOnly && (
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddOpen(true)}>
+              添加菜品
+            </Button>
+          )}
+          {!familyReadOnly && selectedDishes.length > 0 && (
             <Popconfirm title="清空这一天的菜单？" okText="清空" cancelText="取消" onConfirm={handleClear}>
               <Button danger icon={<DeleteOutlined />}>
                 清空
@@ -210,9 +272,11 @@ export default function Weekly() {
       {selectedDishes.length === 0 ? (
         <Empty
           description={
-            selectedDay === todayKey
-              ? '今天还没想好吃什么，点「添加菜品」安排上'
-              : '这一天还没安排，点「添加菜品」加两道'
+            familyReadOnly
+              ? '这一天还没安排（你只有查看权限）'
+              : selectedDay === todayKey
+                ? '今天还没想好吃什么，点「添加菜品」安排上'
+                : '这一天还没安排，点「添加菜品」加两道'
           }
           style={{ marginTop: 40 }}
         />
@@ -269,12 +333,14 @@ export default function Weekly() {
                 </div>
               </div>
               <PriceTag value={calcDishCost(dish, ingredients)} suffix="/份" size="small" />
-              <Button
-                type="text"
-                danger
-                icon={<DeleteOutlined />}
-                onClick={() => handleRemove(dish)}
-              />
+              {!familyReadOnly && (
+                <Button
+                  type="text"
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={() => handleRemove(dish)}
+                />
+              )}
             </div>
           ))}
         </div>
@@ -334,6 +400,9 @@ export default function Weekly() {
           )}
         </div>
       </Modal>
+
+      {/* 家庭菜单修改历史 */}
+      <FamilyMenuHistory open={historyOpen} onClose={() => setHistoryOpen(false)} />
     </div>
   );
 }

@@ -13,6 +13,7 @@ import {
 import {
   AppstoreOutlined,
   CalendarOutlined,
+  DashboardOutlined,
   DatabaseOutlined,
   ShoppingCartOutlined,
   UserOutlined,
@@ -24,9 +25,11 @@ import {
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useAuthStore, useIsAdmin } from '@/store/useAuthStore';
 import { useWeeklyStore } from '@/store/useWeeklyStore';
+import { useFamilyStore } from '@/store/useFamilyStore';
 import { isCloudEnabled } from '@/lib/cloudbase';
 import { ADMIN_UID, setUserAvatar } from '@/lib/userAdmin';
 import ShoppingListPanel from '@/components/ShoppingListPanel';
+import FamilyModal from '@/components/FamilyModal';
 
 const { Header, Content, Footer } = Layout;
 
@@ -36,11 +39,10 @@ const baseNavItems = [
   { key: '/ingredients', icon: <DatabaseOutlined />, label: '食材库' },
 ];
 
-const adminNavItem = {
-  key: '/admin/users',
-  icon: <TeamOutlined />,
-  label: '用户管理',
-};
+const adminNavItems = [
+  { key: '/admin/users', icon: <TeamOutlined />, label: '用户管理' },
+  { key: '/admin/system', icon: <DashboardOutlined />, label: '系统管理' },
+];
 
 export default function AppLayout() {
   const navigate = useNavigate();
@@ -55,17 +57,21 @@ export default function AppLayout() {
   const signOut = useAuthStore((s) => s.signOut);
   const resetForUser = useShoppingStore((s) => s.resetForUser);
   const resetWeekly = useWeeklyStore((s) => s.resetForUser);
+  const resetFamily = useFamilyStore((s) => s.resetForUser);
+  const familyIncomingCount = useFamilyStore((s) => s.incoming.length + s.incomingTransfers.length);
   const isAdmin = useIsAdmin();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [familyOpen, setFamilyOpen] = useState(false);
   const cloud = isCloudEnabled();
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
-  const navItems = isAdmin ? [...baseNavItems, adminNavItem] : baseNavItems;
+  const navItems = isAdmin ? [...baseNavItems, ...adminNavItems] : baseNavItems;
 
   const handleSignOut = async () => {
     await signOut();
     resetForUser();
     resetWeekly();
+    resetFamily();
     message.success('已退出登录');
     navigate('/login', { replace: true });
   };
@@ -128,6 +134,22 @@ export default function AppLayout() {
           label: '上传头像',
           icon: <CameraOutlined />,
           onClick: handleAvatarPick,
+        },
+        {
+          key: 'family',
+          label: (
+            <Badge count={familyIncomingCount} size="small" offset={[10, 0]} color="#E8743C">
+              我的家庭
+            </Badge>
+          ),
+          icon: <TeamOutlined />,
+          onClick: () => {
+            setFamilyOpen(true);
+            useFamilyStore
+              .getState()
+              .load()
+              .catch((e) => message.error('家庭信息加载失败：' + (e as Error).message));
+          },
         },
         { type: 'divider' as const },
         {
@@ -270,6 +292,8 @@ export default function AppLayout() {
       >
         <ShoppingListPanel />
       </Drawer>
+
+      <FamilyModal open={familyOpen} onClose={() => setFamilyOpen(false)} />
     </Layout>
   );
 }

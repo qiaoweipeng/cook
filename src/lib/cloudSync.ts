@@ -251,6 +251,17 @@ async function listWeekly(): Promise<Array<{ id: string; data: Record<string, st
   return rows.map((r) => ({ id: r.id, data: r.data ?? {} }));
 }
 
+/** 按 id 拉一条周菜单（家庭共享菜单用，避免整表拉取） */
+export async function cloudGetWeekly(id: string): Promise<Record<string, string[]> | null> {
+  try {
+    const rows = await pgSelect<any>('weekly_menus', { id: `eq.${id}`, limit: 1 });
+    return rows[0]?.data ?? null;
+  } catch (e) {
+    swallow(e);
+    return null;
+  }
+}
+
 async function deleteWeekly(uid: string): Promise<void> {
   await pgDeleteById('weekly_menus', uid);
 }

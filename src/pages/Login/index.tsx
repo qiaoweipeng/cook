@@ -14,6 +14,7 @@ import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useWeeklyStore } from '@/store/useWeeklyStore';
+import { useFamilyStore } from '@/store/useFamilyStore';
 
 const { Title, Text } = Typography;
 
@@ -49,6 +50,7 @@ export default function Login() {
       useIngredientStore.getState().load(),
       useShoppingStore.getState().load(),
       useWeeklyStore.getState().load(),
+      useFamilyStore.getState().load(),
     ]);
     navigate('/menu', { replace: true });
   };

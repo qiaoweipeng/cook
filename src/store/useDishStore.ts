@@ -5,6 +5,7 @@ import { seedDishes, RETIRED_DISH_IDS } from '@/data/seedDishes';
 import { isCloudEnabled } from '@/lib/cloudbase';
 import { cloudDelete, cloudList, cloudSet } from '@/lib/cloudSync';
 import { checkDishUsage } from '@/lib/usage';
+import { logOp } from '@/lib/opLog';
 import { idbStorage, whenHydrated } from '@/lib/persistStorage';
 import { useAuthStore } from './useAuthStore';
 
@@ -69,6 +70,7 @@ export const useDishStore = create<DishState>()(
       add: async (dish) => {
         set((s) => ({ items: [...s.items, dish] }));
         await writeCloud(dish);
+        logOp('新增菜品', dish.name);
       },
 
       update: async (id, patch) => {
@@ -77,13 +79,16 @@ export const useDishStore = create<DishState>()(
         const next = { ...old, ...patch };
         set((s) => ({ items: s.items.map((it) => (it.id === id ? next : it)) }));
         await writeCloud(next);
+        logOp('编辑菜品', old.name);
       },
 
       remove: async (id) => {
         const usage = await checkDishUsage(id);
         if (!usage.ok) throw new Error(usage.reason ?? '该菜品正在被使用，无法删除');
+        const old = get().items.find((it) => it.id === id);
         set((s) => ({ items: s.items.filter((it) => it.id !== id) }));
         await cloudDelete('dishes', id);
+        logOp('删除菜品', old?.name ?? id);
       },
 
       toggleFavorite: async (id) => {

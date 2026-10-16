@@ -2,15 +2,18 @@
 // 列出所有用户，对普通用户可启用/禁用；管理员账号不可操作
 
 import { useEffect, useState } from 'react';
-import { Table, Switch, Avatar, Tag, Typography, Space, App as AntApp, Card, Statistic, Row, Col } from 'antd';
-import { UserOutlined, CrownOutlined } from '@ant-design/icons';
+import { Table, Switch, Avatar, Tag, Typography, Space, App as AntApp, Card, Statistic, Row, Col, Tooltip } from 'antd';
+import { UserOutlined, CrownOutlined, MobileOutlined, DesktopOutlined } from '@ant-design/icons';
 import { ADMIN_UID, ensureAdminRow, listUsers, setUserDisabled, type UserRow } from '@/lib/userAdmin';
+import { latestLoginMap, type LoginLogRow } from '@/lib/clientInfo';
+import { logOp } from '@/lib/opLog';
 
 const { Title, Text } = Typography;
 
 export default function AdminUsers() {
-  const { message } = AntApp.useApp();
+  const { message, modal } = AntApp.useApp();
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [logins, setLogins] = useState<Map<string, LoginLogRow>>(new Map());
   const [loading, setLoading] = useState(false);
   const [pendingUid, setPendingUid] = useState<string | null>(null);
 
@@ -25,21 +28,26 @@ export default function AdminUsers() {
     } finally {
       setLoading(false);
     }
+    // 登录日志单独加载：login_logs 表没建也不影响用户列表
+    try {
+      setLogins(await latestLoginMap());
+    } catch {
+      // 忽略
+    }
   };
 
   useEffect(() => {
     load();
   }, []);
 
-  const handleToggle = async (uid: string, disabled: boolean) => {
-    if (uid === ADMIN_UID) {
-      message.warning('超级管理员账号不可停用');
-      return;
-    }
+  const doToggle = async (uid: string, disabled: boolean) => {
     setPendingUid(uid);
     try {
       await setUserDisabled(uid, !disabled);
       message.success(!disabled ? '已停用' : '已启用');
+      // 记操作日志（目标用昵称+账号，方便追溯）
+      const target = users.find((u) => u.id === uid);
+      logOp(!disabled ? '停用用户' : '启用用户', target?.display_name ?? uid, `账号: ${uid}`);
       setUsers((arr) =>
         arr.map((u) => (u.id === uid ? { ...u, disabled: !disabled } : u))
       );
@@ -48,6 +56,36 @@ export default function AdminUsers() {
     } finally {
       setPendingUid(null);
     }
+  };
+
+  const handleToggle = (uid: string, disabled: boolean) => {
+    if (uid === ADMIN_UID) {
+      message.warning('超级管理员账号不可停用');
+      return;
+    }
+    // 停用需要二次确认；启用直接执行
+    if (!disabled) {
+      const target = users.find((u) => u.id === uid);
+      modal.confirm({
+        title: '确认停用该账号？',
+        content: (
+          <div>
+            <p>
+              账号 <Text strong>{target?.display_name ?? uid}</Text>（ID: {uid}）停用后将无法登录。
+            </p>
+            <p style={{ marginBottom: 0, color: '#888' }}>
+              若该账号当前正在使用，系统会在 20 秒内将其强制下线。
+            </p>
+          </div>
+        ),
+        okText: '确认停用',
+        okButtonProps: { danger: true },
+        cancelText: '取消',
+        onOk: () => doToggle(uid, disabled),
+      });
+      return;
+    }
+    void doToggle(uid, disabled);
   };
 
   const total = users.length;
@@ -120,6 +158,59 @@ export default function AdminUsers() {
             ),
           },
           { title: '账号', dataIndex: 'id', ellipsis: true },
+          {
+            title: '最近登录',
+            width: 165,
+            render: (_, row) => {
+              const l = logins.get(row.id);
+              if (!l) return <Text type="secondary">—</Text>;
+              return (
+                <Text style={{ fontSize: 13 }}>
+                  {new Date(l.login_at).toLocaleString('zh-CN', { hour12: false })}
+                </Text>
+              );
+            },
+          },
+          {
+            title: '设备',
+            width: 190,
+            render: (_, row) => {
+              const l = logins.get(row.id);
+              if (!l) return <Text type="secondary">—</Text>;
+              const isMobile = l.device === '移动端';
+              return (
+                <Tooltip
+                  title={
+                    <div style={{ fontSize: 12 }}>
+                      <div>UA：{l.ua || '—'}</div>
+                      <div>屏幕：{l.screen || '—'} ｜ 语言：{l.language || '—'}</div>
+                    </div>
+                  }
+                >
+                  <Space size={6}>
+                    {isMobile ? <MobileOutlined /> : <DesktopOutlined />}
+                    <Text style={{ fontSize: 13 }}>
+                      {l.device} · {l.os} · {l.browser}
+                    </Text>
+                  </Space>
+                </Tooltip>
+              );
+            },
+          },
+          {
+            title: 'IP / 地区',
+            width: 200,
+            render: (_, row) => {
+              const l = logins.get(row.id);
+              if (!l || !l.ip) return <Text type="secondary">—</Text>;
+              return (
+                <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+                  <div>{l.ip}</div>
+                  {l.region && <Text type="secondary" style={{ fontSize: 12 }}>{l.region}</Text>}
+                </div>
+              );
+            },
+          },
           {
             title: '状态',
             dataIndex: 'disabled',

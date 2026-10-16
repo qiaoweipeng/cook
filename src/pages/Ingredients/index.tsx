@@ -128,6 +128,8 @@ export default function Ingredients() {
       if (editing) {
         await update(editing.id, values);
         message.success('已更新');
+        // 编辑完成后清掉选中态（回到未选中页面）
+        setSelectedRowKey(undefined);
       } else {
         const newIng: Ingredient = {
           id: 'ing_' + Date.now().toString(36),
@@ -305,16 +307,18 @@ export default function Ingredients() {
                 下载模板
               </Button>
             </Tooltip>
-            <Tooltip title="把当前食材库导出为 Excel 文件">
-              <Button icon={<DownloadOutlined />} onClick={handleExport}>
-                导出 Excel
-              </Button>
-            </Tooltip>
-            <Tooltip title="从 Excel 文件导入，可选合并或替换现有数据">
-              <Button icon={<UploadOutlined />} onClick={handleImportClick}>
-                导入 Excel
-              </Button>
-            </Tooltip>
+            <Button.Group>
+              <Tooltip title="把当前食材库导出为 Excel 文件">
+                <Button icon={<DownloadOutlined />} onClick={handleExport}>
+                  导出 Excel
+                </Button>
+              </Tooltip>
+              <Tooltip title="从 Excel 文件导入，可选合并或替换现有数据">
+                <Button icon={<UploadOutlined />} onClick={handleImportClick}>
+                  导入 Excel
+                </Button>
+              </Tooltip>
+            </Button.Group>
             <input
               ref={fileInputRef}
               type="file"
@@ -322,9 +326,6 @@ export default function Ingredients() {
               style={{ display: 'none' }}
               onChange={handleFileChange}
             />
-            <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>
-              新增食材
-            </Button>
             <Button
               icon={<EditOutlined />}
               onClick={openEdit}
@@ -332,10 +333,13 @@ export default function Ingredients() {
             >
               编辑食材
             </Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>
+              新增食材
+            </Button>
           </Space>
         ) : (
           <Text type="secondary" style={{ fontSize: 12 }}>
-             食材库由超级管理员维护
+            食材库由超级管理员维护
           </Text>
         )}
       </div>
@@ -364,12 +368,12 @@ export default function Ingredients() {
         rowSelection={
           isAdmin
             ? {
-                type: 'radio',
-                selectedRowKeys: selectedRowKey ? [selectedRowKey] : [],
-                onChange: (keys) => setSelectedRowKey(keys[0] as string | undefined),
-                preserveSelectedRowKeys: true,
-                columnWidth: 48,
-              }
+              type: 'radio',
+              selectedRowKeys: selectedRowKey ? [selectedRowKey] : [],
+              onChange: (keys) => setSelectedRowKey(keys[0] as string | undefined),
+              preserveSelectedRowKeys: true,
+              columnWidth: 48,
+            }
             : undefined
         }
         columns={[
