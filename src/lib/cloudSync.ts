@@ -275,7 +275,9 @@ function swallow(e: unknown) {
 export async function cloudSet(
   collection: string,
   id: string,
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
+  /** 为 true 时失败会抛异常（让调用方能提示用户），默认 false 静默失败 */
+  throwOnError = false
 ): Promise<void> {
   try {
     if (collection === 'dishes') {
@@ -292,7 +294,8 @@ export async function cloudSet(
       console.warn(`[cloud] unknown collection: ${collection}`);
     }
   } catch (e) {
-    swallow(e);
+    console.error('[cloud] cloudSet failed', collection, id, e);
+    if (throwOnError) throw e;
   }
 }
 

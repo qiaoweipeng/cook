@@ -29,7 +29,7 @@ type FetchOptions = RequestInit & {
   single?: boolean;
   /** Prefer 头，比如 'return=representation' */
   prefer?: string;
-  /** 超时毫秒，默认 15000 */
+  /** 超时毫秒，默认 60000（图片上传需要更长时间） */
   timeout?: number;
 };
 
@@ -46,7 +46,7 @@ export async function pgFetch(path: string, opts: FetchOptions = {}): Promise<an
   if (!isCloudEnabled()) {
     throw new PgError(0, 'CloudBase 未配置（缺 ENV_ID 或 PUBLISHABLE_KEY）');
   }
-  const { query, single, prefer, timeout = 15000, headers, ...rest } = opts;
+  const { query, single, prefer, timeout = 60000, headers, ...rest } = opts;
   let url = `${getBaseUrl()}/${path.replace(/^\/+/, '')}`;
   if (query) {
     const sp = new URLSearchParams();

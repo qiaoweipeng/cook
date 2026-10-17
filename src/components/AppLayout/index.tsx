@@ -28,8 +28,10 @@ import { useWeeklyStore } from '@/store/useWeeklyStore';
 import { useFamilyStore } from '@/store/useFamilyStore';
 import { isCloudEnabled } from '@/lib/cloudbase';
 import { ADMIN_UID, setUserAvatar } from '@/lib/userAdmin';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import ShoppingListPanel from '@/components/ShoppingListPanel';
 import FamilyModal from '@/components/FamilyModal';
+import MobileTabBar from '@/components/MobileTabBar';
 
 const { Header, Content, Footer } = Layout;
 
@@ -60,6 +62,9 @@ export default function AppLayout() {
   const resetFamily = useFamilyStore((s) => s.resetForUser);
   const familyIncomingCount = useFamilyStore((s) => s.incoming.length + s.incomingTransfers.length);
   const isAdmin = useIsAdmin();
+  const isMobile = useIsMobile();
+  // 移动端底部导航：仅「移动端 + 非管理员」显示（管理员不做移动端适配）
+  const showMobileNav = isMobile && !isAdmin && Boolean(user);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [familyOpen, setFamilyOpen] = useState(false);
   const cloud = isCloudEnabled();
@@ -177,102 +182,117 @@ export default function AppLayout() {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Header
+      {/* 移动端：完全隐藏顶部导航栏（logo + 菜单 + 操作区） */}
+      {!showMobileNav && (
+        <Header
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '0 24px',
+            position: 'sticky',
+            top: 0,
+            zIndex: 10,
+            background: '#fff',
+            borderBottom: '1px solid #f3eee7',
+          }}
+        >
+          <div
+            className="brand"
+            style={{ marginRight: 40, cursor: 'pointer' }}
+            onClick={() => navigate('/menu')}
+          >
+            大厨房
+          </div>
+          <Menu
+            mode="horizontal"
+            selectedKeys={[selectedKey]}
+            items={navItems}
+            onClick={(e) => navigate(e.key)}
+            style={{ flex: 1, minWidth: 0, borderBottom: 'none' }}
+          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Badge
+              count={selectedDishCount}
+              offset={[-4, 6]}
+              color="#E8743C"
+              showZero={false}
+            >
+              <Button
+                type="text"
+                icon={<ShoppingCartOutlined style={{ fontSize: 20 }} />}
+                onClick={() => setDrawerOpen(true)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  height: 40,
+                  padding: '0 14px',
+                  borderRadius: 10,
+                  color: selectedDishCount > 0 ? '#E8743C' : '#666',
+                }}
+              >
+                采购清单
+              </Button>
+            </Badge>
+
+            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+              <Button
+                type="text"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  height: 40,
+                  padding: '0 8px 0 8px',
+                  borderRadius: 10,
+                }}
+              >
+                <Avatar
+                  size={32}
+                  src={user?.avatar || undefined}
+                  style={{
+                    background: user?.avatar ? 'transparent' : '#E8743C',
+                    cursor: 'pointer',
+                  }}
+                  icon={user?.avatar ? undefined : <UserOutlined />}
+                >
+                  {!user?.avatar && (user?.nickName?.[0] ?? '?')}
+                </Avatar>
+              </Button>
+            </Dropdown>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={handleAvatarChange}
+            />
+          </div>
+        </Header>
+      )}
+
+      <Content
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          padding: '0 24px',
-          position: 'sticky',
-          top: 0,
-          zIndex: 10,
-          background: '#fff',
-          borderBottom: '1px solid #f3eee7',
+          padding: showMobileNav ? '16px 12px' : '24px 24px 48px',
+          // 给底部导航留出空间（约 50px 导航 + 安全区）
+          paddingBottom: showMobileNav ? 'calc(60px + env(safe-area-inset-bottom))' : undefined,
+          maxWidth: showMobileNav ? '100%' : 1200,
+          margin: '0 auto',
+          width: '100%',
         }}
       >
-        <div
-          className="brand"
-          style={{ marginRight: 40, cursor: 'pointer' }}
-          onClick={() => navigate('/menu')}
-        >
-          大厨房
-        </div>
-        <Menu
-          mode="horizontal"
-          selectedKeys={[selectedKey]}
-          items={navItems}
-          onClick={(e) => navigate(e.key)}
-          style={{ flex: 1, minWidth: 0, borderBottom: 'none' }}
-        />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Badge
-            count={selectedDishCount}
-            offset={[-4, 6]}
-            color="#E8743C"
-            showZero={false}
-          >
-            <Button
-              type="text"
-              icon={<ShoppingCartOutlined style={{ fontSize: 20 }} />}
-              onClick={() => setDrawerOpen(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                height: 40,
-                padding: '0 14px',
-                borderRadius: 10,
-                color: selectedDishCount > 0 ? '#E8743C' : '#666',
-              }}
-            >
-              采购清单
-            </Button>
-          </Badge>
-
-          <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-            <Button
-              type="text"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                height: 40,
-                padding: '0 8px 0 8px',
-                borderRadius: 10,
-              }}
-            >
-              <Avatar
-                size={32}
-                src={user?.avatar || undefined}
-                style={{
-                  background: user?.avatar ? 'transparent' : '#E8743C',
-                  cursor: 'pointer',
-                }}
-                icon={user?.avatar ? undefined : <UserOutlined />}
-              >
-                {!user?.avatar && (user?.nickName?.[0] ?? '?')}
-              </Avatar>
-            </Button>
-          </Dropdown>
-          <input
-            ref={avatarInputRef}
-            type="file"
-            accept="image/*"
-            style={{ display: 'none' }}
-            onChange={handleAvatarChange}
-          />
-        </div>
-      </Header>
-
-      <Content style={{ padding: '24px 24px 48px', maxWidth: 1200, margin: '0 auto', width: '100%' }}>
         <Outlet />
       </Content>
 
-      <Footer style={{ textAlign: 'center', background: 'transparent', color: '#aaa', padding: '24px' }}>
-        <span style={{ fontSize: 13 }}>
-          做饭这件小事，从今天开始认真一点
-          {cloud ? ' · 数据云端同步' : ' · 数据存储在浏览器本地'}
-        </span>
-      </Footer>
+      {/* 移动端隐藏页脚，桌面端保留 */}
+      {!showMobileNav && (
+        <Footer style={{ textAlign: 'center', background: 'transparent', color: '#aaa', padding: '24px' }}>
+          <span style={{ fontSize: 13 }}>
+            做饭这件小事，从今天开始认真一点
+            {cloud ? ' · 数据云端同步' : ' · 数据存储在浏览器本地'}
+          </span>
+        </Footer>
+      )}
 
       <Drawer
         title={null}
@@ -281,7 +301,10 @@ export default function AppLayout() {
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         styles={{
-          body: { padding: '20px 24px 32px', background: '#FAF7F2' },
+          body: {
+            padding: showMobileNav ? '12px' : '20px 24px 32px',
+            background: '#FAF7F2',
+          },
         }}
         closeIcon={null}
         extra={
@@ -294,6 +317,9 @@ export default function AppLayout() {
       </Drawer>
 
       <FamilyModal open={familyOpen} onClose={() => setFamilyOpen(false)} />
+
+      {/* 移动端底部导航 */}
+      {showMobileNav && <MobileTabBar />}
     </Layout>
   );
 }

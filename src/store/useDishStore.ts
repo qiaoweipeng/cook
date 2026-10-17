@@ -24,11 +24,13 @@ interface DishState {
 }
 
 async function writeCloud(dish: Dish): Promise<void> {
+  // throwOnError: true — 图片较大可能超时，失败时必须让上层（DishEditor）提示用户，
+  // 否则用户以为保存成功，刷新后图片丢失
   await cloudSet('dishes', dish.id, {
     data: dish,
     created_by: useAuthStore.getState().user?.uid ?? 'anonymous',
     updated_at: Date.now(),
-  });
+  }, true);
 }
 
 export const useDishStore = create<DishState>()(

@@ -8,8 +8,9 @@ body,
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC',
-    'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei",
+    "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -44,7 +45,7 @@ a {
 }
 
 .section-title::before {
-  content: '';
+  content: "";
   display: block;
   width: 4px;
   height: 18px;
@@ -84,4 +85,27 @@ a {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* 移动端首页：放大分类标签（Segmented），手指更好点 */
+.menu-seg-mobile {
+  font-size: 15px;
+  padding: 3px;
+}
+
+.menu-seg-mobile .ant-segmented-item {
+  padding: 5px 15px;
+  border-radius: 8px;
+}
+
+.menu-seg-mobile .ant-segmented-item-label {
+  min-height: 28px;
+  line-height: 28px;
+  font-size: 15px;
+  padding: 0 3px;
+}
+
+/* 移动端底部导航：加大图标与文字间距（默认仅 2px，文字再往下一些） */
+.mobile-tabbar .adm-tab-bar-item-title-with-icon {
+  margin-top: 8px;
 }

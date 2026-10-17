@@ -7,6 +7,8 @@ import DishDetail from './pages/DishDetail';
 import Ingredients from './pages/Ingredients';
 import Login from './pages/Login';
 import Weekly from './pages/Weekly';
+import Profile from './pages/Profile';
+import Shopping from './pages/Shopping';
 import AdminUsers from './pages/Admin/Users';
 import AdminSystem from './pages/Admin/System';
 import { useAuthStore } from './store/useAuthStore';
@@ -152,6 +154,8 @@ export default function App() {
         <Route path="/menu/:id" element={<DishDetail />} />
         <Route path="/ingredients" element={<Ingredients />} />
         <Route path="/weekly" element={<Weekly />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/shopping" element={<Shopping />} />
         <Route path="/admin/users" element={<AdminUsers />} />
         <Route path="/admin/system" element={<AdminSystem />} />
         <Route path="*" element={<Navigate to="/menu" replace />} />
