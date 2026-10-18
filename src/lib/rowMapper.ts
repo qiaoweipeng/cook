@@ -55,6 +55,7 @@ export function ingToRow(i: Ingredient) {
     price_per_unit: i.pricePerUnit,
     unit: i.unit,
     spec: i.spec ?? null,
+    note: i.note ?? null,
     unit_grams: i.unitGrams ?? null,
     unit_ml: i.unitMl ?? null,
     image: i.image ?? null,
@@ -70,7 +71,10 @@ export function rowToIng(r: any): Ingredient {
     pricePerUnit: Number(r.price_per_unit),
     unit: r.unit,
     spec: r.spec ?? undefined,
+    note: r.note ?? undefined,
     unitGrams: r.unit_grams ?? undefined,
     unitMl: r.unit_ml ?? undefined,
+    // 少了这行的话：图片能存进数据库，读回来时却丢了，页面永远显示不出来
+    image: r.image ?? undefined,
   };
 }

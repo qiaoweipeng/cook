@@ -100,9 +100,53 @@ a {
   display: none;
 }
 
+/*
+  移动端首页的分类标签：antd-mobile 默认给每个 tab 「padding: 8px 0 10px」（上下共 18px），
+  加上容器间距，光这一条就占了快 30px 高。收窄到上下共 7px，横向间距也一并收紧。
+*/
+.menu-tabs-mobile .adm-tabs-tab {
+  padding: 3px 0 4px;
+}
+
+.menu-tabs-mobile .adm-tabs-tab-wrapper {
+  padding: 0 9px;
+}
+
 /* 移动端食材库侧边导航（antd-mobile SideBar）：条目收紧 + 主题橙已在组件内联变量设置 */
+/*
+  移动端食材库：左侧分类栏。
+  组件默认是冷灰底（--adm-color-fill-content ≈ #f5f5f5），跟右侧的白卡片、品牌橙完全不在一个色系，
+  这里统一成暖米色；选中项改成「白底 + 左侧橙色竖条」，和右边的卡片呼应上。
+*/
+.ing-side-bar {
+  --width: 96px;
+  --background-color: #fdf7f2;
+  /* 关掉选中项上下的圆角缺口：那两块装饰块会带着旧背景色露出色差 */
+  --item-border-radius: 0px;
+}
+
 .ing-side-bar .adm-side-bar-item {
-  padding: 12px 10px;
+  padding: 13px 10px;
+  color: #6b645c;
+  font-size: 14px;
+  line-height: 1.25;
+  transition: color 180ms ease, background-color 180ms ease;
+}
+
+.ing-side-bar .adm-side-bar-item-active {
+  color: #e8743c;
+  font-weight: 600;
+  background-color: #fff;
+}
+
+/* 默认的橙色竖条在 left:-12px，会被 items 的 overflow:hidden 裁掉，挪到贴边并改短一点 */
+.ing-side-bar .adm-side-bar-item-highlight {
+  left: 0;
+  top: 50%;
+  height: 18px;
+  margin-top: -9px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
 }
 
 /* 移动端底部导航：加大图标与文字间距（默认仅 2px，文字再往下一些） */
@@ -179,4 +223,30 @@ a {
 .tab-txt-on {
   color: #e8743c;
   font-weight: 600;
+}
+
+/* 去掉双击放大（保留滚动和横向平移，不影响分类栏滑动） */
+html {
+  touch-action: manipulation;
+}
+
+/* 移动端点链接/按钮时，浏览器默认盖的那层半透明灰块很难看，去掉 */
+@media (pointer: coarse) {
+  a,
+  button {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/*
+  iOS 的规矩：输入框字号 < 16px 时，聚焦会**自动把整个页面放大**，
+  且缩放回不去（看起来像卡住了）。把触屏设备上的输入框统一提到 16px 就不会触发。
+  antd / antd-mobile 的输入框默认 14px，这里一并覆盖。
+*/
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }

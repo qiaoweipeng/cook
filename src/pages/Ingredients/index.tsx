@@ -294,6 +294,10 @@ export default function Ingredients() {
                 zIndex: 5,
                 borderRadius: 10,
                 overflow: 'hidden',
+                // 给一个接近整屏的高度：分类少的时候左边只占一截、下面空一大块，看着像没做完。
+                // 分类多的时候 SideBar 自己内部滚动，不会顶出屏幕。
+                height: 'calc(100vh - 150px)',
+                border: '1px solid #f5ede4',
               }}
             >
               <SideBar
@@ -302,7 +306,8 @@ export default function Ingredients() {
                 onChange={(key) =>
                   setCategoryFilter((key || undefined) as IngredientCategory | undefined)
                 }
-                style={{ '--adm-color-primary': '#E8743C', '--width': '86px' } as CSSProperties}
+                // 宽度和配色都在 index.css 的 .ing-side-bar 里，这里只留主题色
+                style={{ '--adm-color-primary': '#E8743C' } as CSSProperties}
               >
                 <SideBar.Item key="" title="全部" />
                 {categories.map((c) => (
@@ -324,8 +329,10 @@ export default function Ingredients() {
                       onClick={() => isAdmin && openEditRow(it)}
                       style={{
                         background: '#fff',
-                        borderRadius: 10,
+                        borderRadius: 12,
                         padding: '10px 12px',
+                        // 极淡的暖色描边，跟左侧暖米色侧栏呼应，也把卡片边界勾出来
+                        border: '1px solid #f7f1ea',
                         cursor: isAdmin ? 'pointer' : 'default',
                       }}
                     >
@@ -336,7 +343,7 @@ export default function Ingredients() {
                           gap: 10,
                         }}
                       >
-                        {it.image && (
+                        {it.image ? (
                           <img
                             src={it.image}
                             alt=""
@@ -349,6 +356,26 @@ export default function Ingredients() {
                               flexShrink: 0,
                             }}
                           />
+                        ) : (
+                          // 没上传图的食材也给一个占位块（取名字首字）：
+                          // 每行左边都有一块，列表才整齐，不会看着像漏了东西
+                          <div
+                            style={{
+                              width: 44,
+                              height: 44,
+                              borderRadius: 8,
+                              flexShrink: 0,
+                              background: 'linear-gradient(135deg, #fff1e8, #ffe3d0)',
+                              color: '#e8743c',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: 17,
+                              fontWeight: 600,
+                            }}
+                          >
+                            {it.name.slice(0, 1)}
+                          </div>
                         )}
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div

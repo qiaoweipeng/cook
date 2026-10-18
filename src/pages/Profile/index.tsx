@@ -4,8 +4,15 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Avatar, Button, List, Dialog, Space, Badge } from 'antd-mobile';
-import { CameraOutline, TeamOutline } from 'antd-mobile-icons';
+import {
+  CameraOutline,
+  TeamOutline,
+  DeleteOutline,
+  InformationCircleOutline,
+} from 'antd-mobile-icons';
 import { UserOutlined } from '@ant-design/icons';
+import { versionLabel, versionDetail } from '@/lib/appVersion';
+import { clearPwaCache, hasServiceWorker } from '@/lib/pwaCache';
 import { App as AntApp } from 'antd';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFamilyStore } from '@/store/useFamilyStore';
@@ -168,6 +175,51 @@ export default function Profile() {
         >
           我的家庭
         </List.Item>
+      </List>
+
+      <List style={{ marginTop: 12 }}>
+        <List.Item
+          prefix={<InformationCircleOutline fontSize={20} style={{ color: '#8C857E' }} />}
+          extra={<span style={{ color: '#999', fontSize: 13 }}>{versionLabel()}</span>}
+          clickable
+          onClick={() => {
+            // 反馈问题时直接复制走，省得手抄
+            const text = versionDetail();
+            navigator.clipboard?.writeText(text).then(
+              () => message.success('版本信息已复制'),
+              () => Dialog.alert({ content: text })
+            );
+          }}
+        >
+          当前版本
+        </List.Item>
+
+        {/* 没有 Service Worker（比如浏览器里直接打开）就没东西可清，不显示 */}
+        {hasServiceWorker() && (
+          <List.Item
+            prefix={<DeleteOutline fontSize={20} style={{ color: '#8C857E' }} />}
+            clickable
+            onClick={() => {
+              Dialog.confirm({
+                content: '清除离线缓存后会自动重新加载。菜品、食材等数据不受影响。',
+                confirmText: '清除',
+                cancelText: '取消',
+                onConfirm: async () => {
+                  try {
+                    const r = await clearPwaCache();
+                    message.success(`已清除缓存（${r.caches} 项）`);
+                    // 注销 SW 后要重新加载一次，下次才会拉到新的 SW
+                    setTimeout(() => window.location.reload(), 600);
+                  } catch (e) {
+                    message.error('清除失败：' + (e as Error).message);
+                  }
+                },
+              });
+            }}
+          >
+            清除离线缓存
+          </List.Item>
+        )}
       </List>
 
       <Space block direction="vertical" style={{ marginTop: 24 }}>

@@ -2,9 +2,13 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
+    <!--
+      maximum-scale=1 + user-scalable=no：禁止双指缩放（Android Chrome / 多数安卓浏览器认这个）。
+      注意 iOS Safari 从 iOS 10 起会**忽略**这两个值，那边的缩放靠 src/lib/noZoom.ts 拦手势事件。
+    -->
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
     <meta name="theme-color" content="#ffffff" />
     <meta name="apple-mobile-web-app-capable" content="yes" />

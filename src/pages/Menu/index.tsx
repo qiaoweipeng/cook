@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Input, Segmented, Empty, Row, Col, Switch, Space, Typography, Spin, Button } from 'antd';
-import { Tabs } from 'antd-mobile';
-import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { Tabs, PullToRefresh, Toast } from 'antd-mobile';
+import { PlusOutlined, SearchOutlined, StarOutlined, StarFilled } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
@@ -86,7 +86,25 @@ export default function Menu() {
   const hasMore = displayCount < filtered.length;
   const isAllLoaded = !hasMore && filtered.length > 0;
 
-  return (
+  /**
+   * 下拉刷新：重新从云端拉菜品和食材库。
+   * 场景是「别人在别的手机上加了菜 / 改了食材价格，我这边还是旧的」，
+   * 首页数据只在进页面时拉一次，这里给个手动触发的入口。
+   */
+  const handleRefresh = async () => {
+    const results = await Promise.allSettled([
+      useDishStore.getState().load(),
+      useIngredientStore.getState().load(),
+    ]);
+    const failed = results.some((r) => r.status === 'rejected');
+    if (failed) {
+      Toast.show({ content: '刷新失败，稍后再试' });
+    } else {
+      Toast.show({ content: '已更新' });
+    }
+  };
+
+  const content = (
     <div>
       {/* 移动端：隐藏「今天想吃点啥？」标题与副标题，进入首页直接是 logo + 搜索区 */}
       <div
@@ -127,7 +145,13 @@ export default function Menu() {
               // 负外边距抵消内容区 16px 上内边距与 12px 左右内边距，让吸顶栏贴顶、横贯全屏
               margin: '-16px -12px 12px',
               padding: 'calc(10px + env(safe-area-inset-top)) 12px 10px',
-              background: 'rgba(250, 247, 242, 0.82)',
+              /*
+                从左上角（135deg）铺一层很淡的品牌橙渐变，右下角收干净，和下面的卡片列表自然衔接。
+                多层背景里写在前面的在上层，所以这层渐变是盖在毛玻璃底色之上的，
+                底色本身半透明，渐变也就跟着很淡，不会糊住搜索框。
+              */
+              background:
+                'linear-gradient(135deg, rgba(232, 116, 60, 0.16) 0%, rgba(255, 179, 122, 0.08) 40%, rgba(232, 116, 60, 0.02) 70%, rgba(232, 116, 60, 0) 100%), rgba(250, 247, 242, 0.82)',
               backdropFilter: 'blur(12px)',
               WebkitBackdropFilter: 'blur(12px)',
               borderBottom: '1px solid rgba(45, 42, 38, 0.06)',
@@ -140,16 +164,14 @@ export default function Menu() {
             display: 'flex',
             justifyContent: isMobile ? 'flex-start' : 'space-between',
             alignItems: 'center',
-            gap: 12,
+            // 只保留同一行内的间距（搜索框 ↔ 收藏按钮）。
+            // 这个容器是 flexWrap: wrap，分类标签行会换到第二行，
+            // 写 gap: 12 的话它会同时变成行间距，再叠上下面的 marginTop，中间就空出一大块。
+            columnGap: 12,
+            rowGap: 0,
             flexWrap: 'wrap',
           }}
         >
-          {/* 移动端 logo：仅在搜索栏吸顶区域显示 */}
-          {isMobile && (
-            <span className="brand" style={{ fontSize: 18, flexShrink: 0 }}>
-              大厨房
-            </span>
-          )}
           <Input
             allowClear
             prefix={<SearchOutlined />}
@@ -162,19 +184,44 @@ export default function Menu() {
               minWidth: 0,
             }}
           />
-          {/* 移动端：收藏开关移到搜索框右侧 */}
+          {/*
+            移动端：收藏筛选做成搜索框右侧的一个图标按钮。
+            原来用的是 Switch（「我的收藏 / 全部菜品」两块文字），在这么窄的一行里太抢眼，
+            换成跟搜索框等高的星标：未选中白底灰星，选中橙底白星，一眼能看出状态。
+          */}
           {isMobile && (
-            <Switch
-              checked={favOnly}
-              onChange={setFavOnly}
-              checkedChildren="我的收藏"
-              unCheckedChildren="全部菜品"
-              style={{ flexShrink: 0 }}
-            />
+            <button
+              type="button"
+              onClick={() => setFavOnly((v) => !v)}
+              aria-pressed={favOnly}
+              title={favOnly ? '显示全部菜品' : '只看我的收藏'}
+              style={{
+                flexShrink: 0,
+                height: 32,
+                minWidth: 38,
+                padding: 0,
+                borderRadius: 8,
+                border: favOnly ? '1px solid #e8743c' : '1px solid #e3ddd4',
+                background: favOnly ? '#e8743c' : '#fff',
+                color: favOnly ? '#fff' : '#8c857e',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                WebkitAppearance: 'none',
+                transition: 'background-color 180ms ease, border-color 180ms ease, color 180ms ease',
+              }}
+            >
+              {favOnly ? (
+                <StarFilled style={{ fontSize: 15 }} />
+              ) : (
+                <StarOutlined style={{ fontSize: 15 }} />
+              )}
+            </button>
           )}
           {/* 移动端：分类用 antd-mobile Tabs，横向滚动，点击后选中项自动滚入视野；桌面端保持 Segmented 不变 */}
           {isMobile ? (
-            <div style={{ flex: '0 0 100%', marginTop: 10, minWidth: 0 }}>
+            <div style={{ flex: '0 0 100%', marginTop: 4, minWidth: 0 }}>
               <Tabs
                 className="menu-tabs-mobile"
                 activeKey={category}
@@ -268,4 +315,11 @@ export default function Menu() {
       />
     </div>
   );
+
+  // 移动端套一层下拉刷新（桌面端用浏览器刷新就够了）。
+  // 该组件只改自己那个 head 的高度，不给内容加 transform，所以首页的吸顶搜索栏不受影响。
+  if (isMobile) {
+    return <PullToRefresh onRefresh={handleRefresh}>{content}</PullToRefresh>;
+  }
+  return content;
 }

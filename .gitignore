@@ -37,3 +37,5 @@ coverage/
 
 # 数据库备份（含用户密码哈希，禁止入库）
 backups/
+# tsc -b 的构建缓存
+*.tsbuildinfo

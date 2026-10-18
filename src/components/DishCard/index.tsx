@@ -10,8 +10,12 @@ interface Props {
 }
 
 const COVER_HEIGHT = 300;
-// 移动端两列布局：封面用竖向比例（高 > 宽），贴合手机拍摄的竖图
-const MOBILE_COVER_RATIO = '3 / 4';
+/**
+ * 移动端两列布局的封面比例（宽 / 高）。
+ * 原来是 3 / 4（高 = 1.33 倍宽），比 PC 端高太多，卡片拖得很长；
+ * 现在对齐 PC 端：PC 卡片宽约 270、高 300，高 ≈ 1.11 倍宽，这里用 9 / 10 保持一致。
+ */
+const MOBILE_COVER_RATIO = '9 / 10';
 
 export default function DishCard({ dish, cost }: Props) {
   // 移动端首页两列布局，卡片整体尺寸等比缩小
@@ -46,7 +50,9 @@ export default function DishCard({ dish, cost }: Props) {
   return (
     <Link to={`/menu/${dish.id}`}>
       <Card
-        hoverable
+        // hoverable 是给鼠标悬停用的：移动端没有 hover，点一下会残留一层阴影，反而脏。
+        // PC 端保留（鼠标划过有反馈），移动端关掉。
+        hoverable={!isMobile}
         cover={
           <div style={placeholderStyle}>
             {dish.coverImage ? (

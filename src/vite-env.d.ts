@@ -1,12 +1,9 @@
 /// <reference types="vite/client" />
+/// <reference types="vite-plugin-pwa/client" />
 
-interface ImportMetaEnv {
-  /** Supabase 项目地址，形如 https://xxxxx.supabase.co；留空则跑纯本地模式 */
-  readonly VITE_SUPABASE_URL?: string;
-  /** Supabase 的 anon key（前端可公开，配合表级 RLS 使用） */
-  readonly VITE_SUPABASE_ANON_KEY?: string;
-}
-
-interface ImportMeta {
-  readonly env: ImportMetaEnv;
-}
+/** 构建时的 git 短提交号（vite.config.ts 里注入） */
+declare const __APP_COMMIT__: string;
+/** 该次提交的时间：YYYY-MM-DD HH:mm（取不到时为空串） */
+declare const __APP_COMMIT_TIME__: string;
+/** 打包时间（ISO） */
+declare const __APP_BUILD_TIME__: string;

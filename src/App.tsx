@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { App as AntApp } from 'antd';
 import AppLayout from './components/AppLayout';
+import PwaUpdate from './components/PwaUpdate';
 import Menu from './pages/Menu';
 import DishDetail from './pages/DishDetail';
 import Ingredients from './pages/Ingredients';
@@ -142,7 +143,10 @@ export default function App() {
   }, []);
 
   return (
-    <Routes>
+    <>
+      {/* 检测到新版本时顶部弹提示（PWA） */}
+      <PwaUpdate />
+      <Routes>
       <Route path="/login" element={<Login />} />
       <Route
         element={
@@ -162,6 +166,7 @@ export default function App() {
         <Route path="/admin/system" element={<AdminSystem />} />
         <Route path="*" element={<Navigate to="/menu" replace />} />
       </Route>
-    </Routes>
+      </Routes>
+    </>
   );
 }

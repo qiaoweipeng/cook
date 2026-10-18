@@ -5,7 +5,17 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
-    "strict": true
+    "strict": true,
+    /*
+      这个工程是被引用的（tsconfig.json 的 references），composite 项目不允许 noEmit，
+      所以改成把产物丢到 node_modules/.tmp：
+      · 不加 outDir 的话，tsc -b 会把 vite.config.ts 编译成根目录的 vite.config.js
+      · 那是构建产物，更麻烦的是 Vite 加载配置时 .js 优先于 .ts，
+        一旦这份 .js 过期，实际跑的就不是你写的那份配置了
+      · tsBuildInfoFile 一并挪走，免得构建缓存在工作区里反复变脏
+    */
+    "outDir": "./node_modules/.tmp/tsconfig.node",
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo"
   },
   "include": ["vite.config.ts"]
 }
