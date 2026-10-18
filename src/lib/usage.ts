@@ -1,6 +1,6 @@
 // 删除前的占用检查：被任何菜品/用户使用时拒绝
 // - 食材：有菜品引用了它 → 拒
-// - 菜品：有任何用户的采购清单/每周菜单包含它 → 拒
+// - 菜品：有任何用户的采购清单/菜单（今日/本周/本月，数据都存在 weekly_menus）包含它 → 拒
 
 import { isCloudEnabled, pgSelect } from './supabase';
 import { cloudList } from './cloudSync';
@@ -72,7 +72,7 @@ export async function checkDishUsage(dishId: string): Promise<UsageInfo> {
       return {
         ok: false,
         usedBy,
-        reason: `有 ${usedBy.length} 个用户的采购清单/每周菜单正在使用此菜品，无法删除`,
+        reason: `有 ${usedBy.length} 个用户的采购清单/菜单正在使用此菜品，无法删除`,
       };
     }
     return { ok: true };
@@ -84,7 +84,7 @@ export async function checkDishUsage(dishId: string): Promise<UsageInfo> {
   if (inShop || inWeekly) {
     return {
       ok: false,
-      reason: '本机的采购清单/每周菜单正在使用此菜品，无法删除',
+      reason: '本机的采购清单/菜单正在使用此菜品，无法删除',
     };
   }
   return { ok: true };

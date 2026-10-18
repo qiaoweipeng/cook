@@ -109,3 +109,74 @@ a {
 .mobile-tabbar .adm-tab-bar-item-title-with-icon {
   margin-top: 8px;
 }
+
+/* 移动端底部导航：图标从「灰淡」切到「全彩」并弹一下，选中时浮出一枚浅橙胶囊做层次 */
+.tab-ico {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 0;
+}
+
+.tab-ico img {
+  width: 26px;
+  height: 26px;
+  display: block;
+  /* 未选中：降饱和 + 压淡，让位给当前选中的那个 */
+  filter: grayscale(1) brightness(1.05) opacity(0.45);
+  transition: filter 240ms ease, transform 240ms ease;
+}
+
+.tab-ico::before {
+  /* 选中时从图标背后展开的浅橙胶囊 */
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 40px;
+  height: 30px;
+  margin: -15px 0 0 -20px;
+  border-radius: 12px;
+  background: #fff1e8;
+  transform: scale(0.4);
+  opacity: 0;
+  transition: transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 200ms ease;
+  z-index: -1;
+}
+
+.tab-ico-on img {
+  /* 选中：恢复全彩 + 抬起 1px + 投影，做出立体感（弹完停在抬起的位置，不落回原位） */
+  filter: drop-shadow(0 3px 6px rgba(232, 116, 60, 0.32));
+  transform: translateY(-1px);
+  animation: tab-pop 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.tab-ico-on::before {
+  transform: scale(1);
+  opacity: 1;
+}
+
+/* 先缩一下再弹回来，比单纯放大更有「按下去」的手感 */
+@keyframes tab-pop {
+  0% {
+    transform: translateY(-1px) scale(0.82);
+  }
+  55% {
+    transform: translateY(-1px) scale(1.18);
+  }
+  100% {
+    transform: translateY(-1px) scale(1);
+  }
+}
+
+.tab-txt {
+  font-size: 11px;
+  color: #9a938c;
+  transition: color 200ms ease;
+}
+
+.tab-txt-on {
+  color: #e8743c;
+  font-weight: 600;
+}

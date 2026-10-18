@@ -22,6 +22,7 @@ import {
 import { DeleteOutlined, PictureOutlined, PlusOutlined } from '@ant-design/icons';
 import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
+import { pickImage, formatSize } from '@/lib/imageUpload';
 import type { Dish, DishCategory, DishIngredient, Step } from '@/types';
 
 const { Text } = Typography;
@@ -61,39 +62,7 @@ interface RowIngredient {
   unit?: string;
 }
 
-/** 本地图片 → 压缩后的 dataURL（数据库只存 text，直接存原图会太大） */
-async function fileToCompressedDataUrl(
-  file: File,
-  maxW = 900,
-  quality = 0.82
-): Promise<string> {
-  const dataUrl = await new Promise<string>((res, rej) => {
-    const fr = new FileReader();
-    fr.onload = () => res(fr.result as string);
-    fr.onerror = () => rej(new Error('读取文件失败'));
-    fr.readAsDataURL(file);
-  });
-  const img = await new Promise<HTMLImageElement>((res, rej) => {
-    const im = new Image();
-    im.onload = () => res(im);
-    im.onerror = () => rej(new Error('图片解析失败'));
-    im.src = dataUrl;
-  });
-  const scale = Math.min(1, maxW / img.width);
-  const w = Math.max(1, Math.round(img.width * scale));
-  const h = Math.max(1, Math.round(img.height * scale));
-  const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return dataUrl;
-  ctx.drawImage(img, 0, 0, w, h);
-  try {
-    return canvas.toDataURL('image/jpeg', quality);
-  } catch {
-    return dataUrl;
-  }
-}
+
 
 export default function DishEditor({
   open,
@@ -152,8 +121,17 @@ export default function DishEditor({
   const handlePickImage = async (file: File) => {
     setImgProcessing(true);
     try {
-      const dataUrl = await fileToCompressedDataUrl(file);
-      form.setFieldsValue({ coverImage: dataUrl });
+      // 压缩成 WebP → 上传对象存储 → 只把 URL 存库（失败时自动退回 Base64）
+      const picked = await pickImage(file, 'dishes');
+      form.setFieldsValue({ coverImage: picked.url });
+      if (picked.viaStorage) {
+        message.success(`封面已上传（${formatSize(picked.size)}）`);
+      } else {
+        message.warning(
+          `对象存储没开通，已退回压缩图（${formatSize(picked.size)}）。` +
+            '建议执行 supabase/storage.sql 建 bucket，图片就不会占数据库了'
+        );
+      }
     } catch (e) {
       message.error('图片处理失败：' + (e as Error).message);
     } finally {
@@ -281,7 +259,7 @@ export default function DishEditor({
           {mode === 'edit' ? (
             <Popconfirm
               title="删除这道菜？"
-              description="如果有人正把它放在采购清单或每周菜单里，会被拒"
+              description="如果有人正把它放在采购清单或菜单（今日/本周/本月）里，会被拒"
               okText="删除"
               cancelText="取消"
               okButtonProps={{ danger: true }}

@@ -65,9 +65,11 @@ export interface Ingredient {
   unitGrams?: number;
   /** 当 unit 是「瓶 / 盒 / 袋」等液体调料时，1 瓶 = 多少毫升 */
   unitMl?: number;
+  /** 食材图片：对象存储的 URL（对象存储不可用时可能是 dataURL） */
+  image?: string;
 }
 
-/** 每周菜单：日期 key（YYYY-MM-DD）→ 当天的菜品 id 列表 */
+/** 菜单（今日/本周/本月共用）：日期 key（YYYY-MM-DD）→ 当天的菜品 id 列表 */
 export type WeeklyPlans = Record<string, string[]>;
 
 export interface MergedItem {

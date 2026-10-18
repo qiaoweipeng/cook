@@ -239,7 +239,7 @@ export default function FamilyModal({ open, onClose }: Props) {
           <SectionTitle>创建家庭</SectionTitle>
           <div style={{ color: '#999', fontSize: 13, marginBottom: 12 }}>
             创建后你就是管理员，家庭自动命名为「{me?.nickName ?? '我'}
-            的家庭」。只有你能邀请成员、设置权限；家人加入后可在每周菜单页切换到共享菜单。
+            的家庭」。只有你能邀请成员、设置权限；家人加入后可在「今日菜单」页切换到共享菜单。
           </div>
           <Button
             type="primary"

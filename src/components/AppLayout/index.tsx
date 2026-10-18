@@ -24,8 +24,8 @@ import {
 } from '@ant-design/icons';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useAuthStore, useIsAdmin } from '@/store/useAuthStore';
-import { useWeeklyStore } from '@/store/useWeeklyStore';
 import { useFamilyStore } from '@/store/useFamilyStore';
+import { resetUserScopedStores } from '@/store/userScope';
 import { isCloudEnabled } from '@/lib/supabase';
 import { ADMIN_UID, setUserAvatar } from '@/lib/userAdmin';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -38,7 +38,7 @@ const { Header, Content, Footer } = Layout;
 
 const baseNavItems = [
   { key: '/menu', icon: <AppstoreOutlined />, label: '菜单' },
-  { key: '/weekly', icon: <CalendarOutlined />, label: '每周菜单' },
+  { key: '/menu-plan', icon: <CalendarOutlined />, label: '今日菜单' },
   { key: '/ingredients', icon: <DatabaseOutlined />, label: '食材库' },
 ];
 
@@ -58,9 +58,7 @@ export default function AppLayout() {
   const user = useAuthStore((s) => s.user);
   const setAvatar = useAuthStore((s) => s.setAvatar);
   const signOut = useAuthStore((s) => s.signOut);
-  const resetForUser = useShoppingStore((s) => s.resetForUser);
-  const resetWeekly = useWeeklyStore((s) => s.resetForUser);
-  const resetFamily = useFamilyStore((s) => s.resetForUser);
+  const resetUserScoped = resetUserScopedStores;
   const familyIncomingCount = useFamilyStore((s) => s.incoming.length + s.incomingTransfers.length);
   const isAdmin = useIsAdmin();
   const isMobile = useIsMobile();
@@ -75,9 +73,7 @@ export default function AppLayout() {
 
   const handleSignOut = async () => {
     await signOut();
-    resetForUser();
-    resetWeekly();
-    resetFamily();
+    resetUserScoped();
     message.success('已退出登录');
     navigate('/login', { replace: true });
   };

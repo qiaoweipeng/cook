@@ -10,72 +10,7 @@ import {
   PgError,
 } from './supabase';
 import type { Dish, Ingredient } from '@/types';
-
-// ======================== 字段名转换 ========================
-// 前端 camelCase ↔ 数据库 snake_case
-
-function dishToRow(d: Dish) {
-  return {
-    id: d.id,
-    name: d.name,
-    emoji: d.emoji ?? null,
-    category: d.category,
-    difficulty: d.difficulty,
-    cook_time_min: d.cookTimeMin,
-    servings: d.servings,
-    cover_image: d.coverImage ?? null,
-    cover_color: d.coverColor ?? null,
-    favorite: d.favorite ? 1 : 0,
-    created_at: new Date(d.createdAt).toISOString(),
-    tips: d.tips ?? null,
-  };
-}
-
-function rowToDish(r: any): Dish {
-  return {
-    id: r.id,
-    name: r.name,
-    emoji: r.emoji ?? '',
-    category: r.category,
-    difficulty: r.difficulty,
-    cookTimeMin: r.cook_time_min,
-    servings: r.servings,
-    coverImage: r.cover_image ?? undefined,
-    coverColor: r.cover_color ?? '#FFE5DC',
-    favorite: !!r.favorite,
-    createdAt: new Date(r.created_at).getTime(),
-    tips: r.tips ?? '',
-    tags: [],
-    ingredients: [],
-    steps: [],
-  };
-}
-
-function ingToRow(i: Ingredient) {
-  return {
-    id: i.id,
-    name: i.name,
-    category: i.category,
-    price_per_unit: i.pricePerUnit,
-    unit: i.unit,
-    spec: i.spec ?? null,
-    unit_grams: i.unitGrams ?? null,
-    unit_ml: i.unitMl ?? null,
-  };
-}
-
-function rowToIng(r: any): Ingredient {
-  return {
-    id: r.id,
-    name: r.name,
-    category: r.category,
-    pricePerUnit: Number(r.price_per_unit),
-    unit: r.unit,
-    spec: r.spec ?? undefined,
-    unitGrams: r.unit_grams ?? undefined,
-    unitMl: r.unit_ml ?? undefined,
-  };
-}
+import { dishToRow, ingToRow, rowToDish, rowToIng } from './rowMapper';
 
 // ======================== dishes（4 张表） ========================
 
@@ -186,12 +121,44 @@ async function deleteDishFull(id: string): Promise<void> {
 
 // ======================== ingredients ========================
 
+/**
+ * ingredients.image 列是后加的（食材库图片），老库可能还没跑 ALTER。
+ * 探测到列不存在后省略该字段，避免「只是没建列」就让整个保存失败。
+ */
+let ingredientImageColumnMissing = false;
+
+function ingRow(i: Ingredient): Record<string, unknown> {
+  const row: Record<string, unknown> = ingToRow(i);
+  if (ingredientImageColumnMissing) delete row.image;
+  return row;
+}
+
 async function saveIngredient(i: Ingredient): Promise<void> {
   // 简单 upsert：先尝试 update，0 行则 insert
-  const updated = await pgUpdateById('ingredients', i.id, ingToRow(i));
-  if (!updated || updated.length === 0) {
-    await pgInsert('ingredients', ingToRow(i));
-  }
+  const retryWithoutImage = async (fn: () => Promise<unknown>, rows: Record<string, unknown>) => {
+    try {
+      await fn();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      if (!ingredientImageColumnMissing && msg.includes('image')) {
+        ingredientImageColumnMissing = true;
+        console.warn('[cloud] ingredients.image 列不存在，已跳过图片字段。请执行 ALTER TABLE ingredients ADD COLUMN image text;');
+        delete rows.image;
+        await fn();
+        return;
+      }
+      throw e;
+    }
+  };
+
+  const row = ingRow(i);
+  await retryWithoutImage(
+    () => pgUpdateById('ingredients', i.id, row).then((updated) => {
+      if (!updated || updated.length === 0) return pgInsert('ingredients', row);
+      return updated;
+    }),
+    row
+  );
 }
 
 async function listIngredientsFlat(): Promise<Array<{ id: string; data: Ingredient }>> {

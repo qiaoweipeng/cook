@@ -191,4 +191,44 @@ export async function pingCloud(): Promise<boolean> {
   return true;
 }
 
+// ---- 对象存储（Storage）----
+
+/** 图片统一放在这个 bucket 里（建法见 supabase/storage.sql） */
+export const IMAGE_BUCKET = 'dish-images';
+
+/** 公开 bucket 里某个文件的访问地址 */
+export function storagePublicUrl(path: string): string {
+  return `${SUPABASE_URL}/storage/v1/object/public/${IMAGE_BUCKET}/${path}`;
+}
+
+/**
+ * 上传文件到 Storage（同名自动覆盖）。
+ * 返回的 URL 直接存进数据库的 text 字段即可，浏览器会走 CDN 缓存。
+ *
+ * 头说明：
+ *   - `x-upsert: true` 允许覆盖同名文件
+ *   - `cache-control` 给一年强缓存：图片内容不变（每次上传都是新文件名），浏览器第二次起不再下载
+ */
+export async function storageUpload(
+  path: string,
+  body: Blob,
+  contentType: string
+): Promise<string> {
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${IMAGE_BUCKET}/${path}`, {
+    method: 'POST',
+    headers: {
+      ...authHeaders(),
+      'Content-Type': contentType,
+      'x-upsert': 'true',
+      'cache-control': 'public, max-age=31536000, immutable',
+    },
+    body,
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`Storage 上传失败（HTTP ${res.status}）：${detail.slice(0, 160)}`);
+  }
+  return storagePublicUrl(path);
+}
+
 export { PgError };

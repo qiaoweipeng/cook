@@ -20,6 +20,7 @@ import {
   Alert,
   Tooltip,
   Empty,
+  Upload,
 } from 'antd';
 import { SideBar } from 'antd-mobile';
 import {
@@ -29,7 +30,9 @@ import {
   UploadOutlined,
   FileExcelOutlined,
   DeleteOutlined,
+  PictureOutlined,
 } from '@ant-design/icons';
+import { pickImage, formatSize } from '@/lib/imageUpload';
 import { useIngredientStore } from '@/store/useIngredientStore';
 import { useIsAdmin } from '@/store/useAuthStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -78,6 +81,7 @@ interface FormValues {
   note?: string;
   unitGrams?: number;
   unitMl?: number;
+  image?: string;
 }
 
 type ImportMode = 'merge' | 'replace';
@@ -95,6 +99,30 @@ export default function Ingredients() {
   const [categoryFilter, setCategoryFilter] = useState<IngredientCategory | undefined>();
   const [selectedRowKey, setSelectedRowKey] = useState<string | undefined>(undefined);
   const [removing, setRemoving] = useState(false);
+  const [imgProcessing, setImgProcessing] = useState(false);
+
+  const currentImage = Form.useWatch('image', form);
+
+  const handlePickImage = async (file: File) => {
+    setImgProcessing(true);
+    try {
+      // 压缩成 WebP → 上传对象存储 → 只把 URL 存库（失败时自动退回 Base64）
+      const picked = await pickImage(file, 'ingredients');
+      form.setFieldsValue({ image: picked.url });
+      if (picked.viaStorage) {
+        message.success(`图片已上传（${formatSize(picked.size)}）`);
+      } else {
+        message.warning(
+          `对象存储没开通，已退回压缩图（${formatSize(picked.size)}）。` +
+            '建议执行 supabase/storage.sql 建 bucket'
+        );
+      }
+    } catch (e) {
+      message.error('图片处理失败：' + (e as Error).message);
+    } finally {
+      setImgProcessing(false);
+    }
+  };
 
   // —— 导入相关 ——
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -304,30 +332,52 @@ export default function Ingredients() {
                       <div
                         style={{
                           display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'baseline',
-                          gap: 8,
+                          alignItems: 'center',
+                          gap: 10,
                         }}
                       >
-                        <span
-                          style={{
-                            fontSize: 15,
-                            fontWeight: 600,
-                            color: '#2D2A26',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {it.name}
-                        </span>
-                        <span style={{ flexShrink: 0 }}>
-                          <PriceTag value={it.pricePerUnit} size="small" />
-                          <span style={{ color: '#999', fontSize: 12, marginLeft: 2 }}>
-                            /{it.unit}
-                          </span>
-                        </span>
-                      </div>
+                        {it.image && (
+                          <img
+                            src={it.image}
+                            alt=""
+                            loading="lazy"
+                            style={{
+                              width: 44,
+                              height: 44,
+                              objectFit: 'cover',
+                              borderRadius: 8,
+                              flexShrink: 0,
+                            }}
+                          />
+                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'baseline',
+                              gap: 8,
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: 15,
+                                fontWeight: 600,
+                                color: '#2D2A26',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {it.name}
+                            </span>
+                            <span style={{ flexShrink: 0 }}>
+                              <PriceTag value={it.pricePerUnit} size="small" />
+                              <span style={{ color: '#999', fontSize: 12, marginLeft: 2 }}>
+                                /{it.unit}
+                              </span>
+                            </span>
+                          </div>
                       {(it.spec || it.unitGrams || it.unitMl) && (
                         <div
                           style={{
@@ -353,8 +403,10 @@ export default function Ingredients() {
                               1 {it.unit} ≈ {it.unitGrams ? `${it.unitGrams} g` : `${it.unitMl} ml`}
                             </span>
                           )}
+                          </div>
+                        )}
                         </div>
-                      )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -502,6 +554,28 @@ export default function Ingredients() {
                 : undefined
             }
             columns={[
+              {
+                title: '图片',
+                dataIndex: 'image',
+                width: 64,
+                render: (v: string | undefined) =>
+                  v ? (
+                    <img
+                      src={v}
+                      alt=""
+                      loading="lazy"
+                      style={{
+                        width: 40,
+                        height: 40,
+                        objectFit: 'cover',
+                        borderRadius: 6,
+                        display: 'block',
+                      }}
+                    />
+                  ) : (
+                    <Text type="secondary">-</Text>
+                  ),
+              },
               { title: '名称', dataIndex: 'name', render: (v: string) => <Text strong>{v}</Text> },
               {
                 title: '分类',
@@ -622,6 +696,54 @@ export default function Ingredients() {
               </Form.Item>
             </Col>
           </Row>
+
+          <Form.Item label="食材图片（可选）">
+            <Space direction="vertical" size={8} style={{ width: '100%' }}>
+              <Space wrap>
+                <Upload
+                  accept="image/*"
+                  showUploadList={false}
+                  beforeUpload={(file) => {
+                    void handlePickImage(file);
+                    return false;
+                  }}
+                >
+                  <Button icon={<PictureOutlined />} loading={imgProcessing}>
+                    选择本地图片
+                  </Button>
+                </Upload>
+                {currentImage ? (
+                  <Button
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => form.setFieldsValue({ image: '' })}
+                  >
+                    清除图片
+                  </Button>
+                ) : (
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    自动压缩成 WebP 后上传到云端
+                  </Text>
+                )}
+              </Space>
+              <Form.Item name="image" noStyle>
+                <Input placeholder="或粘贴图片链接" allowClear />
+              </Form.Item>
+              {currentImage && (
+                <img
+                  src={currentImage}
+                  alt="图片预览"
+                  style={{
+                    width: 120,
+                    height: 120,
+                    objectFit: 'cover',
+                    borderRadius: 8,
+                    border: '1px solid #eee',
+                  }}
+                />
+              )}
+            </Space>
+          </Form.Item>
         </Form>
       </Modal>
 

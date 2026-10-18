@@ -9,8 +9,7 @@ import { UserOutlined } from '@ant-design/icons';
 import { App as AntApp } from 'antd';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFamilyStore } from '@/store/useFamilyStore';
-import { useShoppingStore } from '@/store/useShoppingStore';
-import { useWeeklyStore } from '@/store/useWeeklyStore';
+import { resetUserScopedStores } from '@/store/userScope';
 import { isCloudEnabled } from '@/lib/supabase';
 import { setUserAvatar, ADMIN_UID } from '@/lib/userAdmin';
 import FamilyModal from '@/components/FamilyModal';
@@ -21,9 +20,7 @@ export default function Profile() {
   const user = useAuthStore((s) => s.user);
   const setAvatar = useAuthStore((s) => s.setAvatar);
   const signOut = useAuthStore((s) => s.signOut);
-  const resetForUser = useShoppingStore((s) => s.resetForUser);
-  const resetWeekly = useWeeklyStore((s) => s.resetForUser);
-  const resetFamily = useFamilyStore((s) => s.resetForUser);
+  const resetUserScoped = resetUserScopedStores;
   const family = useFamilyStore((s) => s.family);
   const familyIncomingCount = useFamilyStore((s) => s.incoming.length + s.incomingTransfers.length);
   const [familyOpen, setFamilyOpen] = useState(false);
@@ -37,9 +34,7 @@ export default function Profile() {
       cancelText: '取消',
       onConfirm: async () => {
         await signOut();
-        resetForUser();
-        resetWeekly();
-        resetFamily();
+        resetUserScoped();
         message.success('已退出登录');
         navigate('/login', { replace: true });
       },

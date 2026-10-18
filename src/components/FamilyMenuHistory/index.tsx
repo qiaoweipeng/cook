@@ -1,5 +1,5 @@
 // 家庭菜单修改历史：谁、什么时候、对家庭菜单做了什么
-// 入口：每周菜单页（家庭模式下）→「历史记录」按钮
+// 入口：今日菜单页（家庭模式下）→「历史记录」按钮
 
 import { useEffect, useState } from 'react';
 import { App as AntApp, Avatar, Empty, Modal, Spin, Typography } from 'antd';

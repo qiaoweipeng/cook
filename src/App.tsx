@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { App as AntApp } from 'antd';
 import AppLayout from './components/AppLayout';
@@ -6,7 +6,7 @@ import Menu from './pages/Menu';
 import DishDetail from './pages/DishDetail';
 import Ingredients from './pages/Ingredients';
 import Login from './pages/Login';
-import Weekly from './pages/Weekly';
+import MenuPlan from './pages/MenuPlan';
 import Profile from './pages/Profile';
 import Shopping from './pages/Shopping';
 import AdminUsers from './pages/Admin/Users';
@@ -17,6 +17,7 @@ import { useIngredientStore } from './store/useIngredientStore';
 import { useShoppingStore } from './store/useShoppingStore';
 import { useWeeklyStore } from './store/useWeeklyStore';
 import { useFamilyStore } from './store/useFamilyStore';
+import { resetUserScopedStores, switchUserScopedStores } from './store/userScope';
 import { ensureAdminRow, getUser, ADMIN_UID } from './lib/userAdmin';
 import { isCloudEnabled } from './lib/supabase';
 import { loadSession } from './lib/userAuth';
@@ -57,9 +58,7 @@ function useDisabledWatcher() {
         if (stopped || !row?.disabled) return;
         // 清会话 + 清各 store 的用户态
         useAuthStore.getState().setUser(null);
-        useShoppingStore.getState().resetForUser();
-        useWeeklyStore.getState().resetForUser();
-        useFamilyStore.getState().resetForUser();
+        resetUserScopedStores();
         modal.warning({
           title: '账号已被停用',
           content: '你的账号已被管理员停用，无法继续使用。如有疑问请联系管理员。',
@@ -86,6 +85,19 @@ function useDisabledWatcher() {
 export default function App() {
   const userUid = useAuthStore((s) => s.user?.uid);
   useDisabledWatcher();
+
+  // 登录用户变了（换账号）→ 先清空上一个人的采购清单/菜单/家庭数据，再按新用户重拉。
+  // 登出路径自己在 AppLayout / Profile 里 reset，这里只管「换成一个新的 uid」。
+  const prevUidRef = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    const prev = prevUidRef.current;
+    const cur = userUid ?? null;
+    prevUidRef.current = cur;
+    // 首次挂载、以及「还没有登录用户」的阶段都交给下面的启动逻辑，避免重复拉一次
+    if (prev === undefined || prev === null || cur === null) return;
+    if (prev === cur) return;
+    void switchUserScopedStores();
+  }, [userUid]);
 
   // 登录成功（含刷新恢复会话）→ 记一条登录日志；每个浏览器会话只记一次
   useEffect(() => {
@@ -143,7 +155,7 @@ export default function App() {
         <Route path="/menu" element={<Menu />} />
         <Route path="/menu/:id" element={<DishDetail />} />
         <Route path="/ingredients" element={<Ingredients />} />
-        <Route path="/weekly" element={<Weekly />} />
+        <Route path="/menu-plan" element={<MenuPlan />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/shopping" element={<Shopping />} />
         <Route path="/admin/users" element={<AdminUsers />} />

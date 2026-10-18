@@ -1,15 +1,12 @@
-// 移动端底部导航栏（antd-mobile TabBar + lucide-react 图标）
-// 5 个 tab：首页 / 每周菜单 / 食材库 / 采购清单 / 个人
+// 移动端底部导航栏（antd-mobile TabBar + public/svg 下的彩色图标）
+// 5 个 tab：首页 / 今日菜单 / 食材库 / 采购清单 / 个人
+//
+// 图标用的是 iconfont 导出的多色 SVG（放在 public/svg/，直接按 /svg/xxx.svg 访问）。
+// 未选中态用 CSS 把它降饱和压淡，选中态恢复全彩并弹一下（动效在 src/index.css 的 .tab-ico-* 里）。
+
 // 只有「移动端 + 非管理员」显示；管理员统一用桌面端布局
 
 import { TabBar, Badge } from 'antd-mobile';
-import {
-  Store,
-  Calendar,
-  TextSearch,
-  ShoppingCart,
-  UserRound,
-} from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useFamilyStore } from '@/store/useFamilyStore';
@@ -21,8 +18,8 @@ export default function MobileTabBar() {
   const familyIncomingCount = useFamilyStore((s) => s.incoming.length + s.incomingTransfers.length);
 
   const path = location.pathname;
-  const activeKey = path.startsWith('/weekly')
-    ? '/weekly'
+  const activeKey = path.startsWith('/menu-plan')
+    ? '/menu-plan'
     : path.startsWith('/ingredients')
       ? '/ingredients'
       : path.startsWith('/shopping')
@@ -31,9 +28,27 @@ export default function MobileTabBar() {
           ? '/profile'
           : '/menu';
 
-  // 显式控制图标大小与描边粗细（lucide 图标通过 size / strokeWidth 控制，颜色跟随 currentColor）
-  const iconSize = 24;
-  const iconStrokeWidth = 1.5;
+  // 图标是 public/svg 下的多色 SVG（文件名即英文含义，一一对应）
+  const tabs = [
+    { key: '/menu', title: '首页', icon: '/svg/home.svg', badge: undefined },
+    { key: '/menu-plan', title: '今日菜单', icon: '/svg/calendar.svg', badge: undefined },
+    { key: '/ingredients', title: '食材库', icon: '/svg/search.svg', badge: undefined },
+    {
+      key: '/shopping',
+      title: '采购清单',
+      icon: '/svg/shopping.svg',
+      badge: dishCount > 0 ? <Badge content={dishCount} color="#E8743C" /> : undefined,
+    },
+    {
+      key: '/profile',
+      title: '个人',
+      icon: '/svg/user.svg',
+      badge:
+        familyIncomingCount > 0 ? (
+          <Badge content={familyIncomingCount} color="#E8743C" />
+        ) : undefined,
+    },
+  ];
 
   return (
     <div
@@ -69,37 +84,20 @@ export default function MobileTabBar() {
           } as React.CSSProperties
         }
       >
-        <TabBar.Item
-          key="/menu"
-          icon={<Store size={iconSize} strokeWidth={iconStrokeWidth} />}
-          title="首页"
-        />
-        <TabBar.Item
-          key="/weekly"
-          icon={<Calendar size={iconSize} strokeWidth={iconStrokeWidth} />}
-          title="每周菜单"
-        />
-        <TabBar.Item
-          key="/ingredients"
-          icon={<TextSearch size={iconSize} strokeWidth={iconStrokeWidth} />}
-          title="食材库"
-        />
-        <TabBar.Item
-          key="/shopping"
-          icon={<ShoppingCart size={iconSize} strokeWidth={iconStrokeWidth} />}
-          title="采购清单"
-          badge={dishCount > 0 ? <Badge content={dishCount} color="#E8743C" /> : undefined}
-        />
-        <TabBar.Item
-          key="/profile"
-          icon={<UserRound size={iconSize} strokeWidth={iconStrokeWidth} />}
-          title="个人"
-          badge={
-            familyIncomingCount > 0 ? (
-              <Badge content={familyIncomingCount} color="#E8743C" />
-            ) : undefined
-          }
-        />
+        {tabs.map((t) => (
+          <TabBar.Item
+            key={t.key}
+            icon={(active) => (
+              <span className={active ? 'tab-ico tab-ico-on' : 'tab-ico'}>
+                <img src={t.icon} alt="" />
+              </span>
+            )}
+            title={(active) => (
+              <span className={active ? 'tab-txt tab-txt-on' : 'tab-txt'}>{t.title}</span>
+            )}
+            badge={t.badge}
+          />
+        ))}
       </TabBar>
     </div>
   );

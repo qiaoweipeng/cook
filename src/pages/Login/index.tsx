@@ -12,9 +12,7 @@ import {
 import { useAuthStore } from '@/store/useAuthStore';
 import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
-import { useShoppingStore } from '@/store/useShoppingStore';
-import { useWeeklyStore } from '@/store/useWeeklyStore';
-import { useFamilyStore } from '@/store/useFamilyStore';
+import { resetUserScopedStores, reloadUserScopedStores } from '@/store/userScope';
 
 const { Title, Text } = Typography;
 
@@ -45,12 +43,15 @@ export default function Login() {
       role: u.role,
       avatar: u.avatar,
     });
-    await Promise.all([
+    // 先清掉上一个用户留在内存里的采购清单/菜单/家庭数据，再按新用户拉取，
+    // 避免某个 store 加载慢或失败时，新用户看到上一个人的内容
+    resetUserScopedStores();
+    // allSettled：单个 store 拉失败也要让用户进得去（数据空着，下次进页面还会再拉），
+    // 不像 Promise.all 那样一个失败就卡在登录页
+    await Promise.allSettled([
       useDishStore.getState().load(),
       useIngredientStore.getState().load(),
-      useShoppingStore.getState().load(),
-      useWeeklyStore.getState().load(),
-      useFamilyStore.getState().load(),
+      reloadUserScopedStores(),
     ]);
     navigate('/menu', { replace: true });
   };

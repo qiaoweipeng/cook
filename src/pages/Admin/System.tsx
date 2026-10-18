@@ -32,7 +32,7 @@ const TABLES: Array<{ name: string; label: string }> = [
   { name: 'dishes', label: '菜品' },
   { name: 'dish_ingredients', label: '菜品-食材关联' },
   { name: 'ingredients', label: '食材库' },
-  { name: 'weekly_menus', label: '每周菜单' },
+  { name: 'weekly_menus', label: '菜单（按日期）' },
   { name: 'shopping_lists', label: '采购清单' },
   { name: 'families', label: '家庭' },
   { name: 'family_members', label: '家庭成员' },

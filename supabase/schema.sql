@@ -75,8 +75,12 @@ create table if not exists public.ingredients (
   spec           text,
   note           text,
   unit_grams     numeric,
-  unit_ml        numeric
+  unit_ml        numeric,
+  image          text
 );
+
+-- 老库升级：食材图片（对象存储的 URL）
+alter table public.ingredients add column if not exists image text;
 
 -- ---------------------------------------------------------------------------
 -- 4. 按用户隔离的数据（id = uid）
