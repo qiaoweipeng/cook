@@ -26,12 +26,13 @@ import { useShoppingStore } from '@/store/useShoppingStore';
 import { useAuthStore, useIsAdmin } from '@/store/useAuthStore';
 import { useWeeklyStore } from '@/store/useWeeklyStore';
 import { useFamilyStore } from '@/store/useFamilyStore';
-import { isCloudEnabled } from '@/lib/cloudbase';
+import { isCloudEnabled } from '@/lib/supabase';
 import { ADMIN_UID, setUserAvatar } from '@/lib/userAdmin';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import ShoppingListPanel from '@/components/ShoppingListPanel';
 import FamilyModal from '@/components/FamilyModal';
 import MobileTabBar from '@/components/MobileTabBar';
+import AddToHomeScreen from '@/components/AddToHomeScreen';
 
 const { Header, Content, Footer } = Layout;
 
@@ -320,6 +321,9 @@ export default function AppLayout() {
 
       {/* 移动端底部导航 */}
       {showMobileNav && <MobileTabBar />}
+
+      {/* 移动端「添加到主屏幕」引导弹窗（勾选不再提醒后永久隐藏） */}
+      {showMobileNav && <AddToHomeScreen />}
     </Layout>
   );
 }

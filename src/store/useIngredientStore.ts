@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Ingredient } from '@/types';
 import { seedIngredients } from '@/data/seedIngredients';
-import { isCloudEnabled } from '@/lib/cloudbase';
+import { isCloudEnabled } from '@/lib/supabase';
 import { cloudDelete, cloudList, cloudSet } from '@/lib/cloudSync';
 import { checkIngredientUsage } from '@/lib/usage';
 import { logOp } from '@/lib/opLog';

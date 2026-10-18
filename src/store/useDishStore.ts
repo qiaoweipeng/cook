@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Dish } from '@/types';
 import { seedDishes, RETIRED_DISH_IDS } from '@/data/seedDishes';
-import { isCloudEnabled } from '@/lib/cloudbase';
+import { isCloudEnabled } from '@/lib/supabase';
 import { cloudDelete, cloudList, cloudSet } from '@/lib/cloudSync';
 import { checkDishUsage } from '@/lib/usage';
 import { logOp } from '@/lib/opLog';

@@ -1,7 +1,7 @@
 // 操作日志：记录「谁、什么时候、对什么数据、做了什么操作」
 // 用于系统管理页审计——有人恶意增删改数据时可以追溯
 
-import { isCloudEnabled, pgInsert, pgSelect } from './cloudbase';
+import { isCloudEnabled, pgInsert, pgSelect } from './supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 
 export interface OpLogRow {

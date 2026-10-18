@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   Table,
   Button,
@@ -19,7 +19,9 @@ import {
   Radio,
   Alert,
   Tooltip,
+  Empty,
 } from 'antd';
+import { SideBar } from 'antd-mobile';
 import {
   PlusOutlined,
   EditOutlined,
@@ -30,6 +32,7 @@ import {
 } from '@ant-design/icons';
 import { useIngredientStore } from '@/store/useIngredientStore';
 import { useIsAdmin } from '@/store/useAuthStore';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import type { Ingredient, IngredientCategory } from '@/types';
 import PriceTag from '@/components/PriceTag';
 import {
@@ -83,6 +86,7 @@ const PREVIEW_COUNT = 100;
 export default function Ingredients() {
   const { items, add, update, remove, replaceAll, bulkMerge } = useIngredientStore();
   const isAdmin = useIsAdmin();
+  const isMobile = useIsMobile();
   const { message, modal } = AntApp.useApp();
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Ingredient | null>(null);
@@ -106,6 +110,13 @@ export default function Ingredients() {
     setEditorOpen(true);
   };
 
+  const openEditRow = (row: Ingredient) => {
+    setEditing(row);
+    form.resetFields();
+    form.setFieldsValue(row);
+    setEditorOpen(true);
+  };
+
   const openEdit = () => {
     if (!selectedRowKey) {
       message.warning('请先在表格里选一行');
@@ -116,10 +127,7 @@ export default function Ingredients() {
       message.error('找不到选中的食材，刷新后重试');
       return;
     }
-    setEditing(row);
-    form.resetFields();
-    form.setFieldsValue(row);
-    setEditorOpen(true);
+    openEditRow(row);
   };
 
   const onSave = async () => {
@@ -239,184 +247,303 @@ export default function Ingredients() {
 
   return (
     <div>
-      <Title level={3} style={{ marginTop: 0 }}>
-        食材库
-        <Text type="secondary" style={{ fontSize: 14, marginLeft: 12, fontWeight: 400 }}>
-          维护价格，单位换算会自动生效
-        </Text>
-      </Title>
-
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col xs={24} sm={8}>
-          <Card>
-            <Statistic title="食材总数" value={items.length} suffix="种" />
-          </Card>
-        </Col>
-        <Col xs={24} sm={8}>
-          <Card>
-            <Statistic
-              title="分类"
-              value={categories.filter((c) => items.some((i) => i.category === c)).length}
-              suffix="类"
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={8}>
-          <Card>
-            <Statistic
-              title="单价合计（无统计意义）"
-              value={total}
-              precision={2}
-              prefix="¥"
-              valueStyle={{ color: '#aaa' }}
-            />
-          </Card>
-        </Col>
-      </Row>
-
-      <div
-        style={{
-          marginBottom: 12,
-          display: 'flex',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: 12,
-        }}
-      >
-        <Space wrap>
+      {isMobile ? (
+        <>
+          {/* 移动端：只留搜索框 + 左侧分类导航 + 右侧条目卡列表（不用表格，避免文字被压缩看不清） */}
           <Input.Search
             placeholder="搜食材名"
             allowClear
-            onSearch={setKeyword}
-            onChange={(e) => !e.target.value && setKeyword('')}
-            style={{ width: 220 }}
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            style={{ width: '100%', marginBottom: 10 }}
           />
-          <Select
-            placeholder="按分类筛选"
-            allowClear
-            style={{ width: 160 }}
-            options={categories.map((c) => ({ value: c, label: c }))}
-            value={categoryFilter}
-            onChange={setCategoryFilter}
-          />
-        </Space>
-        {isAdmin ? (
-          <Space wrap>
-            <Tooltip title="下载一份带示例的空白 Excel，方便照着填">
-              <Button icon={<FileExcelOutlined />} onClick={handleDownloadTemplate}>
-                下载模板
-              </Button>
-            </Tooltip>
-            <Button.Group>
-              <Tooltip title="把当前食材库导出为 Excel 文件">
-                <Button icon={<DownloadOutlined />} onClick={handleExport}>
-                  导出 Excel
-                </Button>
-              </Tooltip>
-              <Tooltip title="从 Excel 文件导入，可选合并或替换现有数据">
-                <Button icon={<UploadOutlined />} onClick={handleImportClick}>
-                  导入 Excel
-                </Button>
-              </Tooltip>
-            </Button.Group>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              style={{ display: 'none' }}
-              onChange={handleFileChange}
-            />
-            <Button
-              icon={<EditOutlined />}
-              onClick={openEdit}
-              disabled={!selectedRowKey}
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            <div
+              style={{
+                flexShrink: 0,
+                position: 'sticky',
+                top: 0,
+                zIndex: 5,
+                borderRadius: 10,
+                overflow: 'hidden',
+              }}
             >
-              编辑食材
-            </Button>
-            <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>
-              新增食材
-            </Button>
-          </Space>
-        ) : (
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            食材库由超级管理员维护
-          </Text>
-        )}
-      </div>
+              <SideBar
+                className="ing-side-bar"
+                activeKey={categoryFilter ?? ''}
+                onChange={(key) =>
+                  setCategoryFilter((key || undefined) as IngredientCategory | undefined)
+                }
+                style={{ '--adm-color-primary': '#E8743C', '--width': '86px' } as CSSProperties}
+              >
+                <SideBar.Item key="" title="全部" />
+                {categories.map((c) => (
+                  <SideBar.Item key={c} title={c} />
+                ))}
+              </SideBar>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ color: '#999', fontSize: 12, marginBottom: 8 }}>
+                {categoryFilter ?? '全部'} · {filtered.length} 种
+              </div>
+              {filtered.length === 0 ? (
+                <Empty description="没有符合条件的食材" style={{ marginTop: 40 }} />
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {filtered.map((it) => (
+                    <div
+                      key={it.id}
+                      onClick={() => isAdmin && openEditRow(it)}
+                      style={{
+                        background: '#fff',
+                        borderRadius: 10,
+                        padding: '10px 12px',
+                        cursor: isAdmin ? 'pointer' : 'default',
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'baseline',
+                          gap: 8,
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: 15,
+                            fontWeight: 600,
+                            color: '#2D2A26',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {it.name}
+                        </span>
+                        <span style={{ flexShrink: 0 }}>
+                          <PriceTag value={it.pricePerUnit} size="small" />
+                          <span style={{ color: '#999', fontSize: 12, marginLeft: 2 }}>
+                            /{it.unit}
+                          </span>
+                        </span>
+                      </div>
+                      {(it.spec || it.unitGrams || it.unitMl) && (
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            gap: 8,
+                            marginTop: 2,
+                          }}
+                        >
+                          <span
+                            style={{
+                              color: '#999',
+                              fontSize: 12,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {it.spec}
+                          </span>
+                          {(it.unitGrams || it.unitMl) && (
+                            <span style={{ color: '#bbb', fontSize: 12, flexShrink: 0 }}>
+                              1 {it.unit} ≈ {it.unitGrams ? `${it.unitGrams} g` : `${it.unitMl} ml`}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <Title level={3} style={{ marginTop: 0 }}>
+            食材库
+            <Text type="secondary" style={{ fontSize: 14, marginLeft: 12, fontWeight: 400 }}>
+              维护价格，单位换算会自动生效
+            </Text>
+          </Title>
 
-      {isAdmin && selectedRowKey && (
-        <Alert
-          type="info"
-          showIcon
-          style={{ marginBottom: 12 }}
-          message={
-            <span>
-              已选中：
-              <Text strong>
-                {items.find((i) => i.id === selectedRowKey)?.name}
+          <Row gutter={16} style={{ marginBottom: 16 }}>
+            <Col xs={24} sm={8}>
+              <Card>
+                <Statistic title="食材总数" value={items.length} suffix="种" />
+              </Card>
+            </Col>
+            <Col xs={24} sm={8}>
+              <Card>
+                <Statistic
+                  title="分类"
+                  value={categories.filter((c) => items.some((i) => i.category === c)).length}
+                  suffix="类"
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={8}>
+              <Card>
+                <Statistic
+                  title="单价合计（无统计意义）"
+                  value={total}
+                  precision={2}
+                  prefix="¥"
+                  valueStyle={{ color: '#aaa' }}
+                />
+              </Card>
+            </Col>
+          </Row>
+
+          <div
+            style={{
+              marginBottom: 12,
+              display: 'flex',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 12,
+            }}
+          >
+            <Space wrap>
+              <Input.Search
+                placeholder="搜食材名"
+                allowClear
+                onSearch={setKeyword}
+                onChange={(e) => !e.target.value && setKeyword('')}
+                style={{ width: 220 }}
+              />
+              <Select
+                placeholder="按分类筛选"
+                allowClear
+                style={{ width: 160 }}
+                options={categories.map((c) => ({ value: c, label: c }))}
+                value={categoryFilter}
+                onChange={setCategoryFilter}
+              />
+            </Space>
+            {isAdmin ? (
+              <Space wrap>
+                <Tooltip title="下载一份带示例的空白 Excel，方便照着填">
+                  <Button icon={<FileExcelOutlined />} onClick={handleDownloadTemplate}>
+                    下载模板
+                  </Button>
+                </Tooltip>
+                <Button.Group>
+                  <Tooltip title="把当前食材库导出为 Excel 文件">
+                    <Button icon={<DownloadOutlined />} onClick={handleExport}>
+                      导出 Excel
+                    </Button>
+                  </Tooltip>
+                  <Tooltip title="从 Excel 文件导入，可选合并或替换现有数据">
+                    <Button icon={<UploadOutlined />} onClick={handleImportClick}>
+                      导入 Excel
+                    </Button>
+                  </Tooltip>
+                </Button.Group>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  style={{ display: 'none' }}
+                  onChange={handleFileChange}
+                />
+                <Button
+                  icon={<EditOutlined />}
+                  onClick={openEdit}
+                  disabled={!selectedRowKey}
+                >
+                  编辑食材
+                </Button>
+                <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>
+                  新增食材
+                </Button>
+              </Space>
+            ) : (
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                食材库由超级管理员维护
               </Text>
-              ，点右上角「编辑食材」可修改或删除它
-            </span>
-          }
-        />
-      )}
+            )}
+          </div>
 
-      <Table<Ingredient>
-        rowKey="id"
-        dataSource={filtered}
-        pagination={{ pageSize: 10, showSizeChanger: false }}
-        rowSelection={
-          isAdmin
-            ? {
-              type: 'radio',
-              selectedRowKeys: selectedRowKey ? [selectedRowKey] : [],
-              onChange: (keys) => setSelectedRowKey(keys[0] as string | undefined),
-              preserveSelectedRowKeys: true,
-              columnWidth: 48,
+          {isAdmin && selectedRowKey && (
+            <Alert
+              type="info"
+              showIcon
+              style={{ marginBottom: 12 }}
+              message={
+                <span>
+                  已选中：
+                  <Text strong>
+                    {items.find((i) => i.id === selectedRowKey)?.name}
+                  </Text>
+                  ，点右上角「编辑食材」可修改或删除它
+                </span>
+              }
+            />
+          )}
+
+          <Table<Ingredient>
+            rowKey="id"
+            dataSource={filtered}
+            pagination={{ pageSize: 10, showSizeChanger: false }}
+            rowSelection={
+              isAdmin
+                ? {
+                  type: 'radio',
+                  selectedRowKeys: selectedRowKey ? [selectedRowKey] : [],
+                  onChange: (keys) => setSelectedRowKey(keys[0] as string | undefined),
+                  preserveSelectedRowKeys: true,
+                  columnWidth: 48,
+                }
+                : undefined
             }
-            : undefined
-        }
-        columns={[
-          { title: '名称', dataIndex: 'name', render: (v: string) => <Text strong>{v}</Text> },
-          {
-            title: '分类',
-            dataIndex: 'category',
-            render: (v: IngredientCategory) => <Tag color="orange">{v}</Tag>,
-          },
-          {
-            title: '单价',
-            dataIndex: 'pricePerUnit',
-            render: (v: number) => <PriceTag value={v} size="small" />,
-          },
-          { title: '单位', dataIndex: 'unit' },
-          { title: '规格', dataIndex: 'spec', ellipsis: true },
-          {
-            title: '单件换算',
-            render: (_, r) => {
-              if (r.unitGrams)
-                return (
-                  <Text type="secondary">
-                    1 {r.unit} ≈ {r.unitGrams} g
-                  </Text>
-                );
-              if (r.unitMl)
-                return (
-                  <Text type="secondary">
-                    1 {r.unit} ≈ {r.unitMl} ml
-                  </Text>
-                );
-              return <Text type="secondary">-</Text>;
-            },
-          },
-        ]}
-      />
+            columns={[
+              { title: '名称', dataIndex: 'name', render: (v: string) => <Text strong>{v}</Text> },
+              {
+                title: '分类',
+                dataIndex: 'category',
+                render: (v: IngredientCategory) => <Tag color="orange">{v}</Tag>,
+              },
+              {
+                title: '单价',
+                dataIndex: 'pricePerUnit',
+                render: (v: number) => <PriceTag value={v} size="small" />,
+              },
+              { title: '单位', dataIndex: 'unit' },
+              { title: '规格', dataIndex: 'spec', ellipsis: true },
+              {
+                title: '单件换算',
+                render: (_, r) => {
+                  if (r.unitGrams)
+                    return (
+                      <Text type="secondary">
+                        1 {r.unit} ≈ {r.unitGrams} g
+                      </Text>
+                    );
+                  if (r.unitMl)
+                    return (
+                      <Text type="secondary">
+                        1 {r.unit} ≈ {r.unitMl} ml
+                      </Text>
+                    );
+                  return <Text type="secondary">-</Text>;
+                },
+              },
+            ]}
+          />
+        </>
+      )}
 
       {/* 新增 / 编辑弹窗 */}
       <Modal
         title={editing ? `编辑食材：${editing.name}` : '新增食材'}
         open={editorOpen}
         onCancel={() => setEditorOpen(false)}
-        width={560}
+        width={isMobile ? '94%' : 560}
         forceRender
         footer={
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -447,17 +574,17 @@ export default function Ingredients() {
       >
         <Form form={form} layout="vertical" preserve={false}>
           <Row gutter={12}>
-            <Col span={12}>
+            <Col span={isMobile ? 24 : 12}>
               <Form.Item name="name" label="名称" rules={[{ required: true }]}>
                 <Input placeholder="如：五花肉" />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={isMobile ? 24 : 12}>
               <Form.Item name="category" label="分类" rules={[{ required: true }]}>
                 <Select options={categories.map((c) => ({ value: c, label: c }))} />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={isMobile ? 24 : 12}>
               <Form.Item
                 name="pricePerUnit"
                 label="单价（元）"
@@ -466,12 +593,12 @@ export default function Ingredients() {
                 <InputNumber min={0} step={0.1} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={isMobile ? 24 : 12}>
               <Form.Item name="unit" label="单位" rules={[{ required: true }]}>
                 <Select options={unitOptions} showSearch />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={isMobile ? 24 : 12}>
               <Form.Item
                 name="unitGrams"
                 label="换算：1 单位 = ? 克（可选）"
@@ -480,7 +607,7 @@ export default function Ingredients() {
                 <InputNumber min={0} style={{ width: '100%' }} placeholder="如：番茄 200" />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={isMobile ? 24 : 12}>
               <Form.Item
                 name="unitMl"
                 label="换算：1 单位 = ? 毫升（可选）"

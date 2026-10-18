@@ -11,7 +11,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useFamilyStore } from '@/store/useFamilyStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useWeeklyStore } from '@/store/useWeeklyStore';
-import { isCloudEnabled } from '@/lib/cloudbase';
+import { isCloudEnabled } from '@/lib/supabase';
 import { setUserAvatar, ADMIN_UID } from '@/lib/userAdmin';
 import FamilyModal from '@/components/FamilyModal';
 

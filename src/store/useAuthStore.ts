@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { clearSession, isAdminUser, saveSession, type SessionUser } from '@/lib/userAuth';
 import { getUser } from '@/lib/userAdmin';
-import { isCloudEnabled } from '@/lib/cloudbase';
+import { isCloudEnabled } from '@/lib/supabase';
 
 export interface AuthUser {
   uid: string;

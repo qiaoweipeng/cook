@@ -1,0 +1,35 @@
+# Cook 厨房笔记 · Netlify 部署配置
+# 用法一（推荐）：Netlify 控制台 → Add new site → Import an existing project → 选这个仓库
+#                 Netlify 会自动识别 pnpm-lock.yaml 并按本文件构建
+# 用法二：命令行 npx netlify-cli deploy --prod --dir=dist（需先本地 pnpm build）
+
+[build]
+  command = "pnpm build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# ---------------------------------------------------------------------------
+# SPA 路由回退：必须配
+# 否则直接访问 /weekly、/ingredients 或刷新页面会 404
+# （Netlify 只有在找不到对应静态文件时才走这条规则，js/css/图片不受影响）
+# ---------------------------------------------------------------------------
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# ---------------------------------------------------------------------------
+# PWA service worker 禁止缓存
+# 项目用了 vite-plugin-pwa，sw.js 被缓存会导致用户一直停留在旧版本
+# ---------------------------------------------------------------------------
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/workbox-*.js"
+  [headers.values]
+    Cache-Control = "no-cache, max-age=0, must-revalidate"

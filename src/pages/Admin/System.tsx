@@ -20,7 +20,7 @@ import {
   MobileOutlined,
   DesktopOutlined,
 } from '@ant-design/icons';
-import { getEnvId, pgCount } from '@/lib/cloudbase';
+import { getCloudHost, pgCount } from '@/lib/supabase';
 import { listLoginLogs, type LoginLogRow } from '@/lib/clientInfo';
 import { listOpLogs, type OpLogRow } from '@/lib/opLog';
 
@@ -168,7 +168,7 @@ export default function AdminSystem() {
         </Col>
         <Col xs={24} sm={6}>
           <Card>
-            <Statistic title="云环境" valueRender={() => <span style={{ fontSize: 14 }}>{getEnvId()}</span>} />
+            <Statistic title="云环境" valueRender={() => <span style={{ fontSize: 14 }}>{getCloudHost()}</span>} />
           </Card>
         </Col>
         <Col xs={24} sm={6}>

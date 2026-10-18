@@ -2,7 +2,7 @@
 // - 食材：有菜品引用了它 → 拒
 // - 菜品：有任何用户的采购清单/每周菜单包含它 → 拒
 
-import { isCloudEnabled, pgSelect } from './cloudbase';
+import { isCloudEnabled, pgSelect } from './supabase';
 import { cloudList } from './cloudSync';
 import { useDishStore } from '@/store/useDishStore';
 import { useShoppingStore } from '@/store/useShoppingStore';

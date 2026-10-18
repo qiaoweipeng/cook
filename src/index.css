@@ -87,22 +87,22 @@ a {
   gap: 6px;
 }
 
-/* 移动端首页：放大分类标签（Segmented），手指更好点 */
-.menu-seg-mobile {
-  font-size: 15px;
-  padding: 3px;
+/* 移动端首页分类标签（antd-mobile Tabs）：去掉重复边线、两侧渐隐遮罩与空内容区 */
+.menu-tabs-mobile .adm-tabs-header {
+  border-bottom: none;
 }
 
-.menu-seg-mobile .ant-segmented-item {
-  padding: 5px 15px;
-  border-radius: 8px;
+.menu-tabs-mobile .adm-tabs-header-mask {
+  display: none;
 }
 
-.menu-seg-mobile .ant-segmented-item-label {
-  min-height: 28px;
-  line-height: 28px;
-  font-size: 15px;
-  padding: 0 3px;
+.menu-tabs-mobile .adm-tabs-content {
+  display: none;
+}
+
+/* 移动端食材库侧边导航（antd-mobile SideBar）：条目收紧 + 主题橙已在组件内联变量设置 */
+.ing-side-bar .adm-side-bar-item {
+  padding: 12px 10px;
 }
 
 /* 移动端底部导航：加大图标与文字间距（默认仅 2px，文字再往下一些） */

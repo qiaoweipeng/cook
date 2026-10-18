@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { WeeklyPlans } from '@/types';
-import { isCloudEnabled } from '@/lib/cloudbase';
+import { isCloudEnabled } from '@/lib/supabase';
 import { cloudGetWeekly, cloudList, cloudSet } from '@/lib/cloudSync';
 import { idbStorage, whenHydrated } from '@/lib/persistStorage';
 import { useAuthStore } from './useAuthStore';

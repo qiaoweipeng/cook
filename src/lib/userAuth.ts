@@ -6,7 +6,7 @@
 //   登录后角色 = admin，可以编辑所有内容
 //   users 表里也会留一行 0000，用来存头像
 
-import { isCloudEnabled, pgSelect, pgInsert, PgError } from './cloudbase';
+import { isCloudEnabled, pgSelect, pgInsert, PgError } from './supabase';
 import { ADMIN_UID, ADMIN_PASSWORD, getUser } from './userAdmin';
 
 export const USERS_COLLECTION = 'users';

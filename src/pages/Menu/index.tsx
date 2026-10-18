@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Input, Segmented, Empty, Row, Col, Switch, Space, Typography, Spin, Button } from 'antd';
+import { Tabs } from 'antd-mobile';
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useDishStore } from '@/store/useDishStore';
@@ -161,32 +162,61 @@ export default function Menu() {
               minWidth: 0,
             }}
           />
-          {/* 移动端：标签横向滚动，不换行不撑宽屏幕；独占第二行 */}
-          <div
-            style={{
-              overflowX: 'auto',
-              overflowY: 'hidden',
-              WebkitOverflowScrolling: 'touch',
-              maxWidth: '100%',
-              flex: isMobile ? '0 0 100%' : undefined,
-              marginTop: isMobile ? 10 : undefined,
-            }}
-          >
-            <Space size={8} style={{ display: 'inline-flex', flexWrap: 'nowrap', paddingBottom: 4 }}>
-              <Segmented
-                className={isMobile ? 'menu-seg-mobile' : undefined}
-                options={categories}
-                value={category}
-                onChange={(v) => setCategory(v as DishCategory | '全部')}
-              />
-              <Switch
-                checked={favOnly}
-                onChange={setFavOnly}
-                checkedChildren="我的收藏"
-                unCheckedChildren="全部菜品"
-              />
-            </Space>
-          </div>
+          {/* 移动端：收藏开关移到搜索框右侧 */}
+          {isMobile && (
+            <Switch
+              checked={favOnly}
+              onChange={setFavOnly}
+              checkedChildren="我的收藏"
+              unCheckedChildren="全部菜品"
+              style={{ flexShrink: 0 }}
+            />
+          )}
+          {/* 移动端：分类用 antd-mobile Tabs，横向滚动，点击后选中项自动滚入视野；桌面端保持 Segmented 不变 */}
+          {isMobile ? (
+            <div style={{ flex: '0 0 100%', marginTop: 10, minWidth: 0 }}>
+              <Tabs
+                className="menu-tabs-mobile"
+                activeKey={category}
+                onChange={(key) => setCategory(key as DishCategory | '全部')}
+                stretch={false}
+                style={
+                  {
+                    '--title-font-size': '15px',
+                    '--active-line-color': '#E8743C',
+                    '--active-title-color': '#E8743C',
+                  } as CSSProperties
+                }
+              >
+                {categories.map((c) => (
+                  <Tabs.Tab key={c} title={c} />
+                ))}
+              </Tabs>
+            </div>
+          ) : (
+            <div
+              style={{
+                overflowX: 'auto',
+                overflowY: 'hidden',
+                WebkitOverflowScrolling: 'touch',
+                maxWidth: '100%',
+              }}
+            >
+              <Space size={8} style={{ display: 'inline-flex', flexWrap: 'nowrap', paddingBottom: 4 }}>
+                <Segmented
+                  options={categories}
+                  value={category}
+                  onChange={(v) => setCategory(v as DishCategory | '全部')}
+                />
+                <Switch
+                  checked={favOnly}
+                  onChange={setFavOnly}
+                  checkedChildren="我的收藏"
+                  unCheckedChildren="全部菜品"
+                />
+              </Space>
+            </div>
+          )}
         </div>
       </div>
 

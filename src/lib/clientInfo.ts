@@ -4,7 +4,7 @@
 //   - logLogin：每个浏览器会话只记一次（sessionStorage 标记防重复）
 //   - listLoginLogs / latestLoginMap：系统管理页、用户管理页展示用
 
-import { isCloudEnabled, pgInsert, pgSelect } from './cloudbase';
+import { isCloudEnabled, pgInsert, pgSelect } from './supabase';
 
 export interface LoginLogRow {
   id: string;

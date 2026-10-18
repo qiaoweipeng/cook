@@ -13,7 +13,7 @@ import {
   pgInsert,
   pgSelect,
   pgUpdateById,
-} from '@/lib/cloudbase';
+} from '@/lib/supabase';
 import { useAuthStore } from './useAuthStore';
 
 export interface FamilyUser {

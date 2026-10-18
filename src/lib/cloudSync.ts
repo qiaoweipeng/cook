@@ -8,7 +8,7 @@ import {
   pgSelect,
   pgUpdateById,
   PgError,
-} from './cloudbase';
+} from './supabase';
 import type { Dish, Ingredient } from '@/types';
 
 // ======================== 字段名转换 ========================

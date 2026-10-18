@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Spin, App as AntApp } from 'antd';
+import { App as AntApp } from 'antd';
 import AppLayout from './components/AppLayout';
 import Menu from './pages/Menu';
 import DishDetail from './pages/DishDetail';
@@ -18,7 +18,7 @@ import { useShoppingStore } from './store/useShoppingStore';
 import { useWeeklyStore } from './store/useWeeklyStore';
 import { useFamilyStore } from './store/useFamilyStore';
 import { ensureAdminRow, getUser, ADMIN_UID } from './lib/userAdmin';
-import { isCloudEnabled } from './lib/cloudbase';
+import { isCloudEnabled } from './lib/supabase';
 import { loadSession } from './lib/userAuth';
 import { logLogin } from './lib/clientInfo';
 
@@ -30,11 +30,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
   if (booting) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Spin size="large" tip="正在启动..." />
-      </div>
-    );
+    return null;
   }
   if (cloud && !user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
@@ -88,7 +84,6 @@ function useDisabledWatcher() {
 }
 
 export default function App() {
-  const [ready, setReady] = useState(false);
   const userUid = useAuthStore((s) => s.user?.uid);
   useDisabledWatcher();
 
@@ -100,44 +95,39 @@ export default function App() {
     }
   }, [userUid]);
 
-  // 启动时：拉登录态 → 拉数据
+  // 启动时：同步恢复登录态并直接进入页面（菜品等数据有 IndexedDB 缓存可先显示），
+  // 云端数据在后台拉取，到达后自动刷新界面
   useEffect(() => {
-    async function bootstrap() {
+    if (isCloudEnabled()) {
+      // 从 localStorage 恢复登录态（自建账号体系，同步读取，无网络等待）
+      useAuthStore.getState().setUser(loadSession());
+    } else {
+      useAuthStore.getState().setUser(null);
+    }
+
+    // 后台加载数据（各 store 的 load 内部会先等 IndexedDB 缓存恢复，避免旧缓存覆盖云端新数据）
+    void (async () => {
       if (isCloudEnabled()) {
-        // 从 localStorage 恢复登录态（自建账号体系）
-        useAuthStore.getState().setUser(loadSession());
         // 确保 users 表里有超级管理员那一行（用于存头像）
-        await ensureAdminRow();
+        ensureAdminRow().catch(() => { });
         // 重新拉一次头像（管理员刚改过头像会反映到顶栏）
-        await useAuthStore.getState().refreshAvatar();
-      } else {
-        useAuthStore.getState().setUser(null);
+        useAuthStore.getState().refreshAvatar().catch(() => { });
       }
 
       // 拉云端数据（cloud 已自动判断，没配置时会直接 return）
       await Promise.all([
-        useDishStore.getState().load(),
-        useIngredientStore.getState().load(),
+        useDishStore.getState().load().catch(() => { }),
+        useIngredientStore.getState().load().catch(() => { }),
       ]);
       if (useAuthStore.getState().user) {
         await Promise.all([
-          useShoppingStore.getState().load(),
-          useWeeklyStore.getState().load(),
-          useFamilyStore.getState().load(),
+          useShoppingStore.getState().load().catch(() => { }),
+          useWeeklyStore.getState().load().catch(() => { }),
+          useFamilyStore.getState().load().catch(() => { }),
         ]);
       }
-      setReady(true);
-    }
-    bootstrap();
+    })();
   }, []);
-
-  if (!ready) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FAF7F2' }}>
-        <Spin size="large" tip="正在准备你的厨房..." />
-      </div>
-    );
-  }
 
   return (
     <Routes>

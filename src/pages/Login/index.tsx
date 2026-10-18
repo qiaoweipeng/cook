@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Card, Form, Input, Button, Typography, App as AntApp, Divider, Tabs } from 'antd';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
-import { isCloudEnabled, getEnvId } from '@/lib/cloudbase';
+import { isCloudEnabled, getCloudHost } from '@/lib/supabase';
 import {
   registerUser,
   loginUser,
@@ -180,7 +180,7 @@ export default function Login() {
         <Text type="secondary" style={{ fontSize: 12, lineHeight: 1.6, display: 'block' }}>
           登录后菜单和食材库会与家人共享；采购清单各自独立。
           <br />
-          环境 ID：<code style={{ background: '#f5f0e8', padding: '0 4px', borderRadius: 3 }}>{getEnvId() || '未配置'}</code>
+          云端地址：<code style={{ background: '#f5f0e8', padding: '0 4px', borderRadius: 3 }}>{getCloudHost() || '未配置'}</code>
         </Text>
       </Card>
     </div>

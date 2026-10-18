@@ -1,23 +1,61 @@
-// 腾讯云 CloudBase PG 模式客户端
-//   - 不再用 @cloudbase/js-sdk 的 database()（那是文档数据库）
-//   - 改用 PostgREST REST API 直接调 PostgreSQL
-//   - 认证用 Publishable Key（前端可公开的 JWT）
+// Supabase PostgreSQL 客户端
+//   - Supabase 的数据 API 就是标准 PostgREST，所以这里保持和原来一样的调用方式
+//   - 认证用 anon key（前端可公开的 JWT），配合表的 RLS 策略使用
+//   - 站点地址：https://<project-ref>.supabase.co/rest/v1
 
-const ENV_ID = (import.meta.env.VITE_TCB_ENV_ID ?? '').trim();
-const PUBLISHABLE_KEY = (import.meta.env.VITE_TCB_PUBLISHABLE_KEY ?? '').trim();
+const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? '').trim().replace(/\/$/, '');
+const ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY ?? '').trim();
 
 /** 是否启用了云端模式 */
 export function isCloudEnabled(): boolean {
-  return Boolean(ENV_ID) && Boolean(PUBLISHABLE_KEY);
+  return Boolean(SUPABASE_URL) && Boolean(ANON_KEY);
 }
 
-/** 环境 ID（用于 UI 提示） */
-export function getEnvId(): string {
-  return ENV_ID;
+// 只在真正缺失时提示，避免正常使用时刷屏。
+// 常见场景：托管平台（Netlify 等）构建时没配环境变量 → 页面显示「本地模式」
+if (!isCloudEnabled()) {
+  const missing = [
+    SUPABASE_URL ? '' : 'VITE_SUPABASE_URL',
+    ANON_KEY ? '' : 'VITE_SUPABASE_ANON_KEY',
+  ].filter(Boolean);
+  console.warn(
+    `[supabase] 未配置云端变量：${missing.join('、')}。\n` +
+      '注意 Vite 的环境变量在 **构建时** 就被内联进 bundle，' +
+      '托管平台（Netlify 等）必须在 Site settings → Environment variables 里单独配一份，' +
+      '本地有 .env 没用（.env 已被 git 忽略）。'
+  );
+}
+
+/** 云端地址（用于 UI 提示） */
+export function getCloudHost(): string {
+  if (!SUPABASE_URL) return '';
+  try {
+    return new URL(SUPABASE_URL).host;
+  } catch {
+    return SUPABASE_URL;
+  }
 }
 
 function getBaseUrl(): string {
-  return `https://${ENV_ID}.api.tcloudbasegateway.com/v1/rdb/rest`;
+  return `${SUPABASE_URL}/rest/v1`;
+}
+
+/**
+ * 每个请求都要带的认证头。
+ *
+ * Supabase 有两代 key，两者可以并存（旧版 2026 年底弃用）：
+ *   1) 旧版 anon key：JWT，形如 eyJhbGciOi... → apikey 和 Authorization: Bearer 都要带
+ *   2) 新版 publishable key：形如 sb_publishable_xxx，**不是 JWT** → 只能放 apikey 头
+ *      官方文档明确：非 JWT 的 key 放 Bearer 会因 JWT 校验失败，必须只走 apikey 头
+ *
+ * 这里按 key 前缀自动判断用哪种方式，填哪种都能跑。
+ */
+function authHeaders(): Record<string, string> {
+  const isLegacyJwt = ANON_KEY.startsWith('eyJ');
+  return {
+    apikey: ANON_KEY,
+    ...(isLegacyJwt ? { Authorization: `Bearer ${ANON_KEY}` } : {}),
+  };
 }
 
 // ---- 低层 fetch ----
@@ -27,7 +65,7 @@ type FetchOptions = RequestInit & {
   query?: Record<string, string | number | undefined>;
   /** 是否返回单条（application/vnd.pgrst.object+json），结果会被包成对象 */
   single?: boolean;
-  /** Prefer 头，比如 'return=representation' */
+  /** Prefer 头，比如 'return=representation' / 'count=exact' */
   prefer?: string;
   /** 超时毫秒，默认 60000（图片上传需要更长时间） */
   timeout?: number;
@@ -44,7 +82,7 @@ class PgError extends Error {
 
 export async function pgFetch(path: string, opts: FetchOptions = {}): Promise<any> {
   if (!isCloudEnabled()) {
-    throw new PgError(0, 'CloudBase 未配置（缺 ENV_ID 或 PUBLISHABLE_KEY）');
+    throw new PgError(0, 'Supabase 未配置（缺 VITE_SUPABASE_URL 或 VITE_SUPABASE_ANON_KEY）');
   }
   const { query, single, prefer, timeout = 60000, headers, ...rest } = opts;
   let url = `${getBaseUrl()}/${path.replace(/^\/+/, '')}`;
@@ -57,7 +95,7 @@ export async function pgFetch(path: string, opts: FetchOptions = {}): Promise<an
     if (s) url += (url.includes('?') ? '&' : '?') + s;
   }
   const h: Record<string, string> = {
-    Authorization: `Bearer ${PUBLISHABLE_KEY}`,
+    ...authHeaders(),
     Accept: single ? 'application/vnd.pgrst.object+json' : 'application/json',
     ...((headers as Record<string, string>) ?? {}),
   };
@@ -73,7 +111,6 @@ export async function pgFetch(path: string, opts: FetchOptions = {}): Promise<an
       throw new PgError(res.status, `PostgREST ${res.status}: ${text || res.statusText}`);
     }
     if (res.status === 204) return null;
-    // return=minimal 时也可能 204，否则解析 JSON
     const ct = res.headers.get('content-type') ?? '';
     if (ct.includes('json')) return await res.json();
     return null;
@@ -126,15 +163,18 @@ export async function pgUpdateById<T = any>(table: string, id: string, patch: ob
   })) as T[];
 }
 
-/** 统计表行数：HEAD + Prefer: count=exact，从 Content-Range 头解析（形如 `*\/42`）。
- *  select 用 * 而不是 id：有的表（如 dish_ingredients）没有 id 列。 */
+/**
+ * 统计表行数：HEAD + Prefer: count=exact，从 Content-Range 头解析（形如 `*\/42`）。
+ * select 用 * 而不是 id：有的表（如 dish_ingredients）没有 id 列。
+ * Supabase 默认的单次返回上限是 1000 行，这里只数不取，不受影响。
+ */
 export async function pgCount(table: string): Promise<number> {
-  if (!isCloudEnabled()) throw new PgError(0, 'CloudBase 未配置');
+  if (!isCloudEnabled()) throw new PgError(0, 'Supabase 未配置');
   const url = `${getBaseUrl()}/${table}?select=*&limit=0`;
   const res = await fetch(url, {
     method: 'HEAD',
     headers: {
-      Authorization: `Bearer ${PUBLISHABLE_KEY}`,
+      ...authHeaders(),
       Prefer: 'count=exact',
     },
   });
@@ -143,6 +183,12 @@ export async function pgCount(table: string): Promise<number> {
   const m = cr.match(/\/(\d+)/);
   if (!m) throw new PgError(0, `无法解析行数：${cr || '无 content-range 头'}`);
   return Number(m[1]);
+}
+
+/** 连通性自检：能不能读到 users 表（失败会抛出 PgError） */
+export async function pingCloud(): Promise<boolean> {
+  await pgCount('users');
+  return true;
 }
 
 export { PgError };

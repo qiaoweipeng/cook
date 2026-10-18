@@ -1,7 +1,7 @@
 // 用户管理：云端 users 表的读写、启停、头像
 // 超级管理员账号是硬编码的（不依赖 users 表就能登录），但会在 users 表里留一行用来存头像
 
-import { isCloudEnabled, pgSelect, pgInsert, pgUpdateById, PgError } from './cloudbase';
+import { isCloudEnabled, pgSelect, pgInsert, pgUpdateById, PgError } from './supabase';
 
 export const ADMIN_UID = '0000';
 export const ADMIN_PASSWORD = '000000';

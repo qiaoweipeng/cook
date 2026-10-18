@@ -53,6 +53,8 @@ export default function DishCard({ dish, cost }: Props) {
               <img
                 src={dish.coverImage}
                 alt={dish.name}
+                loading="lazy"
+                decoding="async"
                 style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: coverRadius }}
               />
             ) : (

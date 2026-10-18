@@ -61,7 +61,7 @@
 - [x] **菜品详情**：展示食材清单（含用量 & 单份成本）、分步做法、难度/用时/标签。
 - [x] **食材库 CRUD**：新增 / 编辑 / 删除食材，维护名称、单位、单价、备注。
 - [x] **采购清单**：多选菜品 → 自动合并相同食材 → 计算总花费 → 单条勾选已购买。
-- [x] **数据持久化**：从 localStorage 升级到 **腾讯云 CloudBase PostgreSQL**（PostgREST + Publishable Key）。
+- [x] **数据持久化**：从 localStorage 升级到 **Supabase PostgreSQL**（经 CloudBase PG 迁移而来）。
 - [x] **种子数据**：内置 **57 道家常菜** + **83 种常见食材**。
 - [x] **多用户系统**：昵称+密码注册登录，会话持久化，采购清单按用户隔离。
 
@@ -98,9 +98,9 @@
 | 状态         | **Zustand 4** + `persist`       | 比 Redux 轻很多，菜品/食材/采购清单/每周菜单各自独立持久化 |
 | 日期         | **dayjs**                       | AntD 内置日期库，用于格式化与"做菜记录"时间戳              |
 | 表格导入导出 | **SheetJS (`xlsx`)**            | 食材库支持 Excel 导入 / 导出 / 下载模板                    |
-| 后端         | **腾讯云 CloudBase PostgreSQL** | 文档数据库坑太多，PG 模式 + PostgREST 更稳                 |
-| 数据库访问   | **PostgREST** (REST API)        | 前端 `fetch` 直接调，不用 `@cloudbase/js-sdk` 中间层       |
-| 鉴权         | **Publishable Key** (匿名 JWT)  | 前端可公开，无密码也能注册                                 |
+| 后端         | **Supabase PostgreSQL**         | 免费额度够用；之前 CloudBase 体验版 3000 资源点 4 天耗尽并触发资源隔离 |
+| 数据库访问   | **Supabase Data API（PostgREST）** | 前端 `fetch` 直接调 REST，无中间层                                    |
+| 鉴权         | **anon key + 表级 RLS**         | 前端可公开的 JWT，靠 RLS 策略兜底；用户只用昵称+密码，无需邮箱手机    |
 | 工程         | **TS 路径别名 `@/*`**           | `@/types`、`@/lib/...` 引用更短（见 `tsconfig.json`）      |
 | 部署         | **CloudBase 静态网站托管**      | 免备案，CDN 加速                                           |
 
@@ -160,61 +160,59 @@ cook/
 
 ## 💾 数据库结构（PostgreSQL）
 
-后端是腾讯云 CloudBase 的 **PostgreSQL 模式**（不是文档数据库），前端用 **PostgREST** 直接调 REST API。
+后端是 **Supabase 的 PostgreSQL**，前端通过它的 **Data API（标准 PostgREST）** 直接调 REST。
 
-### 表（8 张）
+**全新项目一键建表**：Supabase 控制台 → **SQL Editor** → 粘贴 `supabase/schema.sql` 全文执行即可（幂等，可重复执行）。
 
-| 表名               | 用途                      | 关键字段                                                                                                                              |
-| ------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `dishes`           | 菜品主表                  | `id` (text PK), `name`, `category`, `difficulty`, `cook_time_min`, `servings`, `cover_image`, `cover_color`, `favorite`, `created_at` |
-| `ingredients`      | 食材库                    | `id` (text PK), `name`, `category`, `price_per_unit`, `unit`, `spec`                                                                  |
-| `dish_tags`        | 菜-标签（多对多）         | `dish_id`, `tag`（联合主键）                                                                                                          |
-| `dish_ingredients` | 菜-食材（多对多，含用量） | `dish_id`, `ingredient_id`, `amount`, `unit`                                                                                          |
-| `dish_steps`       | 烹饪步骤                  | `dish_id`, `step_order`, `step_text`（联合主键）                                                                                      |
-| `users`            | 用户账号                  | `id` (text PK, 归一化昵称), `nick`, `display_name`, `salt`, `password_hash`, `avatar`, `disabled`, `created_at`                       |
-| `shopping_lists`   | 采购清单（按用户隔离）    | `id` (text PK, =uid), `data` (jsonb), `updated_at`                                                                                    |
-| `weekly_menus`     | 每周菜单（按用户隔离）    | `id` (text PK, =uid), `data` (jsonb, `{ 日期key: 菜品id[] }`), `updated_at`                                                           |
+### 表（14 张）
 
-### 增量 SQL（老库迁移用）
+| 表名                 | 用途                      | 关键字段                                                                                                                              |
+| -------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `dishes`             | 菜品主表                  | `id` (text PK), `name`, `category`, `difficulty`, `cook_time_min`, `servings`, `cover_image`, `cover_color`, `favorite`, `created_at` |
+| `ingredients`        | 食材库                    | `id` (text PK), `name`, `category`, `price_per_unit`, `unit`, `spec`, `note`, `unit_grams`, `unit_ml`                                 |
+| `dish_tags`          | 菜-标签（多对多）         | `dish_id`, `tag`（联合主键）                                                                                                          |
+| `dish_ingredients`   | 菜-食材（含用量）         | `id` (bigserial PK), `dish_id`, `ingredient_id`, `amount`, `unit`                                                                     |
+| `dish_steps`         | 烹饪步骤                  | `dish_id`, `step_order`, `step_text`（联合主键）                                                                                      |
+| `users`              | 用户账号                  | `id` (text PK, 归一化昵称), `nick`, `display_name`, `salt`, `password_hash`, `avatar`, `disabled`, `created_at`                       |
+| `shopping_lists`     | 采购清单（按用户隔离）    | `id` (text PK, =uid), `data` (jsonb), `updated_at`                                                                                    |
+| `weekly_menus`       | 每周菜单（按用户/家庭隔离）| `id` (text PK, =uid 或家庭 id), `data` (jsonb, `{ 日期key: 菜品id[] }`), `updated_at`                                                |
+| `families`           | 家庭                      | `id` (text PK, `fam_<创建者uid>`), `admin_uid`, `created_at`                                                                          |
+| `family_members`     | 家庭成员                  | `id` (text PK, `<famId>__<uid>`), `family_id`, `uid`, `name`, `role`, `permission`, `joined_at`                                       |
+| `family_invites`     | 家庭邀请 / 管理员转让     | `id` (uuid PK), `family_id`, `from_uid`, `to_uid`, `to_name`, `status`, `type`, `created_at`                                          |
+| `family_menu_audit`  | 家庭菜单修改历史          | `id` (uuid PK), `family_id`, `actor_uid`, `actor_name`, `action`, `day`, `detail`, `created_at`                                       |
+| `login_logs`         | 登录日志                  | `id` (text PK), `uid`, `nick`, `login_at`, `ip`, `region`, `device`, `os`, `browser`, `ua`, `screen`, `language`                      |
+| `op_logs`            | 操作日志（审计）          | `id` (text PK), `actor_uid`, `actor_name`, `action`, `target`, `detail`, `created_at`                                                 |
 
-```sql
--- 1) 菜品封面图
-ALTER TABLE dishes ADD COLUMN IF NOT EXISTS cover_image text;
-UPDATE dishes SET cover_image = '/dishes/dish_fanqie_chao_egg.jpg'
-  WHERE id = 'dish_fanqie_chao_egg';
-
--- 2) 用户头像 + 启停
-ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar text;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS disabled boolean NOT NULL DEFAULT false;
-```
-
-> ⚠️ 前端代码对这两组列做了**探测式降级**：列不存在时写入自动跳过该字段，不会让整个操作失败，只是封面/启停暂时不可用。
-> 跑完 SQL 后建议加一句让 PostgREST 刷新缓存：`NOTIFY pgrst, 'reload schema';`
+> 建表脚本刻意**没有加外键**：种子数据的写入顺序不受控（菜品可能先于食材写入），加了外键会在初始化阶段冲突。
 
 ### RLS（行级安全）
 
-所有表都启用 RLS，给 `anon` 角色（对应 Publishable Key）全开：
+所有表启用 RLS，给 `anon` / `authenticated` 全开（`supabase/schema.sql` 末尾会自动建 policy）：
 
 ```sql
 ALTER TABLE <表名> ENABLE ROW LEVEL SECURITY;
 CREATE POLICY p_anon_all ON <表名> FOR ALL TO anon USING (true) WITH CHECK (true);
 GRANT USAGE ON SCHEMA public TO anon;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO anon;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon;
 ```
 
-> ⚠️ 这是个人项目的「全开」配置，**不适合生产多人共用**。生产场景应该用 `authenticated` 角色 + JWT 携带 uid 做行级隔离。
+> ⚠️ 这是个人/自用的「全开」配置，**不适合公开多人共用**。生产场景应该用 `authenticated` 角色 + JWT 携带 uid 做行级隔离。
+> Supabase 的表一旦开启 RLS 却不建 policy，前端读到的会是**空数组**（不是报错），很容易误判成「没数据」。
 
 ### 鉴权
 
-- 前端用 **Publishable Key**（`VITE_TCB_PUBLISHABLE_KEY`）作为 Bearer Token
-- 服务端 PostgREST 把 anon 角色赋给请求，所有 SQL 都按 RLS 规则过滤
-- **没有邮箱/手机号要求**，用户只用昵称+密码
+- 前端请求头必须带 **`apikey`**；旧版 `eyJ...` 的 JWT key 会额外再带一个 `Authorization: Bearer`
+  （代码按 key 前缀自动判断，见 `src/lib/supabase.ts` 的 `authHeaders`）
+- Supabase 用 `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` 两个环境变量配置
+- key 有两代，**填哪个都能跑**：新版 **Publishable key**（`sb_publishable_...`，推荐）／旧版 **anon public key**（`eyJ...`，2026 年底弃用）
+- ⚠️ **绝对不要用 Secret key / service_role key**：它会绕过全部 RLS，等于把整个数据库交给外人
+- 账号体系是自建的昵称+密码，**不走 Supabase Auth**，所以不需要邮箱/手机号
 
 ---
 
 ## 🔐 账号体系
 
-自建，不依赖 CloudBase Auth（CloudBase Auth 强制要邮箱/手机号）：
+自建，不依赖任何第三方 Auth（Supabase Auth / CloudBase Auth 都强制要邮箱或手机号）：
 
 1. **注册**：`uid = 昵称归一化（小写、去空格）`，密码用 `SHA-256(随机盐 + 密码)` 存
 2. **登录**：查 users 表，比对 hash；如果 `disabled = true` 则拒（提示「该账号已被停用」）
@@ -235,7 +233,8 @@ pnpm install
 
 # 2. 配置环境变量
 cp .env.example .env
-# 填入 VITE_TCB_ENV_ID 和 VITE_TCB_PUBLISHABLE_KEY
+# 填入 VITE_SUPABASE_URL 和 VITE_SUPABASE_ANON_KEY
+# 取值：Supabase 控制台 → Settings → API → Project URL / anon public key
 
 # 3. 启动开发服务器
 pnpm dev          # → http://localhost:5173
@@ -251,29 +250,49 @@ pnpm build
 
 ---
 
-## ☁️ 部署到 CloudBase
+## 🌐 部署
+
+> **数据库在 Supabase，前端托管在 Netlify，两者互不干涉**：
+> 前端产物部署到 Netlify，运行时浏览器直连 Supabase 的 Data API。
+> 换托管平台不用改一行代码，只要有地方托管 `dist/` 并配好 SPA 回退就行。
 
 ### 前置
 
-1. 腾讯云账号 + CloudBase 环境（创建环境时**选 PostgreSQL 模式**，不是默认的文档数据库）
-2. 在 CloudBase 控制台 → 静态网站托管 → **开通**（必须手动点一次，CLI 无法开通）
-3. 在控制台 → PostgreSQL → SQL 窗口跑建表 SQL + RLS SQL（见上面「RLS」一节）
-4. 跑上面「增量 SQL」一节的两组 ALTER（老库用；新库可以一次性建好带列的表）
-5. 用 **Publishable Key**（不是 API Key），在 **环境 → 安全配置 → 客户端密钥** 里复制
+1. **Supabase**（数据库）：创建项目 → SQL Editor 执行 `supabase/schema.sql` → 把 **Project URL** 和 **anon public key** 填进 `.env`
+   - 顺带确认 Settings → API → **Exposed schemas 里包含 `public`**（默认包含，没有的话所有请求会 404）
+2. 数据不想重来？App 首次打开时，如果 `dishes` / `ingredients` 是空表，会自动把内置的 57 道菜 + 83 种食材写进去
 
-### 一键部署
+### 方式一：Netlify（推荐）
+
+项目里已带 `netlify.toml`，三件事都配好了：
+
+| 配置 | 作用 |
+| --- | --- |
+| `command = "pnpm build"` / `publish = "dist"` | 检测到 `pnpm-lock.yaml` 会自动用 pnpm 构建 |
+| `/* → /index.html` (200) | **SPA 回退**，解决访问 `/weekly` 或刷新页面 404 |
+| `sw.js` 禁缓存 | 避免 PWA 让用户卡在旧版本 |
+
+**A. 连仓库自动部署（推荐，最省事）**
+
+Netlify → **Add new site → Import an existing project** → 选这个 Git 仓库 → 直接 Deploy。
+以后 `git push` 就自动发版，不用手动跑命令。
+
+> ⚠️ **环境变量必须在 Netlify 里再配一次**：
+> Site configuration → **Environment variables** → 添加
+> `VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`
+> （取值和本地 `.env` 一样。**Vite 的变量在 build 时就被内联进 bundle**，没有这步网站能打开但连不上库，数据全空）
+> 加完/改完环境变量后要 **Clear cache and deploy site**，否则不生效。
+
+**B. 命令行手动部署**
 
 ```bash
-# 1) 装 CLI
-npm i -g @cloudbase/cli
-tcb login                                  # 浏览器扫码
-
-# 2) 部署
-pnpm build
-tcb hosting deploy dist -e <你的ENV_ID>
+pnpm push:netlify          # = pnpm build + npx netlify-cli deploy --prod --dir=dist
 ```
 
-部署完默认域名：`https://<env-id>-<appid>.tcloudbaseapp.com`
+首次会提示登录授权；之后每次都是这条命令。不走构建、只传已编好的包就用这个。
+
+> 历史遗留：腾讯云静态托管也能用（`pnpm push`），但那个环境目前有 bug——
+> 所有响应都带 `Content-Disposition: attachment`，访问站点会变成下载页。已弃用。
 
 ### 🔄 日常更新：改完代码怎么同步到云端
 
@@ -283,35 +302,43 @@ tcb hosting deploy dist -e <你的ENV_ID>
 
 #### 情况一：纯代码改动（加功能 / 修 bug，不动数据库）
 
+**连了 Netlify 仓库**：直接 `git push`，Netlify 自动构建发版，什么都不用跑。
+
+**手动命令行**：
+
 ```bash
-pnpm deploy
+pnpm push:netlify
 ```
 
 它等价于两条命令连跑（已写进 `package.json` 的 scripts）：
 
 ```bash
 pnpm build                                                        # 1) 本地构建出最新 dist/
-tcb hosting deploy dist -e cook-prod-d6g9njw6g0dadf473            # 2) 上传 dist/ 到静态托管（覆盖旧版）
+npx netlify-cli deploy --prod --dir=dist                          # 2) 上传到 Netlify（覆盖旧版）
 ```
+
+> ⚠️ 脚本名**不能叫 `deploy`**：`deploy` 是 pnpm 自带的内置命令（用于部署 workspace 子包），
+> 直接 `pnpm deploy` 会触发它并报 `ERR_PNPM_CANNOT_DEPLOY`，脚本根本不会执行。
+> 已改名为 `push`（避开内置命令冲突），想保留原名也可以用 `pnpm run deploy` 显式调用脚本。
 
 注意点：
 
 - **每次都要重新 build**：部署的是 `dist/` 里的产物，不是源码。改了 `src/` 不 build 就 deploy，传上去的还是旧包
 - **新增了 `public/` 下的静态文件**（比如菜品封面图）：build 会自动拷进 `dist/`，一起被 deploy 上去，无需单独处理
-- **部署完浏览器强刷**：`Cmd + Shift + R`，否则可能命中 CDN/浏览器缓存看到旧页面
-- **前提**：本机已装 CLI 并登录过（`npm i -g @cloudbase/cli` + `tcb login`，只需一次）
-- 也可以不用命令行：控制台 → 静态网站托管 → 上传文件，把本地 `dist/` 整个目录拖进去（注意 `dishes` 等子目录要一起传）
+- **部署完浏览器强刷**：`Cmd + Shift + R`，否则可能命中 CDN/浏览器缓存看到旧页面（项目装了 PWA，`sw.js` 已配禁缓存，但保险起见还是强刷一次）
+- 也可以完全不用命令行：Netlify 控制台 → Deploys → 把本地 `dist/` 整个目录**拖进去**即可（首次个人使用够用，但不会有 SPA 回退，刷新子路由会 404，仅建议临时验证）
 
 #### 情况二：涉及数据库结构改动（新增列 / 新建表）
 
-PostgREST **不支持 DDL**，前端代码改不了表结构，必须**先**在 CloudBase 控制台手工执行 SQL：
+前端代码改不了表结构，必须**先**在 Supabase 的 SQL Editor 手工执行：
 
 ```bash
 # 顺序：先改库 → 再发代码
-1. 控制台 → PostgreSQL → SQL 窗口 → 执行 ALTER TABLE / CREATE TABLE（参考「增量 SQL」一节）
-2. 执行 NOTIFY pgrst, 'reload schema';        -- 让 PostgREST 刷新表结构缓存
-3. pnpm deploy                                  # 再构建 + 上传前端
+1. Supabase 控制台 → SQL Editor → 执行 ALTER TABLE / CREATE TABLE
+2. pnpm push                                    # 再构建 + 上传前端
 ```
+
+> Supabase 改完 DDL 会自动刷新 PostgREST 的 schema 缓存，不像 CloudBase 还要手动 `NOTIFY pgrst, 'reload schema';`。
 
 > 顺序建议**先库后码**：本项目对部分新列做了「探测式降级」（如 `cover_image`、`users.avatar` 列不存在时写入自动跳过），
 > 就算顺序反了也不会崩，但功能要等列建好 + 重新部署后才真正可用。
@@ -324,12 +351,37 @@ PostgREST **不支持 DDL**，前端代码改不了表结构，必须**先**在 
 | --------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------- |
 | 静态托管没在控制台开通                  | 部署"成功"但什么也访问不到                      | 控制台手动点「开通」                                            |
 | `VITE_TCB_ENV_ID` 没注入                | 页面打开白屏                                    | `.env` 填了之后**重新 `pnpm build`**                            |
-| RLS 没放行 anon                         | 注册/登录报 `permission denied for table users` | 跑上面 RLS SQL                                                  |
+| RLS 开了但没建 policy                   | 页面数据是空的但不报错                          | 跑 `supabase/schema.sql` 末尾 policy 那段                       |
+| key 填成了 Secret / service_role        | 一切正常但数据库裸奔（绕过 RLS）                | 前端只能用 Publishable / anon public key                        |
+| 新版 `sb_publishable_` key 报 JWT 无效  | `Invalid JWT` / 401                             | 非 JWT 的 key 只能走 `apikey` 头（代码已自动处理）              |
+| Supabase 单次返回上限                   | 表超过 1000 行时后面读不到                      | 日志类大表用 `limit` + 分页，别一次性全拉                       |
+| 免费项目 7 天无活动                     | 项目被自动暂停，API 全部不可用                  | 控制台点 Restore；长期用建议定期访问或升 Pro                    |
+| Exposed schemas 不含 `public`           | 所有请求 404                                    | Settings → API → 把 `public` 加进 Exposed schemas               |
 | SPA 刷新 404                            | F5 报 404                                       | 控制台 → 静态托管 → 设置 → 错误页面 → 404 用 `/index.html` 兜底 |
 | PostgREST 0 行返回 406                  | `pgSelectOne` 改成 `pgSelect`（数组）           | 已修                                                            |
 | 默认域名访问偶尔 418                    | 边缘节点风控，**用无痕窗口**打开                | 不要带 `?v=xxx` 查询参数                                        |
 | 静态页面 `VM169:1 cls is not defined`   | CloudBase CDN 注入的引导脚本                    | 配 404 → index.html 兜底后自动消失                              |
 | `cover_image` / `users.avatar` 列不存在 | PostgREST 报 42703                              | 跑增量 SQL 里的 `ALTER TABLE`                                   |
+| 全站响应带 `Content-Disposition: attachment` | 站点变成「下载页面」（地址栏出现 `download.html`） | 见下面「站点被当成下载」一节                                  |
+
+### 😱 站点被当成下载（响应头 `Content-Disposition: attachment`）
+
+症状：访问站点不显示页面，而是弹下载 / 跳到 `download.html`。自检：
+
+```bash
+curl -sI https://<你的域名>/ | grep -i content-disposition
+# 输出 content-disposition: attachment 就是它
+```
+
+原因：静态托管（底层存储）给**所有对象**统一加了 `attachment` 响应头，浏览器就把 `index.html`
+当附件下载而不是渲染。这是**环境/存储层面**的行为，**重新部署、重传文件都修不掉**（实测重传后头依然在）。
+
+解法（按优先级）：
+
+1. 控制台 → 静态网站托管 → **设置** → 找「HTTP 响应头 / 自定义响应头」，把 `Content-Disposition` 覆盖成 `inline`（或删掉该头）
+2. 绑定**自定义域名 + 开启 CDN**，在 CDN 控制台「响应头配置」里删除 / 覆盖该头（默认域名一般管不到）
+3. 都不行 → 提腾讯云工单，让后台清掉该存储桶默认的 `Content-Disposition`
+4. 兜底：新建 CloudBase 环境（PG 模式）→ 建表 + RLS → 改 `.env` 的 `VITE_TCB_ENV_ID` → 重新 `pnpm push` → 迁移数据
 
 ---
 

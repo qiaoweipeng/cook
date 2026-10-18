@@ -1,8 +1,10 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  /** 腾讯云开发（CloudBase）环境 ID；留空则跑纯前端模式 */
-  readonly VITE_TCB_ENV_ID?: string;
+  /** Supabase 项目地址，形如 https://xxxxx.supabase.co；留空则跑纯本地模式 */
+  readonly VITE_SUPABASE_URL?: string;
+  /** Supabase 的 anon key（前端可公开，配合表级 RLS 使用） */
+  readonly VITE_SUPABASE_ANON_KEY?: string;
 }
 
 interface ImportMeta {
