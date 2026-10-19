@@ -8,6 +8,7 @@ import { useAuthStore } from './useAuthStore';
 import { useDishStore } from './useDishStore';
 import { canEditFamilyMenu, logMenuAudit, useFamilyStore } from './useFamilyStore';
 import { logOp } from '@/lib/opLog';
+import { sendPush } from '@/lib/push';
 
 interface WeeklyState {
   /** 个人菜单 */
@@ -96,6 +97,7 @@ export const useWeeklyStore = create<WeeklyState>()(
         if (isFamily) {
           await logMenuAudit(key, 'add', day, dishNameOf(dishId));
           logOp('家庭菜单·添加菜品', day, dishNameOf(dishId));
+          scheduleFamilyMenuPush(key, day);
         } else {
           logOp('个人菜单·添加菜品', day, dishNameOf(dishId));
         }
@@ -113,6 +115,7 @@ export const useWeeklyStore = create<WeeklyState>()(
         if (isFamily) {
           await logMenuAudit(key, 'remove', day, dishNameOf(dishId));
           logOp('家庭菜单·移除菜品', day, dishNameOf(dishId));
+          scheduleFamilyMenuPush(key, day);
         } else {
           logOp('个人菜单·移除菜品', day, dishNameOf(dishId));
         }
@@ -131,6 +134,7 @@ export const useWeeklyStore = create<WeeklyState>()(
         if (isFamily) {
           await logMenuAudit(key, 'clear', day, `共 ${count} 道菜`);
           logOp('家庭菜单·清空', day, `共 ${count} 道菜`);
+          scheduleFamilyMenuPush(key, day);
         } else {
           logOp('个人菜单·清空', day, `共 ${count} 道菜`);
         }
@@ -149,3 +153,60 @@ export const useWeeklyStore = create<WeeklyState>()(
     }
   )
 );
+
+/*
+  家庭菜单被改动后通知家里其他人 —— 自己改的不推给自己。
+
+  加菜、删菜、清空都算"改一次"，但不该改一次推一条：排一周菜单往往是一口气
+  加好几道、又删两道，逐条推就成了骚扰。所以做成**安静 3 分钟才推**——
+  3 分钟内不管再改多少次都只是重置计时，停手满 3 分钟才发，而且只发一条，
+  内容是那一刻菜单里剩下的菜名，收的人看到的是最终状态而不是中间过程。
+
+  另外给了一个 10 分钟的上限：纯防抖在"一直有操作"的场景下会被无限推迟、
+  永远发不出去（改半小时就半小时没通知），所以攒到 10 分钟就不再等了。
+*/
+const MENU_PUSH_IDLE = 3 * 60 * 1000; // 停手多久算改完了
+const MENU_PUSH_MAX_WAIT = 10 * 60 * 1000; // 一直没停手的话，最多攒多久
+
+let menuPushTimer: ReturnType<typeof setTimeout> | null = null;
+let menuPushDays = new Set<string>();
+let menuPushSince = 0;
+
+function scheduleFamilyMenuPush(familyId: string, day: string): void {
+  const now = Date.now();
+  if (!menuPushSince) menuPushSince = now;
+  menuPushDays.add(day);
+
+  if (menuPushTimer) clearTimeout(menuPushTimer);
+  const delay = Math.max(
+    0,
+    Math.min(MENU_PUSH_IDLE, MENU_PUSH_MAX_WAIT - (now - menuPushSince))
+  );
+
+  menuPushTimer = setTimeout(() => {
+    menuPushTimer = null;
+    const days = [...menuPushDays];
+    const target = familyId;
+    menuPushDays = new Set();
+    menuPushSince = 0;
+
+    void (async () => {
+      try {
+        const plans = useWeeklyStore.getState().familyPlans;
+        const names = new Set<string>();
+        for (const d of days) {
+          for (const id of plans[d] ?? []) names.add(dishNameOf(id));
+        }
+        await sendPush({
+          familyId: target,
+          excludeUid: useAuthStore.getState().user?.uid,
+          title: '今日菜单已更新',
+          body: [...names].join('、') || '已清空',
+          url: '/menu-plan',
+        });
+      } catch {
+        // 推送只是顺带的事，失败了不能把菜单改动本身搞崩
+      }
+    })();
+  }, delay);
+}
