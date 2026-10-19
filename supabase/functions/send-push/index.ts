@@ -178,15 +178,26 @@ async function encrypt(payload: string, p256dh: string, auth: string) {
     await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, aesKey, plaintext)
   );
 
-  // aes128gcm 的 body 布局：salt(16) | rs(4) | idlen(1) | keyid | ciphertext
-  // rs 直接取密文长度，正好一个 record，解密方不会按 rs 切出问题
-  const body = new Uint8Array(16 + 4 + 1 + ciphertext.length);
-  body.set(salt, 0);
-  new DataView(body.buffer).setUint32(16, ciphertext.length, false); // 大端
-  body[20] = 0; // idlen = 0，不用 keyid
-  body.set(ciphertext, 21);
+  /*
+    aes128gcm 的 body 布局：salt(16) | rs(4) | idlen(1) | keyid | ciphertext
 
-  return { body, dhPublic: bytesToB64url(asPublic) };
+    ⚠️ rs 必须用规范推荐的 4096，不能图省事写成 ciphertext.length。
+    那样 rs 会跟着 payload 长度浮动，Safari 解不开就**静默丢弃整条推送** ——
+    服务端看到 201、手机端毫无反应，而且连个报错都没有，极难排查。
+    （这个坑是拿 web-push 库生成的结果逐项比对才定位到的）
+
+    临时公钥放进 keyid（65 字节），跟 web-push 库的做法一致，
+    这样就不用再依赖 Crypto-Key: dh= 头。
+  */
+  const RS = 4096;
+  const body = new Uint8Array(16 + 4 + 1 + asPublic.length + ciphertext.length);
+  body.set(salt, 0);
+  new DataView(body.buffer).setUint32(16, RS, false); // 大端
+  body[20] = asPublic.length; // idlen = 65
+  body.set(asPublic, 21);
+  body.set(ciphertext, 21 + asPublic.length);
+
+  return { body };
 }
 
 // ---------------------------------------------------------------------------
@@ -269,8 +280,9 @@ Deno.serve(async (req: Request) => {
     await Promise.all(
       subs.map(async (s) => {
         try {
-          const { body, dhPublic } = await encrypt(payload, s.p256dh, s.auth);
-          const headers = await vapidHeaders(s.endpoint, ttl, dhPublic);
+          // 公钥已经放在 body 的 keyid 里，不用再走 Crypto-Key 头
+          const { body } = await encrypt(payload, s.p256dh, s.auth);
+          const headers = await vapidHeaders(s.endpoint, ttl);
           const res = await fetch(s.endpoint, {
             method: 'POST',
             headers: {
