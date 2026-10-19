@@ -33,6 +33,8 @@ import {
   ClockCircleOutlined,
   LeftOutlined,
   RightOutlined,
+  FileTextOutlined,
+  WalletOutlined,
 } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import { Link } from 'react-router-dom';
@@ -164,9 +166,8 @@ export default function MenuPlan() {
   const [monthAnchor, setMonthAnchor] = useState<Dayjs>(() => startOfMonth(todayDate));
   const days = useMemo<Dayjs[]>(() => getWeekDays(weekAnchor), [weekAnchor]);
   const monthGrid = useMemo<Dayjs[]>(() => getMonthGrid(monthAnchor), [monthAnchor]);
-  // 今日卡里的统计始终按「今天所在的周/月」算，不跟着翻页变
+  // 只用来判断「当前翻到的这一周是不是本周」
   const todayWeekDays = useMemo<Dayjs[]>(() => getWeekDays(todayDate), [todayDate]);
-  const todayMonthGrid = useMemo<Dayjs[]>(() => getMonthGrid(todayDate), [todayDate]);
 
   const isThisWeek = dayKey(days[0]) === dayKey(todayWeekDays[0]);
   const isThisMonth = isSameMonth(monthAnchor, todayDate);
@@ -192,18 +193,13 @@ export default function MenuPlan() {
 
   const selectedDate = dayjs(selectedDay);
   const selectedDishes = dishesOf(selectedDay);
-  const selectedCost = selectedDishes.reduce((sum, d) => sum + calcDishCost(d, ingredients), 0);
-  const selectedMinutes = selectedDishes.reduce((sum, d) => sum + (d.cookTimeMin ?? 0), 0);
   const selectedIsToday = selectedDay === todayKey;
 
-  // 今日视图的三组统计
+  // 今日视图的三组统计：今天几道菜 / 预估花费 / 预计耗时（参考稿的概览卡用）
   const todayDishes = dishesOf(todayKey);
   const todayCost = todayDishes.reduce((sum, d) => sum + calcDishCost(d, ingredients), 0);
-  /** 今日卡里显示的「本周 N 道」：始终按今天所在的那一周 */
-  const thisWeekDishCount = todayWeekDays.reduce((sum, d) => sum + dishesOf(dayKey(d)).length, 0);
-  const thisMonthDaysWithPlan = todayMonthGrid.filter(
-    (d) => isSameMonth(d, todayDate) && dishesOf(dayKey(d)).length > 0
-  ).length;
+  const todayMinutes = todayDishes.reduce((sum, d) => sum + (d.cookTimeMin ?? 0), 0);
+
   /** 周/月视图标题里的统计：跟着当前翻到的那一页 */
   const viewDishCount = days.reduce((sum, d) => sum + dishesOf(dayKey(d)).length, 0);
   const viewDaysWithPlan = monthGrid.filter(
@@ -270,21 +266,25 @@ export default function MenuPlan() {
       });
   }, [dishes, plans, selectedDay, keyword]);
 
-  /** 标题下面的说明，跟着视图变 */
-  const subtitle = (() => {
-    if (familyMode) {
-      return familyReadOnly
-        ? `「${family?.adminName}的家庭」共享菜单 · 你只有查看权限，修改请联系管理员`
-        : `「${family?.adminName}的家庭」共享菜单 · 家人看到并编辑的是同一份`;
-    }
-    if (view === 'week') {
-      return `${formatMonthDay(days[0])} ~ ${formatMonthDay(days[6])} · 这一周已安排 ${viewDishCount} 道菜`;
-    }
-    if (view === 'month') {
-      return `${monthAnchor.format('YYYY年M月')} · ${viewDaysWithPlan} 天有安排 · 点任意一天查看或修改`;
-    }
-    return `${todayDate.format('YYYY年M月D日')} · ${weekdayLabel(todayDate)}`;
-  })();
+  /**
+   * 标题下面那行日期。
+   * 全页的日期只在这里报一次 —— 原来标题下面、今日概览卡、菜品列表标题三处都在写「10月19日」，
+   * 手机一屏里能同时看到三个，纯属重复。
+   * 周/月视图这里给范围，具体选中的那天交给下面的列表标题交代。
+   */
+  const dateLine =
+    view === 'week'
+      ? `${formatMonthDay(days[0])} ~ ${formatMonthDay(days[6])}`
+      : view === 'month'
+        ? monthAnchor.format('YYYY年M月')
+        : `${formatMonthDay(selectedDate)} · ${weekdayLabel(selectedDate)}`;
+
+  /** 家庭模式的说明，只在开着共享菜单时出现 */
+  const familyHint = familyMode
+    ? familyReadOnly
+      ? `「${family?.adminName}的家庭」共享菜单 · 仅查看`
+      : `「${family?.adminName}的家庭」共享菜单`
+    : '';
 
   /** 周视图 / 月视图顶部那条：← 范围 → + 回到本周/本月 */
   const rangeBar = (() => {
@@ -359,7 +359,15 @@ export default function MenuPlan() {
     return null;
   })();
 
-  // —— 三视图共用的下半部分：选中那天的详情 + 菜品列表 ——
+  // —— 三视图共用的下半部分：列表标题行 + 菜品列表 ——
+  /*
+    列表标题：
+    今日视图写「今日菜品」（上面那行已经报过今天了，这里不要再报一遍日期）；
+    周/月视图写具体那一天，因为上面显示的是整个范围。
+  */
+  const listTitle =
+    view === 'day' ? '今日菜品' : `${formatMonthDay(selectedDate)} · ${weekdayLabel(selectedDate)}`;
+
   const dayDetail = (
     <>
       <div
@@ -367,43 +375,31 @@ export default function MenuPlan() {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          flexWrap: 'wrap',
           gap: 12,
-          marginBottom: 16,
+          margin: '4px 0 12px',
         }}
       >
-        <div>
-          <Text style={{ fontSize: 17, fontWeight: 600, color: '#2D2A26' }}>
-            {formatMonthDay(selectedDate)} · {weekdayLabel(selectedDate)}
-            {selectedIsToday && '（今天）'}
-          </Text>
-          <span style={{ color: '#888', fontSize: 13, marginLeft: 12 }}>
-            {selectedDishes.length} 道菜 · 预估 <PriceTag value={selectedCost} size="small" />
-            {selectedMinutes > 0 && ` · 约 ${selectedMinutes} 分钟`}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
+          <Text style={{ fontSize: 16, fontWeight: 600, color: '#2D2A26' }}>{listTitle}</Text>
+          <span style={{ color: '#8C7C6C', fontSize: 12, whiteSpace: 'nowrap' }}>
+            共 {selectedDishes.length} 道
           </span>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {(!selectedIsToday || view !== 'day') && (
-            <Button size="small" onClick={backToToday}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          {!selectedIsToday && (
+            <Button size="small" type="link" onClick={backToToday} style={{ padding: 0 }}>
               回到今天
             </Button>
           )}
           {!familyReadOnly && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddOpen(true)}>
-              添加菜品
-            </Button>
-          )}
-          {!familyReadOnly && selectedDishes.length > 0 && (
-            <Popconfirm
-              title={`清空 ${formatMonthDay(selectedDate)} 的菜单？`}
-              okText="清空"
-              cancelText="取消"
-              onConfirm={handleClear}
+            <Button
+              size="small"
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setAddOpen(true)}
             >
-              <Button danger icon={<DeleteOutlined />}>
-                清空
-              </Button>
-            </Popconfirm>
+              添加
+            </Button>
           )}
         </div>
       </div>
@@ -414,24 +410,24 @@ export default function MenuPlan() {
             familyReadOnly
               ? '这一天还没安排（你只有查看权限）'
               : selectedIsToday
-                ? '今天还没想好吃什么，点「添加菜品」安排上'
-                : '这一天还没安排，点「添加菜品」加两道'
+                ? '今天还没想好吃什么，点「添加」安排上'
+                : '这一天还没安排，点「添加」加两道'
           }
-          style={{ marginTop: 40 }}
+          style={{ marginTop: 32 }}
         />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {selectedDishes.map((dish) => (
             <div
               key={dish.id}
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 14,
+                gap: 12,
                 background: '#fff',
                 border: '1px solid #f0ebe4',
-                borderRadius: 14,
-                padding: '12px 16px',
+                borderRadius: 16,
+                padding: 12,
               }}
             >
               <div
@@ -468,11 +464,11 @@ export default function MenuPlan() {
                 >
                   {dish.name}
                 </Link>
-                <div style={{ color: '#999', fontSize: 12, marginTop: 4 }}>
+                <div style={{ color: '#8C7C6C', fontSize: 12, marginTop: 4 }}>
                   {dish.category} · {dish.cookTimeMin} 分钟 · 难度 {dish.difficulty}/3
                 </div>
               </div>
-              <PriceTag value={calcDishCost(dish, ingredients)} suffix="/份" size="small" />
+              <PriceTag value={calcDishCost(dish, ingredients)} size="small" />
               {!familyReadOnly && (
                 <Button
                   type="text"
@@ -485,41 +481,75 @@ export default function MenuPlan() {
           ))}
         </div>
       )}
+
+      {/* 清空整天的入口挪到列表底部，标题那一行只留「共 N 道 + 添加」 */}
+      {!familyReadOnly && selectedDishes.length > 0 && (
+        <Popconfirm
+          title={`清空 ${formatMonthDay(selectedDate)} 的菜单？`}
+          okText="清空"
+          cancelText="取消"
+          onConfirm={handleClear}
+        >
+          <Button type="text" danger size="small" style={{ marginTop: 8 }}>
+            清空这一天
+          </Button>
+        </Popconfirm>
+      )}
     </>
   );
 
   return (
     <div>
-      {/* 标题 + 视图切换 + 个人/家庭切换 */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <Text style={{ fontSize: 22, fontWeight: 700, color: '#2D2A26' }}>今日菜单</Text>
-          <Tooltip
-            title={
-              family
-                ? familyMode
-                  ? `正在查看「${family.adminName}的家庭」共享菜单，点一下切回个人菜单`
-                  : `切到「${family.adminName}的家庭」共享菜单（和家人看到同一份）`
-                : '先在右上角头像菜单「我的家庭」里创建或加入家庭'
-            }
-          >
-            <Switch
-              checked={familyMode}
-              disabled={!family}
-              checkedChildren="我的家庭"
-              unCheckedChildren="个人"
-              onChange={(v) => setMode(v ? 'family' : 'personal')}
-            />
-          </Tooltip>
-          {familyReadOnly && <Tag>仅查看</Tag>}
-          {familyMode && (
-            <Button size="small" onClick={() => setHistoryOpen(true)}>
-              历史记录
-            </Button>
-          )}
+      {/*
+        顶部：标题 + 日期（日期的全页唯一一处）+ 个人/家庭切换，下面接三段视图切换。
+        今日视图接下来还会渲染一张「今日概览」卡（白底、三列统计），但它**不**再写日期。
+        周/月视图切换到别的视图后那张卡自动消失。
+      */}
+      <div style={{ marginBottom: 18 }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            gap: 12,
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <Text style={{ fontSize: 24, fontWeight: 700, color: '#2A2119' }}>今日菜单</Text>
+            <div style={{ color: '#8C7C6C', marginTop: 4, fontSize: 13 }}>
+              {dateLine}
+              {familyHint && ` · ${familyHint}`}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            {familyReadOnly && <Tag>仅查看</Tag>}
+            {familyMode && (
+              <Button size="small" onClick={() => setHistoryOpen(true)}>
+                历史记录
+              </Button>
+            )}
+            <Tooltip
+              title={
+                family
+                  ? familyMode
+                    ? `正在查看「${family.adminName}的家庭」共享菜单，点一下切回个人菜单`
+                    : `切到「${family.adminName}的家庭」共享菜单（和家人看到同一份）`
+                  : '先在右上角头像菜单「我的家庭」里创建或加入家庭'
+              }
+            >
+              <Switch
+                checked={familyMode}
+                disabled={!family}
+                checkedChildren="家庭"
+                unCheckedChildren="个人"
+                onChange={(v) => setMode(v ? 'family' : 'personal')}
+              />
+            </Tooltip>
+          </div>
         </div>
 
-        <div style={{ marginTop: 12 }}>
+        <div style={{ marginTop: 14 }}>
           <Segmented
             value={view}
             onChange={(v) => switchView(v as ViewMode)}
@@ -531,61 +561,125 @@ export default function MenuPlan() {
             ]}
           />
         </div>
-
-        <div style={{ color: '#888', marginTop: 8, fontSize: 13 }}>{subtitle}</div>
       </div>
 
-      {/* —— 今日视图：今天的日期信息 —— */}
+      {/*
+        —— 今日视图：今日概览卡（参考稿样式：白底圆角 + 三列统计 + 中间竖分隔线）——
+        放回这三个统计（今天几道菜 / 预估花费 / 预计耗时）——
+        参考稿就是这样的：顶部一个汇总卡，下接菜品列表，不是冗余。
+        这里**不**再写日期，全页日期只在标题下面那行报一次。
+      */}
       {view === 'day' && (
         <div
           style={{
-            background: '#FFF6EC',
-            border: '1px solid #F3C9AF',
-            borderRadius: 16,
-            padding: isMobile ? '14px 16px' : '18px 22px',
-            marginBottom: 20,
+            background: '#fff',
+            borderRadius: 20,
+            padding: 16,
+            marginBottom: 16,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 16,
-            flexWrap: 'wrap',
+            gap: 12,
+            boxShadow: '0 2px 12px rgba(120, 102, 84, 0.06)',
           }}
         >
-          <div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-              <span style={{ fontSize: isMobile ? 26 : 32, fontWeight: 700, color: '#E8743C' }}>
-                {todayDate.format('M月D日')}
-              </span>
-              <span style={{ fontSize: 15, fontWeight: 600, color: '#2D2A26' }}>
-                {weekdayLabel(todayDate)}
-              </span>
+          {/* 列 1：今日菜品（参考稿图标底色 #FBEDE3） */}
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 13,
+                background: '#FBEDE3',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#E8743C',
+                fontSize: 18,
+              }}
+            >
+              <FileTextOutlined />
             </div>
-            <div style={{ color: '#999', fontSize: 13, marginTop: 4 }}>
-              {todayDate.format('YYYY年')} · 本周已安排 {thisWeekDishCount} 道菜 · 本月{' '}
-              {thisMonthDaysWithPlan} 天有安排
+            <div style={{ fontSize: 19, fontWeight: 700, color: '#2A2119' }}>
+              {todayDishes.length} 道
             </div>
+            <div style={{ fontSize: 12, color: '#8C7C6C' }}>今日菜品</div>
           </div>
 
-          <div style={{ display: 'flex', gap: isMobile ? 16 : 28 }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: isMobile ? 20 : 24, fontWeight: 700, color: '#2D2A26' }}>
-                {todayDishes.length}
-              </div>
-              <div style={{ fontSize: 12, color: '#888' }}>今天几道菜</div>
+          {/* 分隔线 1 */}
+          <div style={{ width: 1, height: 40, background: '#F0EBE4' }} />
+
+          {/* 列 2：预估花费（参考稿图标底色 #FAF1E2） */}
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 13,
+                background: '#FAF1E2',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#C08A2E',
+                fontSize: 18,
+              }}
+            >
+              <WalletOutlined />
             </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: isMobile ? 20 : 24, fontWeight: 700, color: '#2D2A26' }}>
-                <PriceTag value={todayCost} size="small" />
-              </div>
-              <div style={{ fontSize: 12, color: '#888' }}>预估花费</div>
+            <div style={{ fontSize: 19, fontWeight: 700, color: '#2A2119' }}>
+              <PriceTag value={todayCost} size="small" />
             </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: isMobile ? 20 : 24, fontWeight: 700, color: '#2D2A26' }}>
-                {todayDishes.reduce((s, d) => s + (d.cookTimeMin ?? 0), 0)}
-                <span style={{ fontSize: 13, fontWeight: 500 }}> 分</span>
-              </div>
-              <div style={{ fontSize: 12, color: '#888' }}>预计耗时</div>
+            <div style={{ fontSize: 12, color: '#8C7C6C' }}>预估花费</div>
+          </div>
+
+          {/* 分隔线 2 */}
+          <div style={{ width: 1, height: 40, background: '#F0EBE4' }} />
+
+          {/* 列 3：预计耗时（参考稿图标底色 #EDF2E6） */}
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 13,
+                background: '#EDF2E6',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#6B8B5C',
+                fontSize: 18,
+              }}
+            >
+              <ClockCircleOutlined />
             </div>
+            <div style={{ fontSize: 19, fontWeight: 700, color: '#2A2119' }}>
+              {todayMinutes}
+              <span style={{ fontSize: 13, fontWeight: 500 }}> 分</span>
+            </div>
+            <div style={{ fontSize: 12, color: '#8C7C6C' }}>预计耗时</div>
           </div>
         </div>
       )}

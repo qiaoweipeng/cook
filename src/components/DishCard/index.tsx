@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Card, Tag, Space } from 'antd';
 import { Link } from 'react-router-dom';
 import type { Dish } from '@/types';
@@ -22,6 +23,15 @@ export default function DishCard({ dish, cost }: Props) {
   const isMobile = useIsMobile();
   const coverRadius = isMobile ? '12px 12px 0 0' : '16px 16px 0 0';
 
+  /*
+    封面加载状态。
+    之前封面是个灰底方块，图从网络/Base64 解码出来之前就那么空着，
+    列表一屏十几张，看着像一半没加载完。改成骨架屏：灰底 + 一道流光，
+    图解码完再淡入，进出都平滑。
+    没有封面图的（用首字占位）直接算加载完成，不走这套。
+  */
+  const [coverLoaded, setCoverLoaded] = useState(false);
+
   const placeholderStyle: React.CSSProperties = isMobile
     ? {
       width: '100%',
@@ -34,6 +44,8 @@ export default function DishCard({ dish, cost }: Props) {
       color: '#c8c4be',
       fontSize: 13,
       userSelect: 'none',
+      position: 'relative',
+      overflow: 'hidden',
     }
     : {
       height: COVER_HEIGHT,
@@ -45,6 +57,8 @@ export default function DishCard({ dish, cost }: Props) {
       color: '#c8c4be',
       fontSize: 13,
       userSelect: 'none',
+      position: 'relative',
+      overflow: 'hidden',
     };
 
   return (
@@ -56,13 +70,26 @@ export default function DishCard({ dish, cost }: Props) {
         cover={
           <div style={placeholderStyle}>
             {dish.coverImage ? (
-              <img
-                src={dish.coverImage}
-                alt={dish.name}
-                loading="lazy"
-                decoding="async"
-                style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: coverRadius }}
-              />
+              <>
+                {!coverLoaded && <span className="sk-cover" aria-hidden />}
+                <img
+                  src={dish.coverImage}
+                  alt={dish.name}
+                  loading="lazy"
+                  decoding="async"
+                  onLoad={() => setCoverLoaded(true)}
+                  // 图挂了也要把骨架屏收掉，否则位图一直流光
+                  onError={() => setCoverLoaded(true)}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    borderRadius: coverRadius,
+                    opacity: coverLoaded ? 1 : 0,
+                    transition: 'opacity 260ms ease',
+                  }}
+                />
+              </>
             ) : (
               <span>图片</span>
             )}

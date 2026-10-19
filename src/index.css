@@ -272,6 +272,27 @@ html {
 }
 
 /*
+  整站禁止选中文字。
+  这是个操作型工具（点菜、勾采购清单），不是阅读型页面：
+  手指在卡片上滑一下就会拖出蓝色选中区 + 「拷贝 / 查询」气泡，既碍事又像网页。
+  -webkit-touch-callout 一起关掉，长按不再弹系统菜单。
+  输入框必须放开，不然后面没法选词、没法拖光标。
+*/
+* {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+input,
+textarea,
+[contenteditable='true'] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/*
   iOS 的规矩：输入框字号 < 16px 时，聚焦会**自动把整个页面放大**，
   且缩放回不去（看起来像卡住了）。把触屏设备上的输入框统一提到 16px 就不会触发。
   antd / antd-mobile 的输入框默认 14px，这里一并覆盖。
@@ -281,5 +302,46 @@ html {
   textarea,
   select {
     font-size: 16px !important;
+  }
+}
+
+/*
+  菜品封面骨架屏（DishCard）。
+  盖在 <img> 上面的那块灰底 + 一道从左扫到右的白色流光；
+  图解码完由 JS 把它撤掉，<img> 自己从 opacity:0 淡入。
+  will-change 让 Safari 上这道扫光不掉帧。
+*/
+.sk-cover {
+  position: absolute;
+  inset: 0;
+  background: #f0eee9;
+  overflow: hidden;
+}
+
+.sk-cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.72) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: sk-shimmer 1.4s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes sk-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* 尊重系统「减弱动态效果」：不扫光，只留一块静态灰底 */
+@media (prefers-reduced-motion: reduce) {
+  .sk-cover::after {
+    animation: none;
   }
 }
