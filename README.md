@@ -106,6 +106,58 @@
 - **为什么用 antd-mobile**：它是为**触屏**设计的——组件按手指热区尺寸做的安全区/高度、`PullToRefresh`、`SwipeAction` 等手势类交互都现成，体积也远小于桌面组件；而不是把 PC 组件缩到小屏上（按钮会挤、点击区过小）。
 - 交互上采用**底部 TabBar 常驻**（首页 / 今日菜单 / 食材库 / 采购清单 / 个人，带徽标提示），搜索框与标签栏**吸顶**，单列卡片流式展示，减少层级跳转。
 
+### 📱 状态栏与吸顶栏一体化（iOS 已做 / Android 待做）
+
+**问题**：添加到主屏幕当 App 用之后，手机顶部那条系统状态栏（时间 / 运营商 / 电量）是**纯白底**的，
+和首页吸顶那条橙色渐变之间横着一道明显分界，一眼就能看出是「系统一条 + 网页一条」两截。
+
+**目标**：让吸顶的橙色渐变直接铺到状态栏底下，两者连成一片。
+
+#### iOS（已实现，改动在三处）
+
+| 位置 | 改了什么 | 作用 |
+| --- | --- | --- |
+| `index.html` | `apple-mobile-web-app-status-bar-style` → `black-translucent` | 状态栏背景变透明，网页从屏幕最顶端 `(0,0)` 开始绘制，状态栏浮在内容之上 |
+| `index.html` | viewport 带 `viewport-fit=cover`（原来就有） | 配合上一条，`env(safe-area-inset-top)` 才会等于状态栏高度 |
+| `src/components/AppLayout` | Content 的 `paddingTop: calc(16px + env(safe-area-inset-top))` | 给状态栏让出高度，否则各页面顶部会被它压住 |
+| `src/pages/Menu` | 吸顶栏 `marginTop: calc(-16px - env(safe-area-inset-top))` | 把上面让出来的高度抵消掉，让吸顶栏顶到 `(0,0)`，渐变顺势盖住状态栏 |
+
+吸顶栏内部仍保留 `padding: calc(10px + env(safe-area-inset-top)) 12px 10px`，
+所以搜索框、分类标签都还在状态栏下方，不会被压住。
+
+**要点与已知取舍**：
+
+- **只在「添加到主屏幕」的 standalone 模式生效**。用 Safari 打开时 `apple-mobile-web-app-status-bar-style` 会被忽略，状态栏仍然是白底 —— 那种形态下本来就有地址栏，谈不上突兀。
+- `black-translucent` 下 **iOS 会把状态栏文字强制改成白色**，这是我们改不了的。现在铺的是很淡的橙（`rgba(232,116,60,0.16)`），白字在上面对比度偏低；如果后面觉得看不清，只有一个办法：把状态栏那一条的橙加深（比如压到 `#D9622F` 一档），代价是和下面淡橙的吸顶栏之间会出现一道新的分界。
+- `env(safe-area-inset-top)` 在普通浏览器和 Android 上是 `0`，所以上面这些 calc 不会把 Android / PC 的布局撑变形。
+- 改完 **manifest / meta 后要重新 build 部署，并在手机上删掉旧的桌面图标重新添加**，否则 standalone 的旧配置还在。
+
+#### Android（没做，做法记录在这）
+
+Android 的状态栏颜色由 **`theme_color`** 控制，规则和 iOS 完全不同：
+
+- **只认纯色，不支持渐变**。写 `linear-gradient(...)` 进去会被直接忽略。
+- 取值建议 `#F7E2D5`（就是首页渐变左上角那一小块的实际合成色：品牌橙 16% 叠在米白 `#FAF7F2` 上）。
+  用它当状态栏底色，和吸顶栏最浓的那一端能对上，接缝不明显。
+
+要动的话是这两处，改完重新部署 + 重装 PWA：
+
+```html
+<!-- index.html -->
+<meta name="theme-color" content="#f7e2d5" />
+```
+
+```ts
+// vite.config.ts → VitePWA({ manifest: { ... } })
+manifest: {
+  theme_color: '#F7E2D5',   // 现在是 #ffffff
+  background_color: '#FAF7F2',
+}
+```
+
+> standalone 模式下 **manifest 的 `theme_color` 优先级高于 `<meta name="theme-color">`**，两个都要改，只改一个不生效。
+> 状态栏文字颜色 Android 是**按背景深浅自动适配**的（浅底 → 深色字），所以不用管对比度，这点比 iOS 省心。
+
 ---
 
 ## 🧩 已完成功能

@@ -271,6 +271,10 @@ export default function AppLayout() {
       <Content
         style={{
           padding: showMobileNav ? '16px 12px' : '24px 24px 48px',
+          // iOS PWA 下状态栏是透明的，内容从屏幕最顶端开始画，
+          // 这里给状态栏让出高度，否则各页面顶部会被它压住。
+          // env(safe-area-inset-top) 在 Android 和普通浏览器里是 0，所以不会影响那边的布局。
+          paddingTop: showMobileNav ? 'calc(16px + env(safe-area-inset-top))' : undefined,
           // 给底部导航留出空间（约 50px 导航 + 安全区）
           paddingBottom: showMobileNav ? 'calc(60px + env(safe-area-inset-bottom))' : undefined,
           maxWidth: showMobileNav ? '100%' : 1200,

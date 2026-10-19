@@ -112,7 +112,9 @@ export default function Login() {
         alignItems: 'center',
         justifyContent: 'center',
         background: 'linear-gradient(135deg, #FFF6EC 0%, #FFE5DC 100%)',
-        padding: 24,
+        // 顶部额外让出状态栏高度（iOS PWA 下是透明的，内容从 (0,0) 开始画）。
+        // 登录卡片是垂直居中的，内容多时才顶到上面，加上这行保证任何机型都压不住。
+        padding: 'calc(24px + env(safe-area-inset-top)) 24px 24px',
       }}
     >
       <Card

@@ -142,8 +142,14 @@ export default function Menu() {
               position: 'sticky',
               top: 0,
               zIndex: 20,
-              // 负外边距抵消内容区 16px 上内边距与 12px 左右内边距，让吸顶栏贴顶、横贯全屏
-              margin: '-16px -12px 12px',
+              // 负外边距抵消内容区的上下/左右内边距，让吸顶栏从屏幕最顶端开始、横贯全屏。
+              // 顶部连同 AppLayout 给状态栏留出的那部分一起抵消掉，
+              // 这样这层渐变是直接画到状态栏底下的，跟它连成一片。
+              // 栏内的 padding 仍然保留 env(safe-area-inset-top)，搜索框不会被状态栏压住。
+              marginTop: 'calc(-16px - env(safe-area-inset-top))',
+              marginLeft: -12,
+              marginRight: -12,
+              marginBottom: 12,
               padding: 'calc(10px + env(safe-area-inset-top)) 12px 10px',
               /*
                 从左上角（135deg）铺一层很淡的品牌橙渐变，右下角收干净，和下面的卡片列表自然衔接。

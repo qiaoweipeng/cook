@@ -10,9 +10,20 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#ffffff" />
+    <!--
+      Android：状态栏直接用这个色（#F7E2D5 = 首页渐变左上角的合成色，和页面顶部无缝）。
+      iOS：只要下面的 black-translucent 生效就用不上它，但 Safari 浏览器里仍会用到。
+    -->
+    <meta name="theme-color" content="#f7e2d5" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <!--
+      black-translucent：状态栏变成透明的，网页内容从屏幕最顶端（0,0）开始绘制，
+      状态栏浮在内容上面。这样屏幕上那一小条区域显示的就不是系统白块，
+      而是我们自己的渐变，和首页顶部连成一片。
+      代价是内容会上移，所以各页面要用 env(safe-area-inset-top) 避开（见 AppLayout 与各页面）。
+      注意只对「添加到主屏幕」后的 standalone 模式生效，用 Safari 打开时不生效。
+    -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="大厨房" />
     <link rel="apple-touch-icon" href="/icon/192*192.png" />
     <link rel="apple-touch-icon" sizes="192x192" href="/icon/192*192.png" />

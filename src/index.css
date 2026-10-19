@@ -230,6 +230,39 @@ html {
   touch-action: manipulation;
 }
 
+/*
+   iOS PWA 状态栏（显示电量、信号、时间的那一条）的衬底。
+
+   设了 black-translucent 之后状态栏是透明的，那一小块区域透出来的就是页面最顶部。
+   首页有吸顶栏自己盖住它（吸顶栏 z-index 20，在这层之上），
+   其他页面没有吸顶栏，这里统一铺一层，让每个页面的状态栏都是同一个颜色：
+   · 色值 #F7E2D5 是首页渐变左上角的实际合成色（0.16 透明度的橙叠在 #FAF7F2 上算出来的），
+     所以状态栏和首页顶部完全同色，看不出接缝
+   · 不能画在 body / html 的背景上：#root 自带不透明的米白底，会把它们整个盖住
+   · 也不能用 background-attachment: fixed：iOS Safari 对这个属性支持得很不稳，
+     这里老老实实用 position: fixed
+   · z-index 给 1，让首页吸顶栏（20）、弹窗（1000+）都还能压在它上面
+   · 只在 standalone 模式生效：用浏览器打开时状态栏归系统管，画这层是多余的
+*/
+@media (display-mode: standalone) {
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: calc(env(safe-area-inset-top) + 14px);
+    background: linear-gradient(
+      180deg,
+      #f7e2d5 0%,
+      rgba(247, 226, 213, 0.7) 55%,
+      rgba(247, 226, 213, 0) 100%
+    );
+    pointer-events: none;
+    z-index: 1;
+  }
+}
+
 /* 移动端点链接/按钮时，浏览器默认盖的那层半透明灰块很难看，去掉 */
 @media (pointer: coarse) {
   a,
