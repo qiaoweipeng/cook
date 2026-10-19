@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   Table,
   Button,
@@ -32,7 +32,7 @@ import {
   DeleteOutlined,
   PictureOutlined,
 } from '@ant-design/icons';
-import { pickImage, formatSize } from '@/lib/imageUpload';
+import { pickImage, formatSize, IMAGE_ACCEPT } from '@/lib/imageUpload';
 import { useIngredientStore } from '@/store/useIngredientStore';
 import { useIsAdmin } from '@/store/useAuthStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -100,6 +100,11 @@ export default function Ingredients() {
   const [selectedRowKey, setSelectedRowKey] = useState<string | undefined>(undefined);
   const [removing, setRemoving] = useState(false);
   const [imgProcessing, setImgProcessing] = useState(false);
+  /** 本次上传的结果：体积 + 走的是对象存储还是本地压缩，用于在编辑区常驻显示 */
+  const [imgInfo, setImgInfo] = useState<{ size: number; viaStorage: boolean } | null>(null);
+
+  // 每次开关编辑器都清掉上一次的大小信息（这次还没传图，不该显示上次的数字）
+  useEffect(() => setImgInfo(null), [editorOpen]);
 
   const currentImage = Form.useWatch('image', form);
 
@@ -109,16 +114,17 @@ export default function Ingredients() {
       // 压缩成 WebP → 上传对象存储 → 只把 URL 存库（失败时自动退回 Base64）
       const picked = await pickImage(file, 'ingredients');
       form.setFieldsValue({ image: picked.url });
-      if (picked.viaStorage) {
-        message.success(`图片已上传（${formatSize(picked.size)}）`);
-      } else {
+      // 体积存下来常驻显示，不再只靠弹窗（弹窗一闪而过，回头就查不到了）
+      setImgInfo({ size: picked.size, viaStorage: picked.viaStorage });
+      if (!picked.viaStorage) {
+        // 只有异常（对象存储没开通）才弹窗，正常上传不打扰
         message.warning(
-          `对象存储没开通，已退回压缩图（${formatSize(picked.size)}）。` +
-            '建议执行 supabase/storage.sql 建 bucket'
+          '对象存储没开通，已退回压缩图存本地。建议执行 supabase/storage.sql 建 bucket'
         );
       }
     } catch (e) {
-      message.error('图片处理失败：' + (e as Error).message);
+      // pickImage 抛出来的已经是可读文案（比如「不支持 GIF 动图…」），直接透传
+      message.error((e as Error).message || '图片处理失败');
     } finally {
       setImgProcessing(false);
     }
@@ -728,7 +734,7 @@ export default function Ingredients() {
             <Space direction="vertical" size={8} style={{ width: '100%' }}>
               <Space wrap>
                 <Upload
-                  accept="image/*"
+                  accept={IMAGE_ACCEPT}
                   showUploadList={false}
                   beforeUpload={(file) => {
                     void handlePickImage(file);
@@ -743,13 +749,23 @@ export default function Ingredients() {
                   <Button
                     danger
                     icon={<DeleteOutlined />}
-                    onClick={() => form.setFieldsValue({ image: '' })}
+                    onClick={() => {
+                      form.setFieldsValue({ image: '' });
+                      setImgInfo(null);
+                    }}
                   >
                     清除图片
                   </Button>
                 ) : (
                   <Text type="secondary" style={{ fontSize: 12 }}>
-                    自动压缩成 WebP 后上传到云端
+                    支持 JPG / PNG / WebP 静态图
+                  </Text>
+                )}
+                {/* 上传完把大小常驻在这里，不再只是弹窗一闪而过 */}
+                {imgInfo && (
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {formatSize(imgInfo.size)}
+                    {imgInfo.viaStorage ? ' · 已存云端' : ' · 压缩后存本地'}
                   </Text>
                 )}
               </Space>
