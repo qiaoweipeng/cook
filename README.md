@@ -706,6 +706,128 @@ curl -sI https://<你的域名>/ | grep -i content-disposition
 
 ---
 
+## 🔔 Web Push 推送（iOS 踩坑实录）
+
+菜单被改动时按 `familyId` 群发（跳过操作者自己）。服务端是 Supabase Edge Function
+`send-push`：VAPID 签名 + aes128gcm 加密，纯 WebCrypto 手写、不依赖 npm 包。
+
+### 启用条件
+
+| 条件 | 说明 |
+| --- | --- |
+| iOS **16.4+** | 更低版本不支持 Web Push |
+| **必须「添加到主屏幕」** | 要从桌面图标打开才能订阅，Safari 里直接访问会被拒 |
+| Netlify 配 `VITE_VAPID_PUBLIC_KEY` | 没配时「菜单通知」开关**不渲染**（`pushEnvReady()` 返回 false），不报错也不影响现有功能 |
+| Supabase 建 `push_subscriptions` 表 | SQL 见 `supabase/push.sql` |
+| 部署 Edge Function + 三个 Secrets | `VAPID_PRIVATE_KEY` / `VAPID_PUBLIC_KEY` / `VAPID_SUBJECT`（**不能用 `SUPABASE_` 前缀**，那是平台保留的） |
+
+> 改完环境变量记得 **Clear cache and deploy site** —— Vite 的变量是 build 时内联进 bundle 的。
+
+### 踩过的坑（按被坑程度排序）
+
+#### 1️⃣ 密钥派生必须照**早期草案**，不能照 RFC 8291
+
+这是最隐蔽的一个，卡得最久。Web Push 的加密 2017 年才定稿成 RFC 8291，
+但 **Safari / iOS 只认早期草案那套**（`web-push` 库底层的 `http_ece` 实现的就是它）。
+两套算法结果完全不同：
+
+| | ❌ RFC 8291（Safari 解不开） | ✅ 早期草案（Safari 只认这套） |
+| --- | --- | --- |
+| context 标签 | `"P-256\0"` + **2 字节长度前缀** | `"WebPush: info\0"` + **无长度前缀** |
+| HKDF 轮数 | 1 轮，salt = authSecret | **2 轮**，第二轮 salt 换成随机 salt |
+| Expand 的 info | `"…aes128gcm\0"` **+ context** | `"…aes128gcm\0"`，**不带 context** |
+
+```ts
+// ✅ 现在的实现（supabase/functions/send-push/index.ts）
+const authInfo = concat(enc.encode('WebPush: info\0'), uaPublic, asPublic);
+const intermediate = await crypto.subtle.deriveBits(
+  { name: 'HKDF', hash: 'SHA-256', salt: authSecret, info: authInfo }, ikmKey, 256);
+const prkKey = await crypto.subtle.importKey(
+  'raw', salt, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+const prk = new Uint8Array(await crypto.subtle.sign('HMAC', prkKey, intermediate));
+const cek = await hkdfExpand(prk, enc.encode('Content-Encoding: aes128gcm\0'), 16);
+const nonce = await hkdfExpand(prk, enc.encode('Content-Encoding: nonce\0'), 12);
+```
+
+- **症状**：APNs 回 `201 Created`，手机**毫无反应**，Edge Function 日志**零报错**
+- **为什么本地自测查不出来**：自己写的加密/解密闭环测试全部通过 —— 因为两头用的是**同一个（错的）约定**。
+  **自洽 ≠ 符合标准**，只有跟成熟库的实现逐字节比对才暴露得出来
+- **`hkdfExpand` 为什么要手写**：WebCrypto 只提供「Extract + Expand 一条龙」的 `deriveBits`，
+  没法拿一个已经算好的 PRK 单独做 Expand —— 而这里的 PRK 必须由上游 extract 产出
+
+#### 2️⃣ aes128gcm 的 `rs` 必须固定 4096，公钥放 keyid
+
+| | ❌ 之前（错） | ✅ 现在（对） |
+| --- | --- | --- |
+| `rs`（record size） | `ciphertext.length`，随 payload 长度浮动 | **固定 4096**（规范推荐值） |
+| 临时公钥 | 只放 `Crypto-Key: dh=` 头 | **写进 body 的 `keyid` 字段**（65 字节） |
+
+症状跟坑 1 一模一样（APNs 201 + 设备静默），所以单看现象根本分不清是哪一个。
+
+#### 3️⃣ iOS 前台不弹通知
+
+和原生 App 一样：**App 在前台时 iOS 认为你自己看着呢，不会再去通知中心弹一条**。
+在 App 里点「发一条测试推送」，App 必然在前台，所以永远看不到。
+
+> **验证必须锁屏或切到别的 App**。横幅只亮几秒就消失，但**会留在通知中心里**，下拉找就行。
+
+#### 4️⃣ iOS PWA 的 Service Worker 未接管窗口期
+
+`navigator.serviceWorker.ready` resolve 只代表 SW 已激活，**不代表它已经 `claim()` 了当前页面**。
+在这个窗口期调 `subscribe()` 会「成功」返回 `PushSubscription`，但那是个**空壳** ——
+之后的推送浏览器全解不开、静默丢弃。
+（Discourse Meta 事故复盘：<https://meta.discourse.org/t/-/402645>）
+
+现在 `subscribePush` 的做法：controller 不存在时**等 `controllerchange` 事件**（最多 5 秒）再检查状态；
+另外**优先复用已有订阅**，非要新建时先等 800ms 让 push service 收尾。
+
+#### 5️⃣ 重新订阅后 endpoint 变了 → 按 `uid` 删
+
+iOS 上 `unsubscribe()` 之后再次 `subscribe()` 会生成**新的 endpoint**，
+所以「按 endpoint 删旧订阅」删不掉旧的，库里会堆空壳 —— 之后每次推送都**双发**，
+调试时还分不清是哪条在起作用。改成按 `uid` 整批清
+（前提：同一时间一个用户只在一台设备订阅，家庭场景符合）。
+
+### 🕵️ 诊断方法：以后再遇到「发出去成功但设备没反应」
+
+这类问题的难点在于**失败是静默的**：服务端 `201`、设备零日志。按这两步二分：
+
+**第一步：明文 vs 加密** —— 判断是**加密**问题还是**订阅**问题
+
+```bash
+node --env-file=.env scripts/push-test.mjs --raw   # 明文（不带 payload，不加密）
+node --env-file=.env scripts/push-test.mjs         # 加密
+```
+
+| 结果 | 结论 |
+| --- | --- |
+| 明文到、加密不到 | **加密格式有问题**（去查坑 1 / 坑 2） |
+| 两个都到 | 功能正常，之前没收到多半是**手机在前台**（坑 3） |
+| 两个都不到 | **订阅/设备/系统设置**的问题（去查坑 4 / 坑 5） |
+
+**第二步：本地脚本 vs Edge Function 同时发** —— 判断**哪份代码在跑**
+
+同一个 endpoint、同一台设备，两条几乎同时打出去，看哪条到哪条不到：
+
+| 结果 | 结论 |
+| --- | --- |
+| 本地到、云端不到 | **线上那份代码和本地不一致**（最常是改了本地忘了同步部署） |
+| 两条都到 | 链路通了 |
+
+> 这一步是这次真正定位到根因的关键。之前一直在怀疑订阅、怀疑 iOS 26、怀疑 SW 生命周期，
+> 全靠这条对照把范围一下子缩到了「到底哪份代码在跑」。
+
+### ⚠️ 改加密实现时的两条纪律
+
+1. **不要相信自己的闭环自测**。自己加密自己解密必然自洽，格式错了也测不出来。
+   改完要跟 `web-push` 库（`npm i web-push`，用 `generateRequestDetails`）逐项比对：
+   headers、`rs`、`idlen`、body 长度
+2. **改一处要同步两处**：`scripts/push-test.mjs` 和 `supabase/functions/send-push/index.ts`
+   是同一套加密逻辑的两份拷贝。这次就是只改了脚本、漏了 Edge Function，
+   结果本地能收到、线上收不到，白白多排查了很久
+
+---
+
 ## 📜 License
 
 MIT
