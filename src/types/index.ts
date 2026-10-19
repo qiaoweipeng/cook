@@ -2,12 +2,14 @@ export type DishCategory =
   | '家常'
   | '川菜'
   | '粤菜'
-  | '江浙'
   | '湘菜'
+  | '鲁菜'
   | '快手'
   | '烘焙'
   | '汤羹'
   | '凉菜'
+  | '减脂'
+  | '江浙'
   | '其他';
 
 export type IngredientCategory =

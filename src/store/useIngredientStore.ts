@@ -2,6 +2,12 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Ingredient } from '@/types';
 import { seedIngredients } from '@/data/seedIngredients';
+import {
+  DISMISSED_INGREDIENTS_KEY,
+  clearDismissed,
+  dismissSeed,
+  readDismissed,
+} from '@/lib/seedDismiss';
 import { isCloudEnabled } from '@/lib/supabase';
 import { cloudDelete, cloudList, cloudSet } from '@/lib/cloudSync';
 import { checkIngredientUsage } from '@/lib/usage';
@@ -34,6 +40,15 @@ async function writeCloud(ing: Ingredient): Promise<void> {
   });
 }
 
+/**
+ * 种子里有、但当前数据里还没有的食材 —— load 时把这些补进去（只加不删）。
+ * 用户自己删过的（dismissed）不算缺失，补回去等于删了白删。
+ */
+function missingSeedIngredients(haveIds: Set<string>): Ingredient[] {
+  const dismissed = readDismissed(DISMISSED_INGREDIENTS_KEY);
+  return seedIngredients.filter((ing) => !haveIds.has(ing.id) && !dismissed.has(ing.id));
+}
+
 export const useIngredientStore = create<IngredientState>()(
   persist(
     (set, get) => ({
@@ -46,6 +61,11 @@ export const useIngredientStore = create<IngredientState>()(
         // 先等 IndexedDB 缓存恢复完，避免云端新数据被旧缓存覆盖
         await whenHydrated(useIngredientStore);
         if (!isCloudEnabled()) {
+          // 没开云端同步时，本地缓存恢复完就直接用；
+          // 这里同样把种子里新增的食材补上，否则新菜的食材行会是空白
+          const cur = get().items;
+          const missing = missingSeedIngredients(new Set(cur.map((x) => x.id)));
+          if (missing.length) set({ items: [...cur, ...missing] });
           set({ loaded: true, cloudAvailable: false });
           return;
         }
@@ -55,8 +75,18 @@ export const useIngredientStore = create<IngredientState>()(
           for (const ing of seedIngredients) await writeCloud(ing);
           set({ items: seedIngredients, loaded: true, loading: false, cloudAvailable: true });
         } else {
-          // 云端已有数据 → 以云端为准，不做 localOnly 合并
-          const items = remote.map((r) => r.data);
+          /*
+            云端已有数据 → 以云端为准，但把种子里**新增**的食材补进去（按 id 判断，只加不删）。
+
+            这个必须补：新菜引用的食材要是云端没有，菜品详情里的食材行会整片空白、
+            成本也算不出来。比如减脂菜单用到的鸡胸肉、糙米，都是后加进种子的。
+
+            dismissed：用户自己删过的食材不补，否则删完一刷新又回来了。
+          */
+          const missing = missingSeedIngredients(new Set(remote.map((r) => r.data.id)));
+          for (const ing of missing) await writeCloud(ing);
+
+          const items = [...remote.map((r) => r.data), ...missing];
           set({ items, loaded: true, loading: false, cloudAvailable: true });
         }
       },
@@ -86,6 +116,10 @@ export const useIngredientStore = create<IngredientState>()(
         const usage = await checkIngredientUsage(id);
         if (!usage.ok) throw new Error(usage.reason ?? '该食材被引用，无法删除');
         const old = get().items.find((it) => it.id === id);
+        // 删的是种子食材 → 记一笔，以后补种子时跳过，不然会复活
+        if (seedIngredients.some((x) => x.id === id)) {
+          dismissSeed(DISMISSED_INGREDIENTS_KEY, id);
+        }
         set((s) => ({ items: s.items.filter((it) => it.id !== id) }));
         await cloudDelete('ingredients', id);
         logOp('删除食材', old?.name ?? id);
@@ -125,6 +159,8 @@ export const useIngredientStore = create<IngredientState>()(
         for (const it of items) {
           if (!seedIds.has(it.id)) await cloudDelete('ingredients', it.id);
         }
+        // 主动重置 = 想要完整种子，把「已删除」记录清掉
+        clearDismissed(DISMISSED_INGREDIENTS_KEY);
         set({ items: seedIngredients });
       },
     }),

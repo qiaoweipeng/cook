@@ -14,17 +14,24 @@ import type { DishCategory } from '@/types';
 
 const { Text } = Typography;
 
+/**
+ * 首页 Tab / PC 菜单的分类顺序（两端共用这一份）。
+ * 「鲁菜」「减脂」是后来加的；「江浙」挪到倒数第二留着兜底；「其他」照旧垫底。
+ * 两端都能横向滚动（移动端是 antd-mobile Tabs、PC 是 Segmented 套 overflow-x），多几项不会挤爆。
+ */
 const categories: Array<DishCategory | '全部'> = [
   '全部',
   '家常',
   '川菜',
   '粤菜',
-  '江浙',
   '湘菜',
+  '鲁菜',
   '快手',
   '烘焙',
   '汤羹',
   '凉菜',
+  '减脂',
+  '江浙',
   '其他',
 ];
 

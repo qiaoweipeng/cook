@@ -2,6 +2,12 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Dish } from '@/types';
 import { seedDishes, RETIRED_DISH_IDS } from '@/data/seedDishes';
+import {
+  DISMISSED_DISHES_KEY,
+  clearDismissed,
+  dismissSeed,
+  readDismissed,
+} from '@/lib/seedDismiss';
 import { isCloudEnabled } from '@/lib/supabase';
 import { cloudDelete, cloudList, cloudSet } from '@/lib/cloudSync';
 import { checkDishUsage } from '@/lib/usage';
@@ -33,6 +39,15 @@ async function writeCloud(dish: Dish): Promise<void> {
   }, true);
 }
 
+/**
+ * 种子里有、但当前数据里还没有的菜 —— load 时把这些补进去（只加不删）。
+ * 用户自己删过的（dismissed）不算缺失，补回去等于删了白删。
+ */
+function missingSeedDishes(haveIds: Set<string>): Dish[] {
+  const dismissed = readDismissed(DISMISSED_DISHES_KEY);
+  return seedDishes.filter((d) => !haveIds.has(d.id) && !dismissed.has(d.id));
+}
+
 export const useDishStore = create<DishState>()(
   persist(
     (set, get) => ({
@@ -45,6 +60,13 @@ export const useDishStore = create<DishState>()(
         // 先等 IndexedDB 缓存恢复完，避免云端新数据被旧缓存覆盖
         await whenHydrated(useDishStore);
         if (!isCloudEnabled()) {
+          // 没开云端同步时，本地缓存恢复完就直接用；
+          // 这里同样把种子里新增的菜补上，否则关了云端的用户永远看不到后加的菜
+          const cur = get().items;
+          const missing = missingSeedDishes(new Set(cur.map((d) => d.id)));
+          if (missing.length) {
+            set({ items: [...cur, ...missing].sort((a, b) => a.createdAt - b.createdAt) });
+          }
           set({ loaded: true, cloudAvailable: false });
           return;
         }
@@ -61,10 +83,24 @@ export const useDishStore = create<DishState>()(
           for (const dish of seedDishes) await writeCloud(dish);
           set({ items: seedDishes, loaded: true, loading: false, cloudAvailable: true });
         } else {
-          // 云端已有数据 → 直接以云端为准，不做「localOnly 补传」
-          // 原因：localStorage 里的旧数据可能引用了已被替换/重命名的 ingredientId，
-          // 补传会触发外键约束冲突
-          const items = valid.map((r) => r.data).sort((a, b) => a.createdAt - b.createdAt);
+          /*
+            云端已有数据 → 以云端为准，但把种子里**新增**的菜补进去（按 id 判断，只加不删）。
+
+            以前是完全不补：那时补的是 localStorage 里的旧数据，确实可能引用已被替换 /
+            重命名的 ingredientId 而触发外键冲突。现在补的是当前代码里的 seedDishes，
+            引用的 id 全部有效（supabase/schema.sql 建表时也没加外键约束），不存在那个问题。
+
+            不补的后果很实在：云端一旦有数据就再也不读种子了，
+            种子里后加的菜（比如减脂那 8 道）永远进不来。
+
+            dismissed：用户自己删过的菜不补，否则删完一刷新又回来了。
+          */
+          const missing = missingSeedDishes(new Set(valid.map((r) => r.data.id)));
+          for (const dish of missing) await writeCloud(dish);
+
+          const items = [...valid.map((r) => r.data), ...missing].sort(
+            (a, b) => a.createdAt - b.createdAt
+          );
           set({ items, loaded: true, loading: false, cloudAvailable: true });
         }
       },
@@ -88,6 +124,8 @@ export const useDishStore = create<DishState>()(
         const usage = await checkDishUsage(id);
         if (!usage.ok) throw new Error(usage.reason ?? '该菜品正在被使用，无法删除');
         const old = get().items.find((it) => it.id === id);
+        // 删的是种子菜 → 记一笔，以后补种子时跳过，不然会复活
+        if (seedDishes.some((d) => d.id === id)) dismissSeed(DISMISSED_DISHES_KEY, id);
         set((s) => ({ items: s.items.filter((it) => it.id !== id) }));
         await cloudDelete('dishes', id);
         logOp('删除菜品', old?.name ?? id);
@@ -108,6 +146,8 @@ export const useDishStore = create<DishState>()(
         for (const it of items) {
           if (!seedIds.has(it.id)) await cloudDelete('dishes', it.id);
         }
+        // 主动重置 = 想要完整种子，把「已删除」记录清掉，否则下次 load 会跳过这几道
+        clearDismissed(DISMISSED_DISHES_KEY);
         set({ items: seedDishes });
       },
     }),

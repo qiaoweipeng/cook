@@ -22,13 +22,14 @@ import {
 import { DeleteOutlined, PictureOutlined, PlusOutlined } from '@ant-design/icons';
 import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
-import { pickImage, formatSize } from '@/lib/imageUpload';
+import { pickImage, formatSize, IMAGE_ACCEPT } from '@/lib/imageUpload';
 import type { Dish, DishCategory, DishIngredient, Step } from '@/types';
 
 const { Text } = Typography;
 
+// 顺序跟首页 Tab / PC 菜单完全一致（见 Menu/index.tsx 的 categories）
 const CATEGORIES: DishCategory[] = [
-  '家常', '川菜', '粤菜', '江浙', '湘菜', '快手', '烘焙', '汤羹', '凉菜', '其他',
+  '家常', '川菜', '粤菜', '湘菜', '鲁菜', '快手', '烘焙', '汤羹', '凉菜', '减脂', '江浙', '其他',
 ];
 
 interface Props {
@@ -85,6 +86,15 @@ export default function DishEditor({
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [imgProcessing, setImgProcessing] = useState(false);
+  /**
+   * 本次上传的结果：体积 + 走的是对象存储还是本地压缩。
+   * 单独存一份是为了在编辑区**常驻显示**大小 ——
+   * 以前只在弹窗里说一句就消失了，回头想看这张图多大只能重新传一次。
+   */
+  const [imgInfo, setImgInfo] = useState<{ size: number; viaStorage: boolean } | null>(null);
+
+  // 每次打开编辑器都清掉上一次的大小信息（这次还没传图，不该显示上次的数字）
+  useEffect(() => setImgInfo(null), [open]);
 
   const coverImage = Form.useWatch('coverImage', form);
 
@@ -124,16 +134,18 @@ export default function DishEditor({
       // 压缩成 WebP → 上传对象存储 → 只把 URL 存库（失败时自动退回 Base64）
       const picked = await pickImage(file, 'dishes');
       form.setFieldsValue({ coverImage: picked.url });
-      if (picked.viaStorage) {
-        message.success(`封面已上传（${formatSize(picked.size)}）`);
-      } else {
+      // 体积存下来常驻显示，不再只靠弹窗（弹窗一闪而过，回头就查不到了）
+      setImgInfo({ size: picked.size, viaStorage: picked.viaStorage });
+      if (!picked.viaStorage) {
+        // 只有异常（对象存储没开通）才弹窗，正常上传不打扰，大小在下面常驻显示
         message.warning(
-          `对象存储没开通，已退回压缩图（${formatSize(picked.size)}）。` +
+          '对象存储没开通，已退回压缩图存本地。' +
             '建议执行 supabase/storage.sql 建 bucket，图片就不会占数据库了'
         );
       }
     } catch (e) {
-      message.error('图片处理失败：' + (e as Error).message);
+      // pickImage 抛出来的已经是可读文案（比如「不支持 GIF 动图…」），直接透传
+      message.error((e as Error).message || '图片处理失败');
     } finally {
       setImgProcessing(false);
     }
@@ -320,7 +332,7 @@ export default function DishEditor({
           <Space direction="vertical" size={8} style={{ width: '100%' }}>
             <Space wrap>
               <Upload
-                accept="image/*"
+                accept={IMAGE_ACCEPT}
                 showUploadList={false}
                 beforeUpload={(file) => {
                   void handlePickImage(file);
@@ -335,13 +347,23 @@ export default function DishEditor({
                 <Button
                   danger
                   icon={<DeleteOutlined />}
-                  onClick={() => form.setFieldsValue({ coverImage: '' })}
+                  onClick={() => {
+                    form.setFieldsValue({ coverImage: '' });
+                    setImgInfo(null);
+                  }}
                 >
                   清除图片
                 </Button>
               ) : (
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  本地图片会自动压缩后保存
+                  支持 JPG / PNG / WebP 静态图
+                </Text>
+              )}
+              {/* 上传完把大小常驻在这里，不再只是弹窗一闪而过 */}
+              {imgInfo && (
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {formatSize(imgInfo.size)}
+                  {imgInfo.viaStorage ? ' · 已存云端' : ' · 压缩后存本地'}
                 </Text>
               )}
             </Space>

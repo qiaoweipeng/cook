@@ -47,6 +47,10 @@ export const seedIngredients: Ingredient[] = [
   { id: 'ing_doubanjiang', name: '豆瓣酱', category: '调料', pricePerUnit: 10.0, unit: '瓶', spec: '500g / 瓶', unitGrams: 500 },
   { id: 'ing_oil', name: '食用油', category: '调料', pricePerUnit: 15.0, unit: '瓶', spec: '1L / 瓶', unitMl: 1000 },
 
+  // —— 减脂菜单用到的新食材 ——
+  { id: 'ing_chicken_breast', name: '鸡胸肉', category: '肉类', pricePerUnit: 12.0, unit: '斤', spec: '去皮去骨，冷冻常备' },
+  { id: 'ing_brown_rice', name: '糙米', category: '主食', pricePerUnit: 6.0, unit: '斤', spec: '煮前泡 2 小时口感才不糙' },
+
   // —— 增量补的常用食材 ——
   { id: 'ing_fish_head', name: '鱼头', category: '海鲜', pricePerUnit: 30.0, unit: '斤', spec: '胖头鱼鱼头' },
   { id: 'ing_chili_diced', name: '剁椒', category: '调料', pricePerUnit: 15.0, unit: '瓶', spec: '500g / 瓶，坛子剁椒', unitGrams: 500 },
