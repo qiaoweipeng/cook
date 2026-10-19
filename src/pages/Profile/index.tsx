@@ -1,14 +1,15 @@
 // 个人中心（移动端）：antd-mobile 组件
 // 头像、昵称、家庭入口、退出登录
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Avatar, Button, List, Dialog, Space, Badge } from 'antd-mobile';
+import { Avatar, Button, List, Dialog, Space, Badge, Switch } from 'antd-mobile';
 import {
   CameraOutline,
   TeamOutline,
   DeleteOutline,
   InformationCircleOutline,
+  BellOutline,
 } from 'antd-mobile-icons';
 import { UserOutlined } from '@ant-design/icons';
 import { versionLabel, versionDetail } from '@/lib/appVersion';
@@ -19,6 +20,16 @@ import { useFamilyStore } from '@/store/useFamilyStore';
 import { resetUserScopedStores } from '@/store/userScope';
 import { isCloudEnabled } from '@/lib/supabase';
 import { setUserAvatar, ADMIN_UID } from '@/lib/userAdmin';
+import { validateImageFile, IMAGE_ACCEPT } from '@/lib/imageUpload';
+import {
+  pushSupported,
+  pushEnvReady,
+  isStandalone,
+  subscribePush,
+  unsubscribePush,
+  getSubscriptionState,
+  sendPush,
+} from '@/lib/push';
 import FamilyModal from '@/components/FamilyModal';
 
 export default function Profile() {
@@ -33,6 +44,59 @@ export default function Profile() {
   const [familyOpen, setFamilyOpen] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const cloud = isCloudEnabled();
+
+  // ---- 菜单通知（Web Push）----
+  // iOS 的硬限制：必须「添加到主屏幕」后从桌面图标打开才能订阅推送，
+  // 在 Safari 里直接访问网页，subscribe() 会被直接拒绝。所以先判断 standalone，
+  // 好在界面上把这个原因说清楚，而不是让用户点了开关只看到一句莫名的失败。
+  const standalone = isStandalone();
+  const pushAvailable = pushSupported() && pushEnvReady();
+  const [pushOn, setPushOn] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+
+  useEffect(() => {
+    if (!pushAvailable) return;
+    void getSubscriptionState()
+      .then((s) => setPushOn(s.subscribed))
+      .catch(() => setPushOn(false));
+  }, [pushAvailable]);
+
+  const handlePushToggle = async (on: boolean) => {
+    setPushBusy(true);
+    try {
+      if (on) {
+        await subscribePush(user?.uid ?? '', family?.id ?? null);
+        setPushOn(true);
+        message.success('已开启，点下面的按钮试发一条');
+      } else {
+        await unsubscribePush();
+        setPushOn(false);
+        message.success('已关闭通知');
+      }
+    } catch (e) {
+      message.error((e as Error).message || '操作失败');
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
+  const handleTestPush = async () => {
+    setPushBusy(true);
+    try {
+      const r = await sendPush({
+        uids: [user?.uid ?? ''],
+        title: '大厨房',
+        body: '推送链路是通的，这条是测试消息',
+        url: '/menu-plan',
+      });
+      if (r.sent > 0) message.success(`已发出（${r.sent} 台设备）`);
+      else message.warning('没发出去，先确认上面的开关已打开');
+    } catch (e) {
+      message.error((e as Error).message || '发送失败');
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   const handleSignOut = () => {
     Dialog.confirm({
@@ -57,8 +121,11 @@ export default function Profile() {
       message.error('头像文件不能超过 1.5MB');
       return;
     }
-    if (!file.type.startsWith('image/')) {
-      message.error('请选择图片文件');
+    // 跟菜品 / 食材用同一套规则：只收静态图。
+    // 头像是原样存成 dataURL 的，动图几 MB 直接塞进数据库，体积扛不住。
+    const invalid = await validateImageFile(file);
+    if (invalid) {
+      message.error(invalid);
       return;
     }
     const reader = new FileReader();
@@ -140,7 +207,7 @@ export default function Profile() {
           <input
             ref={avatarInputRef}
             type="file"
-            accept="image/*"
+            accept={IMAGE_ACCEPT}
             style={{ display: 'none' }}
             onChange={handleAvatarChange}
           />
@@ -218,6 +285,36 @@ export default function Profile() {
             }}
           >
             清除离线缓存
+          </List.Item>
+        )}
+
+        {/* 菜单通知开关 */}
+        {pushAvailable && (
+          <List.Item
+            prefix={<BellOutline fontSize={20} style={{ color: '#8C857E' }} />}
+            extra={
+              <Switch
+                checked={pushOn}
+                loading={pushBusy}
+                onChange={(v) => void handlePushToggle(v)}
+              />
+            }
+            description={
+              standalone
+                ? undefined
+                : 'iPhone 需先「添加到主屏幕」，从桌面图标打开才能订阅'
+            }
+          >
+            菜单通知
+          </List.Item>
+        )}
+        {pushAvailable && pushOn && (
+          <List.Item
+            prefix={<BellOutline fontSize={20} style={{ color: '#8C857E' }} />}
+            clickable
+            onClick={() => void handleTestPush()}
+          >
+            发一条测试推送
           </List.Item>
         )}
       </List>

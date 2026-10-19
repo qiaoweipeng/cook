@@ -70,38 +70,14 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
-        // 不缓存带 hash 的静态资源，让浏览器自然处理
+      // 改成 injectManifest：SW 由我们自己写（src/sw.ts）。
+      // 原因是要在 SW 里加 push / notificationclick 监听 ——
+      // 默认的 generateSW 是自动生成的，没法往里插自定义代码。
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        runtimeCaching: [
-          {
-            // 字体
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 年
-              },
-              cacheableResponse: {
-                statuses: [0, 200],
-              },
-            },
-          },
-          {
-            // CloudBase API 请求：网络优先，失败再读缓存
-            urlPattern: /^https:\/\/.*\.api\.tcloudbasegateway\.com\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 5, // 5 分钟
-              },
-            },
-          },
-        ],
       },
     }),
   ],
