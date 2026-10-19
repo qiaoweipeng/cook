@@ -81,6 +81,23 @@ async function deleteByEndpoint(endpoint: string): Promise<void> {
   );
 }
 
+/*
+  按 uid 删：处理 iOS 上"重新订阅 endpoint 变了"的场景。
+
+  pushManager.subscribe() 在 unsubscribe 之后会生成新的 endpoint，
+  所以单纯按 endpoint 删会留下旧订阅的空壳 —— 之后所有推送都会发给两个 endpoint，
+  旧的那个因 keys 失效静默丢失，多发一倍无用请求，还会让调试时分不清是哪条在起作用。
+
+  前提是同一时间一个用户只在一台设备上订阅（家庭场景里实际就是这样用的）。
+  真要做多设备了可以按 uid + ua 一起筛。
+*/
+async function deleteByUid(uid: string): Promise<void> {
+  await fetch(
+    `${SUPABASE_URL}/rest/v1/push_subscriptions?uid=eq.${encodeURIComponent(uid)}`,
+    { method: 'DELETE', headers: authHeaders() }
+  );
+}
+
 async function insertSubscription(row: {
   uid: string;
   family_id: string | null;
@@ -148,8 +165,11 @@ export async function subscribePush(uid: string, familyId?: string | null): Prom
   const keys = json.keys as { p256dh: string; auth: string } | undefined;
   if (!keys) throw new Error('订阅结果缺少密钥');
 
-  // 同一台设备重复订阅时先清旧的，避免堆一堆失效记录
-  await deleteByEndpoint(sub.endpoint);
+  // 同一台设备重新订阅时先清旧的。
+  // iOS 上 unsubscribe 之后再次 subscribe，endpoint 通常会变（新一对 p256dh/auth），
+  // 按 endpoint 删会漏掉旧订阅；按 uid 整批删更稳。
+  // 前提：同一时间一个用户只在一台设备上订阅。
+  await deleteByUid(uid);
   await insertSubscription({
     uid,
     family_id: familyId ?? null,
