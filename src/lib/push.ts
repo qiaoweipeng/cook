@@ -137,29 +137,47 @@ export async function subscribePush(uid: string, familyId?: string | null): Prom
     '离线模块一直没就绪，请退出重进一次再试'
   );
   /*
-    iOS PWA 的一个经典坑：首次打开时 Service Worker 还在 installing，
-    `ready` 只能保证 SW 激活完成，**不**保证已经 claim() 客户端 ——
-    在这个窗口期调 subscribe() 会"成功"返回 PushSubscription，
-    但 iOS 实际上没有建立可用的订阅，后续 push 全部静默丢失。
-    （Discourse Meta 上的事故复盘：https://meta.discourse.org/t/-/402645）
+    iOS PWA 的坑，分两层：
 
-    必须显式等 controller 出现，不然就让用户把 PWA 完全划掉重开。
+    1）`navigator.serviceWorker.ready` 只保证 SW 激活完成，**不**保证它已经
+       claim() 了当前页面。在这个窗口期 subscribe() 会"成功"返回
+       PushSubscription，但里面的 p256dh/auth 跟浏览器真实私钥对不上，
+       之后每条推送浏览器都解不开、静默丢弃 —— APNs 照样回 201，用户毫无反应。
+       （Discourse Meta 事故复盘：https://meta.discourse.org/t/-/402645）
+       所以要等 controllerchange（SW 调 clients.claim() 之后才触发的事件）。
+
+    2）就算 controller 已经在，iOS 在 unsubscribe 之后立刻 subscribe，
+       偶尔也会拿到一对自己都对不上的密钥。所以优先复用已有订阅；
+       非要新建时留一小段缓冲，让 push service 把上一条彻底清干净。
   */
   if (!navigator.serviceWorker.controller) {
-    throw new Error(
+    await withTimeout(
+      new Promise<void>((resolve) => {
+        navigator.serviceWorker.addEventListener('controllerchange', () => resolve(), {
+          once: true,
+        });
+      }),
+      5000,
       '推送模块还没接管当前页面，请把 PWA 从后台完全划掉、再从桌面图标打开一次，然后再开这个开关'
     );
   }
-  const sub = await withTimeout(
-    reg.pushManager.subscribe({
-      // 必须为 true：向浏览器承诺「每条推送都会显示出来」，
-      // 这是规范要求的，否则不允许订阅
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-    }),
-    15000,
-    '订阅超时。iPhone 必须「添加到主屏幕」后从桌面图标打开（Safari 里不行），且需 iOS 16.4 以上'
-  );
+
+  // 已有订阅直接复用：重复 subscribe 在 iOS 上有拿到错密钥的先例
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) {
+    // 刚 unsubscribe 过，给 push service 一点时间收尾，避免生成不匹配的密钥对
+    await new Promise((r) => setTimeout(r, 800));
+    sub = await withTimeout(
+      reg.pushManager.subscribe({
+        // 必须为 true：向浏览器承诺「每条推送都会显示出来」，
+        // 这是规范要求的，否则不允许订阅
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      }),
+      15000,
+      '订阅超时。iPhone 必须「添加到主屏幕」后从桌面图标打开（Safari 里不行），且需 iOS 16.4 以上'
+    );
+  }
 
   const json = sub.toJSON();
   const keys = json.keys as { p256dh: string; auth: string } | undefined;
