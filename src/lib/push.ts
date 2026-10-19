@@ -119,6 +119,20 @@ export async function subscribePush(uid: string, familyId?: string | null): Prom
     8000,
     '离线模块一直没就绪，请退出重进一次再试'
   );
+  /*
+    iOS PWA 的一个经典坑：首次打开时 Service Worker 还在 installing，
+    `ready` 只能保证 SW 激活完成，**不**保证已经 claim() 客户端 ——
+    在这个窗口期调 subscribe() 会"成功"返回 PushSubscription，
+    但 iOS 实际上没有建立可用的订阅，后续 push 全部静默丢失。
+    （Discourse Meta 上的事故复盘：https://meta.discourse.org/t/-/402645）
+
+    必须显式等 controller 出现，不然就让用户把 PWA 完全划掉重开。
+  */
+  if (!navigator.serviceWorker.controller) {
+    throw new Error(
+      '推送模块还没接管当前页面，请把 PWA 从后台完全划掉、再从桌面图标打开一次，然后再开这个开关'
+    );
+  }
   const sub = await withTimeout(
     reg.pushManager.subscribe({
       // 必须为 true：向浏览器承诺「每条推送都会显示出来」，
