@@ -52,6 +52,19 @@ export function isStandalone(): boolean {
  * 手写 `Uint8Array` 等于 `Uint8Array<ArrayBufferLike>`，赋给 BufferSource 会报错；
  * 让 TS 自己推断成 `Uint8Array<ArrayBuffer>` 才对得上。
  */
+/**
+ * 给 promise 套个超时。
+ *
+ * 没有它，只要某一步卡住（iOS 上权限弹窗没弹出来、Service Worker 一直没 activate），
+ * 界面就会永远停在 loading —— 用户除了「一直在转圈」得不到任何线索。
+ */
+function withTimeout<T>(p: Promise<T>, ms: number, msg: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error(msg)), ms)),
+  ]);
+}
+
 function urlBase64ToUint8Array(base64: string) {
   const padding = '='.repeat((4 - (base64.length % 4)) % 4);
   const normalized = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -88,18 +101,34 @@ export async function subscribePush(uid: string, familyId?: string | null): Prom
   if (!pushSupported()) throw new Error('当前浏览器不支持推送');
   if (!pushEnvReady()) throw new Error('推送未配置完整（缺少 VAPID 公钥）');
 
-  const perm = await Notification.requestPermission();
+  /*
+    iOS 要求权限申请必须在用户手势的同步调用栈里发起，
+    所以这一步放在最前面，不能先 await 别的（比如 serviceWorker.ready）再去申请。
+  */
+  const perm = await withTimeout(
+    Notification.requestPermission(),
+    15000,
+    '通知权限弹窗一直没有响应，请到系统设置 → 大厨房 → 通知里确认开关状态'
+  );
   if (perm !== 'granted') {
     throw new Error('通知权限被拒绝，请在系统设置 → 大厨房 → 通知里打开');
   }
 
-  const reg = await navigator.serviceWorker.ready;
-  const sub = await reg.pushManager.subscribe({
-    // 必须为 true：向浏览器承诺「每条推送都会显示出来」，
-    // 这是规范要求的，否则不允许订阅
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-  });
+  const reg = await withTimeout(
+    navigator.serviceWorker.ready,
+    8000,
+    '离线模块一直没就绪，请退出重进一次再试'
+  );
+  const sub = await withTimeout(
+    reg.pushManager.subscribe({
+      // 必须为 true：向浏览器承诺「每条推送都会显示出来」，
+      // 这是规范要求的，否则不允许订阅
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    }),
+    15000,
+    '订阅超时。iPhone 必须「添加到主屏幕」后从桌面图标打开（Safari 里不行），且需 iOS 16.4 以上'
+  );
 
   const json = sub.toJSON();
   const keys = json.keys as { p256dh: string; auth: string } | undefined;
@@ -132,9 +161,15 @@ export async function getSubscriptionState(): Promise<{
   permission: NotificationPermission | 'unsupported';
 }> {
   if (!pushSupported()) return { subscribed: false, permission: 'unsupported' };
-  const reg = await navigator.serviceWorker.ready;
-  const sub = await reg.pushManager.getSubscription();
-  return { subscribed: Boolean(sub), permission: Notification.permission };
+  let subscribed = false;
+  try {
+    // 查不通也不能让界面卡住：SW 没就绪时就当未订阅，开关照常显示
+    const reg = await withTimeout(navigator.serviceWorker.ready, 5000, '');
+    subscribed = Boolean(await reg.pushManager.getSubscription());
+  } catch {
+    subscribed = false;
+  }
+  return { subscribed, permission: Notification.permission };
 }
 
 /** 调 Edge Function 发一条推送（谁调用谁负责拼文案） */

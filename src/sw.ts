@@ -39,10 +39,28 @@ const PRECACHE = 'cook-precache';
 
 sw.addEventListener('install', (event) => {
   event.waitUntil(
-    caches
-      .open(PRECACHE)
-      .then((cache) => cache.addAll(manifest.map((e) => e.url)))
-      .then(() => sw.skipWaiting())
+    (async () => {
+      try {
+        const cache = await caches.open(PRECACHE);
+        /*
+          必须**逐个** add，不能用 cache.addAll。
+
+          addAll 是「一个 404 就整体 reject」，一旦 reject，install 就失败、
+          SW 永远停在 installing，永远不 activate ——
+          后果是 navigator.serviceWorker.ready 永不返回，前端的订阅按钮就一直转圈。
+
+          逐个 add 并 catch 掉单项失败，预缓存少一两个文件顶多是那张图离线时没有，
+          不至于把整个 PWA 的离线能力和推送订阅一起搞挂。
+        */
+        await Promise.all(
+          manifest.map((e) => cache.add(e.url).catch(() => undefined))
+        );
+      } catch (e) {
+        console.error('[sw] 预缓存失败', e);
+      }
+      // 无论缓存成没成功都要 skipWaiting，否则新 SW 永远不接管，下次进来还是老的
+      await sw.skipWaiting();
+    })()
   );
 });
 

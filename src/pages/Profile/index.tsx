@@ -53,11 +53,16 @@ export default function Profile() {
   const pushAvailable = pushSupported() && pushEnvReady();
   const [pushOn, setPushOn] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
+  // 权限状态直接写在开关下面 —— 一旦被系统关掉，光看开关根本看不出为什么点不动
+  const [pushPerm, setPushPerm] = useState<NotificationPermission | 'unsupported'>('default');
 
   useEffect(() => {
     if (!pushAvailable) return;
     void getSubscriptionState()
-      .then((s) => setPushOn(s.subscribed))
+      .then((s) => {
+        setPushOn(s.subscribed);
+        setPushPerm(s.permission);
+      })
       .catch(() => setPushOn(false));
   }, [pushAvailable]);
 
@@ -300,9 +305,11 @@ export default function Profile() {
               />
             }
             description={
-              standalone
-                ? undefined
-                : 'iPhone 需先「添加到主屏幕」，从桌面图标打开才能订阅'
+              !standalone
+                ? 'iPhone 需先「添加到主屏幕」，从桌面图标打开才能订阅'
+                : pushPerm === 'denied'
+                  ? '通知权限已被关闭，去系统设置 → 大厨房 → 通知里打开'
+                  : undefined
             }
           >
             菜单通知
