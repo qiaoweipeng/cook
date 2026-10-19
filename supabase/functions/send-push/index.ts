@@ -60,11 +60,6 @@ function concat(...parts: Uint8Array[]): Uint8Array {
   return out;
 }
 
-/** 长度写成 2 字节大端 —— RFC 8291 的 context 里要求这个格式 */
-function u16(n: number): Uint8Array {
-  return new Uint8Array([(n >> 8) & 0xff, n & 0xff]);
-}
-
 // ---------------------------------------------------------------------------
 // VAPID：Authorization: vapid t=<JWT>, k=<公钥>
 // ---------------------------------------------------------------------------
@@ -103,8 +98,45 @@ async function vapidHeaders(endpoint: string, ttl: number, dhPublic?: string) {
 }
 
 // ---------------------------------------------------------------------------
-// 加密 payload：RFC 8291 (aes128gcm)
+// 加密 payload（aes128gcm）
+//
+// ⚠️ 用的是 Web Push 加密的**早期草案**算法，不是最终版 RFC 8291。
+//    照 RFC 8291 写 Safari 解不开，会静默丢弃整条推送，详见 encrypt 内注释。
 // ---------------------------------------------------------------------------
+
+/**
+ * HKDF-Expand（RFC 5869）手写版。
+ *
+ * WebCrypto 只有「Extract + Expand 一条龙」的 deriveBits，没法拿着一个已经算好的
+ * PRK 单独做 Expand —— 而这里的 PRK 必须由上游 extract 产出，只能手写。
+ */
+async function hkdfExpand(
+  prk: Uint8Array,
+  info: Uint8Array,
+  length: number
+): Promise<Uint8Array> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    prk,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const out = new Uint8Array(length);
+  let prev = new Uint8Array(0);
+  let offset = 0;
+  let counter = 1;
+  while (offset < length) {
+    const block = new Uint8Array(
+      await crypto.subtle.sign('HMAC', key, concat(prev, info, new Uint8Array([counter])))
+    );
+    prev = block;
+    out.set(block.subarray(0, Math.min(block.length, length - offset)), offset);
+    offset += block.length;
+    counter += 1;
+  }
+  return out;
+}
 
 async function encrypt(payload: string, p256dh: string, auth: string) {
   const uaPublic = b64urlToBytes(p256dh); // 订阅方的公钥
@@ -129,45 +161,49 @@ async function encrypt(payload: string, p256dh: string, auth: string) {
     await crypto.subtle.deriveBits({ name: 'ECDH', public: uaKey }, asKeys.privateKey, 256)
   );
 
+  /*
+    ⚠️ 密钥派生栽过大跟头，别照着最终版 RFC 8291 改回去。
+
+    RFC 8291（2017 定稿）的写法是：
+        context = "P-256\0" + len(uaPublic) + uaPublic + len(asPublic) + asPublic
+        PRK     = HKDF-Extract(salt = authSecret, ecdhSecret)
+        CEK     = HKDF-Expand(PRK, "Content-Encoding: aes128gcm\0" + context, 16)
+
+    但 Safari / iOS 只认**早期草案**这一套（web-push 底层 http_ece 实现的就是它）：
+        info  = "WebPush: info\0" + uaPublic + asPublic   ← 无长度前缀，标签也不同
+        mid   = HKDF(authSecret, ecdhSecret, info, 32)    ← 第一轮，authSecret 在这用掉
+        PRK   = HMAC(salt, mid)                           ← 第二轮，salt 换成随机那条
+        CEK   = HKDF-Expand(PRK, "Content-Encoding: aes128gcm\0", 16)  ← 不带 context
+        NONCE = HKDF-Expand(PRK, "Content-Encoding: nonce\0", 12)
+
+    两套算法结果完全不同。按 RFC 8291 写的推送 APNs 照样回 201，
+    但 Safari 解不开就静默丢弃 —— 不报错、不弹通知，只知道「发出去了但没反应」。
+  */
   const salt = crypto.getRandomValues(new Uint8Array(16));
 
-  // PRK = HKDF(salt = auth_secret, ikm = ecdh_secret)
-  const prk = await crypto.subtle.importKey('raw', ecdhSecret, 'HKDF', false, ['deriveBits']);
-
-  const context = concat(
-    enc.encode('P-256'),
-    new Uint8Array([0x00]),
-    u16(uaPublic.length),
-    uaPublic,
-    u16(asPublic.length),
-    asPublic
-  );
-
-  const cekInfo = concat(
-    enc.encode('Content-Encoding: aes128gcm'),
-    new Uint8Array([0x00]),
-    context
-  );
-  const nonceInfo = concat(
-    enc.encode('Content-Encoding: nonce'),
-    new Uint8Array([0x00]),
-    context
-  );
-
-  const cek = new Uint8Array(
+  const authInfo = concat(enc.encode('WebPush: info\0'), uaPublic, asPublic);
+  const ikmKey = await crypto.subtle.importKey('raw', ecdhSecret, 'HKDF', false, [
+    'deriveBits',
+  ]);
+  const intermediate = new Uint8Array(
     await crypto.subtle.deriveBits(
-      { name: 'HKDF', hash: 'SHA-256', salt: authSecret, info: cekInfo },
-      prk,
-      128 // 16 字节
+      { name: 'HKDF', hash: 'SHA-256', salt: authSecret, info: authInfo },
+      ikmKey,
+      256 // 32 字节
     )
   );
-  const nonce = new Uint8Array(
-    await crypto.subtle.deriveBits(
-      { name: 'HKDF', hash: 'SHA-256', salt: authSecret, info: nonceInfo },
-      prk,
-      96 // 12 字节
-    )
+
+  const prkKey = await crypto.subtle.importKey(
+    'raw',
+    salt,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
   );
+  const prk = new Uint8Array(await crypto.subtle.sign('HMAC', prkKey, intermediate));
+
+  const cek = await hkdfExpand(prk, enc.encode('Content-Encoding: aes128gcm\0'), 16);
+  const nonce = await hkdfExpand(prk, enc.encode('Content-Encoding: nonce\0'), 12);
 
   // 明文末尾补一个 0x02，表示「这是最后一个 record」—— RFC 8188 的规定，
   // 少了这个字节浏览器会解出乱码

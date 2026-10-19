@@ -96,7 +96,38 @@ async function vapidHeaders(endpoint, dhPublic) {
   return headers;
 }
 
-// ---------- 加密（RFC 8291 aes128gcm）----------
+// ---------- 加密 ----------
+// ⚠️ 用的是 Web Push 加密的**早期草案**算法，不是最终版 RFC 8291，详见 encrypt 内注释
+
+/**
+ * HKDF-Expand（RFC 5869）手写版。
+ *
+ * WebCrypto 只有「Extract + Expand 一条龙」的 deriveBits，没法拿着一个已经算好的
+ * PRK 单独做 Expand —— 而这里的 PRK 必须由上游 extract 产出，所以只能手写。
+ */
+async function hkdfExpand(prk, info, length) {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    prk,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const out = new Uint8Array(length);
+  let prev = new Uint8Array(0);
+  let offset = 0;
+  let counter = 1;
+  while (offset < length) {
+    const block = new Uint8Array(
+      await crypto.subtle.sign('HMAC', key, concat(prev, info, new Uint8Array([counter])))
+    );
+    prev = block;
+    out.set(block.subarray(0, Math.min(block.length, length - offset)), offset);
+    offset += block.length;
+    counter += 1;
+  }
+  return out;
+}
 
 async function encrypt(payload, p256dh, auth) {
   const uaPublic = b64urlToBytes(p256dh);
@@ -126,44 +157,49 @@ async function encrypt(payload, p256dh, auth) {
     )
   );
 
+  /*
+    ⚠️ 密钥派生栽过大跟头，别照着最终版 RFC 8291 改回去。
+
+    RFC 8291（2017 定稿）的写法是：
+        context = "P-256\0" + len(uaPublic) + uaPublic + len(asPublic) + asPublic
+        PRK     = HKDF-Extract(salt = authSecret, ecdhSecret)
+        CEK     = HKDF-Expand(PRK, "Content-Encoding: aes128gcm\0" + context, 16)
+
+    但 Safari / iOS 只认**早期草案**这一套（web-push 底层 http_ece 实现的就是它）：
+        info  = "WebPush: info\0" + uaPublic + asPublic   ← 无长度前缀，标签也不同
+        mid   = HKDF(authSecret, ecdhSecret, info, 32)    ← 第一轮，authSecret 在这用掉
+        PRK   = HMAC(salt, mid)                           ← 第二轮，salt 换成随机那条
+        CEK   = HKDF-Expand(PRK, "Content-Encoding: aes128gcm\0", 16)  ← 不带 context
+        NONCE = HKDF-Expand(PRK, "Content-Encoding: nonce\0", 12)
+
+    两套算法结果完全不同。按 RFC 8291 写出来的推送，APNs 照样回 201，
+    但 Safari 解不开就静默丢弃 —— 不报错、不弹通知，只知道「发出去了但没反应」。
+  */
   const salt = crypto.getRandomValues(new Uint8Array(16));
-  const prk = await crypto.subtle.importKey('raw', ecdhSecret, 'HKDF', false, [
+
+  const authInfo = concat(enc.encode('WebPush: info\0'), uaPublic, asPublic);
+  const ikmKey = await crypto.subtle.importKey('raw', ecdhSecret, 'HKDF', false, [
     'deriveBits',
   ]);
-
-  const context = concat(
-    enc.encode('P-256'),
-    new Uint8Array([0x00]),
-    u16(uaPublic.length),
-    uaPublic,
-    u16(asPublic.length),
-    asPublic
-  );
-  const cekInfo = concat(
-    enc.encode('Content-Encoding: aes128gcm'),
-    new Uint8Array([0x00]),
-    context
-  );
-  const nonceInfo = concat(
-    enc.encode('Content-Encoding: nonce'),
-    new Uint8Array([0x00]),
-    context
-  );
-
-  const cek = new Uint8Array(
+  const intermediate = new Uint8Array(
     await crypto.subtle.deriveBits(
-      { name: 'HKDF', hash: 'SHA-256', salt: authSecret, info: cekInfo },
-      prk,
-      128
+      { name: 'HKDF', hash: 'SHA-256', salt: authSecret, info: authInfo },
+      ikmKey,
+      256
     )
   );
-  const nonce = new Uint8Array(
-    await crypto.subtle.deriveBits(
-      { name: 'HKDF', hash: 'SHA-256', salt: authSecret, info: nonceInfo },
-      prk,
-      96
-    )
+
+  const prkKey = await crypto.subtle.importKey(
+    'raw',
+    salt,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
   );
+  const prk = new Uint8Array(await crypto.subtle.sign('HMAC', prkKey, intermediate));
+
+  const cek = await hkdfExpand(prk, enc.encode('Content-Encoding: aes128gcm\0'), 16);
+  const nonce = await hkdfExpand(prk, enc.encode('Content-Encoding: nonce\0'), 12);
 
   const plaintext = concat(enc.encode(payload), new Uint8Array([0x02]));
   const aesKey = await crypto.subtle.importKey('raw', cek, 'AES-GCM', false, [
