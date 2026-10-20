@@ -17,6 +17,7 @@ import { NavBar } from 'antd-mobile';
 import {
   CheckOutlined,
   EditOutlined,
+  LeftOutlined,
   ShoppingCartOutlined,
   StarFilled,
   StarOutlined,
@@ -34,6 +35,29 @@ import DishEditor from '@/components/DishEditor';
 const { Title, Text } = Typography;
 
 const COVER_HEIGHT = 240;
+
+/*
+  NavBar 里的圆形图标底座：裸图标直接搁在白底导航栏上太素，加个淡橙圆圈压一下。
+  比之前那套 38px 的毛玻璃圆钮小一圈（30px），不再喧宾夺主，也不挡封面图。
+*/
+const iconCircle: React.CSSProperties = {
+  width: 30,
+  height: 30,
+  borderRadius: '50%',
+  background: 'rgba(232, 116, 60, 0.12)',
+  color: '#E8743C',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: 15,
+  cursor: 'pointer',
+};
+
+/** 选中态：填充品牌橙，正好是未激活态的反转（橙底白图标） */
+const iconCircleActive: React.CSSProperties = {
+  background: '#E8743C',
+  color: '#fff',
+};
 
 const placeholderStyle: React.CSSProperties = {
   height: COVER_HEIGHT,
@@ -93,8 +117,13 @@ export default function DishDetail() {
       {isMobile && (
         <NavBar
           onBack={() => navigate('/menu')}
+          backArrow={
+            <span style={iconCircle}>
+              <LeftOutlined />
+            </span>
+          }
           right={
-            <div style={{ display: 'flex', alignItems: 'center', gap: 18, fontSize: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span
                 role="button"
                 aria-label={inShopping ? '从采购清单移除' : '加入采购清单'}
@@ -102,7 +131,7 @@ export default function DishDetail() {
                   toggleDishInShopping(dish.id);
                   message.success(inShopping ? '已从采购清单移除' : '已加入采购清单');
                 }}
-                style={{ color: inShopping ? '#E8743C' : undefined, cursor: 'pointer' }}
+                style={{ ...iconCircle, ...(inShopping ? iconCircleActive : null) }}
               >
                 {inShopping ? <CheckOutlined /> : <ShoppingCartOutlined />}
               </span>
@@ -113,7 +142,7 @@ export default function DishDetail() {
                   toggleFavorite(dish.id);
                   message.success(dish.favorite ? '已取消收藏' : '已收藏');
                 }}
-                style={{ color: dish.favorite ? '#E8743C' : undefined, cursor: 'pointer' }}
+                style={{ ...iconCircle, ...(dish.favorite ? iconCircleActive : null) }}
               >
                 {dish.favorite ? <StarFilled /> : <StarOutlined />}
               </span>
