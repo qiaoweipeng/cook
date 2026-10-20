@@ -306,6 +306,18 @@ textarea,
 }
 
 /*
+  圆形图标按钮（.icon-btn）里的 antd 图标会往下沉、贴着底部。
+
+  原因是 antd 给 .anticon 设了 line-height: 0 和 vertical-align: -0.125em ——
+  那是为「图标跟在一行文字里」服务的（对齐文字基线），
+  但图标单独放在圆圈里当按钮用时，这两个值就变成了往下偏。这里在圆圈内重置掉。
+*/
+.icon-btn .anticon {
+  line-height: 1;
+  vertical-align: 0;
+}
+
+/*
   菜品封面骨架屏（DishCard）。
   盖在 <img> 上面的那块灰底 + 一道从左扫到右的白色流光；
   图解码完由 JS 把它撤掉，<img> 自己从 opacity:0 淡入。

@@ -46,10 +46,11 @@ const iconCircle: React.CSSProperties = {
   borderRadius: '50%',
   background: 'rgba(232, 116, 60, 0.12)',
   color: '#E8743C',
-  display: 'inline-flex',
+  display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   fontSize: 15,
+  lineHeight: 1,
   cursor: 'pointer',
 };
 
@@ -118,13 +119,14 @@ export default function DishDetail() {
         <NavBar
           onBack={() => navigate('/menu')}
           backArrow={
-            <span style={iconCircle}>
+            <span className="icon-btn" style={iconCircle}>
               <LeftOutlined />
             </span>
           }
           right={
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span
+                className="icon-btn"
                 role="button"
                 aria-label={inShopping ? '从采购清单移除' : '加入采购清单'}
                 onClick={() => {
@@ -136,6 +138,7 @@ export default function DishDetail() {
                 {inShopping ? <CheckOutlined /> : <ShoppingCartOutlined />}
               </span>
               <span
+                className="icon-btn"
                 role="button"
                 aria-label={dish.favorite ? '取消收藏' : '收藏'}
                 onClick={() => {
