@@ -13,10 +13,10 @@ import {
   Descriptions,
   App as AntApp,
 } from 'antd';
+import { NavBar } from 'antd-mobile';
 import {
   CheckOutlined,
   EditOutlined,
-  LeftOutlined,
   ShoppingCartOutlined,
   StarFilled,
   StarOutlined,
@@ -34,42 +34,6 @@ import DishEditor from '@/components/DishEditor';
 const { Title, Text } = Typography;
 
 const COVER_HEIGHT = 240;
-
-/**
- * 移动端顶部的圆形悬浮按钮（返回 / 采购 / 收藏）。
- * 用毛玻璃底：详情页顶部是封面图，纯色圆底会显得很重，半透明能透出一点图又不糊。
- */
-const floatBtnBase: React.CSSProperties = {
-  width: 38,
-  height: 38,
-  borderRadius: '50%',
-  /*
-    未选中：半透明底 + 一圈淡橙描边 + 橙色图标。
-    底压到 .25 是为了透出封面图（不挡画面），描边和图标给品牌橙，
-    这样跟激活态正好是「白底橙图标 → 橙底白图标」的反转，一眼就能看出状态。
-  */
-  border: '1px solid rgba(232, 116, 60, 0.45)',
-  background: 'rgba(255, 255, 255, 0.25)',
-  backdropFilter: 'blur(8px)',
-  WebkitBackdropFilter: 'blur(8px)',
-  color: '#E8743C',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontSize: 17,
-  boxShadow: '0 2px 8px rgba(45, 42, 38, 0.14)',
-  cursor: 'pointer',
-  // 外层容器是 pointer-events: none（避免整条栏挡住下面的内容），按钮自己要恢复可点
-  pointerEvents: 'auto',
-  transition: 'background-color 200ms ease, color 200ms ease, transform 200ms ease',
-};
-
-/** 激活态：填充品牌橙，正好是未激活态的反转（橙底白图标） */
-const floatBtnActive: React.CSSProperties = {
-  background: '#E8743C',
-  border: '1px solid #E8743C',
-  color: '#fff',
-};
 
 const placeholderStyle: React.CSSProperties = {
   height: COVER_HEIGHT,
@@ -122,58 +86,42 @@ export default function DishDetail() {
   return (
     <div>
       {/*
-        移动端顶部悬浮栏：返回在左，采购 / 收藏两个圆钮在右。
-        fixed 定位所以不占任何位置，直接浮在封面图上（沉浸式，跟常见 APP 一致）。
-        整条栏设 pointer-events: none，避免它拦住下面内容的点击，按钮自己再设回 auto。
+        移动端顶部统一用 NavBar：返回交给它自带的返回箭头，采购 / 收藏放右侧。
+        之前那套毛玻璃圆钮是浮在封面图上的（沉浸式），但状态辨识度不够，
+        而且圆钮会挡住封面图 —— 换成常规 NavBar 后标题栏显示菜名，滚到哪都知道在看哪道菜。
       */}
       {isMobile && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 'calc(10px + env(safe-area-inset-top))',
-            left: 12,
-            right: 12,
-            zIndex: 100,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            pointerEvents: 'none',
-          }}
+        <NavBar
+          onBack={() => navigate('/menu')}
+          right={
+            <div style={{ display: 'flex', alignItems: 'center', gap: 18, fontSize: 18 }}>
+              <span
+                role="button"
+                aria-label={inShopping ? '从采购清单移除' : '加入采购清单'}
+                onClick={() => {
+                  toggleDishInShopping(dish.id);
+                  message.success(inShopping ? '已从采购清单移除' : '已加入采购清单');
+                }}
+                style={{ color: inShopping ? '#E8743C' : undefined, cursor: 'pointer' }}
+              >
+                {inShopping ? <CheckOutlined /> : <ShoppingCartOutlined />}
+              </span>
+              <span
+                role="button"
+                aria-label={dish.favorite ? '取消收藏' : '收藏'}
+                onClick={() => {
+                  toggleFavorite(dish.id);
+                  message.success(dish.favorite ? '已取消收藏' : '已收藏');
+                }}
+                style={{ color: dish.favorite ? '#E8743C' : undefined, cursor: 'pointer' }}
+              >
+                {dish.favorite ? <StarFilled /> : <StarOutlined />}
+              </span>
+            </div>
+          }
         >
-          <button
-            type="button"
-            onClick={() => navigate('/menu')}
-            aria-label="返回菜单"
-            style={floatBtnBase}
-          >
-            <LeftOutlined />
-          </button>
-
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button
-              type="button"
-              onClick={() => {
-                toggleDishInShopping(dish.id);
-                message.success(inShopping ? '已从采购清单移除' : '已加入采购清单');
-              }}
-              aria-label={inShopping ? '从采购清单移除' : '加入采购清单'}
-              style={{ ...floatBtnBase, ...(inShopping ? floatBtnActive : null) }}
-            >
-              {inShopping ? <CheckOutlined /> : <ShoppingCartOutlined />}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                toggleFavorite(dish.id);
-                message.success(dish.favorite ? '已取消收藏' : '已收藏');
-              }}
-              aria-label={dish.favorite ? '取消收藏' : '收藏'}
-              style={{ ...floatBtnBase, ...(dish.favorite ? floatBtnActive : null) }}
-            >
-              {dish.favorite ? <StarFilled /> : <StarOutlined />}
-            </button>
-          </div>
-        </div>
+          {dish.name}
+        </NavBar>
       )}
 
       {/* 桌面端才需要这个占位的返回按钮（移动端用上面的悬浮箭头） */}
