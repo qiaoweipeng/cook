@@ -22,6 +22,8 @@ interface WeeklyState {
   familyLoaded: boolean;
 
   load: () => Promise<void>;
+  /** 进页面时恢复上次选的模式；从没选过就按有没有家庭定默认 */
+  restoreMode: () => Promise<void>;
   setMode: (mode: 'personal' | 'family') => Promise<void>;
   addDishToDay: (day: string, dishId: string) => Promise<void>;
   removeDishFromDay: (day: string, dishId: string) => Promise<void>;
@@ -50,6 +52,34 @@ function dishNameOf(dishId: string): string {
   return useDishStore.getState().items.find((d) => d.id === dishId)?.name ?? dishId;
 }
 
+/*
+  上次看的是「个人」还是「家庭」—— 存 localStorage，不跟菜单一起走 IndexedDB。
+
+  这是**设备级**偏好：家里每人的手机各存各的，天然不会互相污染，也没必要同步到云端。
+  （persist 那份在云端模式下 partialize 返回 {}，压根不会被记下来，所以只能单独存。）
+
+  读不到时（首次、清过缓存、换设备）按有没有家庭定默认 —— 有家庭就给「家庭」，
+  所以就算记不住也只会退回家人期望的那个状态，不会退化成「个人」。
+*/
+const MODE_KEY = 'cook-weekly-mode';
+
+function savedMode(): 'personal' | 'family' | null {
+  try {
+    const v = localStorage.getItem(MODE_KEY);
+    return v === 'family' || v === 'personal' ? v : null;
+  } catch {
+    return null; // 隐私模式下 localStorage 可能直接抛错
+  }
+}
+
+function rememberMode(mode: 'personal' | 'family'): void {
+  try {
+    localStorage.setItem(MODE_KEY, mode);
+  } catch {
+    // 存不下不影响这次使用
+  }
+}
+
 export const useWeeklyStore = create<WeeklyState>()(
   persist(
     (set, get) => ({
@@ -63,6 +93,7 @@ export const useWeeklyStore = create<WeeklyState>()(
         // 先等 IndexedDB 缓存恢复完，避免云端新数据被旧缓存覆盖
         await whenHydrated(useWeeklyStore);
         if (!isCloudEnabled()) {
+          await get().restoreMode();
           set({ loaded: true });
           return;
         }
@@ -70,9 +101,11 @@ export const useWeeklyStore = create<WeeklyState>()(
         const remote = await cloudList<WeeklyPlans>('weekly_menus');
         const mine = remote.find((r: { id: string }) => r.id === me);
         set({ plans: mine?.data ?? {}, loaded: true });
+        await get().restoreMode();
       },
 
       setMode: async (mode) => {
+        rememberMode(mode);
         if (mode === 'family') {
           const fid = useFamilyStore.getState().family?.id;
           if (!fid) return; // 没加入家庭不允许切
@@ -82,6 +115,16 @@ export const useWeeklyStore = create<WeeklyState>()(
           return;
         }
         set({ mode: 'personal' });
+      },
+
+      restoreMode: async () => {
+        const saved = savedMode();
+        if (saved) {
+          await get().setMode(saved);
+          return;
+        }
+        // 从没选过：已经加入家庭就直接给家庭菜单
+        await get().setMode(useFamilyStore.getState().family?.id ? 'family' : 'personal');
       },
 
       addDishToDay: async (day, dishId) => {
@@ -141,6 +184,11 @@ export const useWeeklyStore = create<WeeklyState>()(
       },
 
       resetForUser: () => {
+        try {
+          localStorage.removeItem(MODE_KEY); // 换人了就别沿用上一个人的偏好
+        } catch {
+          // 清不掉不影响
+        }
         set({ plans: {}, loaded: false, mode: 'personal', familyPlans: {}, familyLoaded: false });
       },
     }),
