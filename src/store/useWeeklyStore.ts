@@ -117,6 +117,9 @@ export const useWeeklyStore = create<WeeklyState>()(
         set({ mode: 'personal' });
       },
 
+      // ⚠️ 调用前必须保证 useFamilyStore 已加载完，否则 setMode('family') 拿不到
+      // familyId 会直接放弃、静默退回「个人」（表现为刷新后模式丢失）。
+      // App.tsx 和 userScope.ts 都是「先 load family，再 load weekly」，别改回并行。
       restoreMode: async () => {
         const saved = savedMode();
         if (saved) {

@@ -21,10 +21,12 @@ export function resetUserScopedStores(): void {
 /** reset 之后按「当前登录用户」重新拉一遍；单个 store 失败不影响其他 */
 export async function reloadUserScopedStores(): Promise<void> {
   if (!isCloudEnabled()) return;
+  // family 要先单独加载完：weekly 恢复菜单模式（个人 / 家庭）时要读 family.id，
+  // 并行的话拿到的是 null，会静默退回「个人」，刷新后模式就丢了。
+  await useFamilyStore.getState().load().catch(() => { });
   await Promise.allSettled([
     useShoppingStore.getState().load(),
     useWeeklyStore.getState().load(),
-    useFamilyStore.getState().load(),
   ]);
 }
 

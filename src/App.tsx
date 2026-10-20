@@ -133,10 +133,13 @@ export default function App() {
         useIngredientStore.getState().load().catch(() => { }),
       ]);
       if (useAuthStore.getState().user) {
+        // family 必须先单独加载完才能加载 weekly：weekly 恢复「上次看的模式」时
+        // 要走 setMode('family')，而它开头就要读 family.id —— 并行的话这里拿到的还是
+        // null，会静默放弃、退回「个人」，表现就是刷新后模式丢了。
+        await useFamilyStore.getState().load().catch(() => { });
         await Promise.all([
           useShoppingStore.getState().load().catch(() => { }),
           useWeeklyStore.getState().load().catch(() => { }),
-          useFamilyStore.getState().load().catch(() => { }),
         ]);
       }
     })();
