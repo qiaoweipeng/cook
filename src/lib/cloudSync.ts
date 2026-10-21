@@ -130,44 +130,41 @@ async function deleteDishFull(id: string): Promise<void> {
 
 // ======================== ingredients ========================
 
-/**
- * ingredients.image 列是后加的（食材库图片），老库可能还没跑 ALTER。
- * 探测到列不存在后省略该字段，避免「只是没建列」就让整个保存失败。
- */
-let ingredientImageColumnMissing = false;
+/*
+  和 dishes.cover_image 一样的坑，已经一起堵掉了。
+  原来这里是 ingredients 版的翻版：探测到 image 列不存在就设模块级标志，
+  之后所有写入都 delete row.image —— 食材名称、价格照存，图片地址悄悄丢掉，
+  界面照样提示「已保存」。现在列缺失直接报错，让失败可见。
+*/
 
 function ingRow(i: Ingredient): Record<string, unknown> {
-  const row: Record<string, unknown> = ingToRow(i);
-  if (ingredientImageColumnMissing) delete row.image;
-  return row;
+  return ingToRow(i);
+}
+
+function isMissingIngredientImageColumn(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e ?? '');
+  return msg.includes('image');
 }
 
 async function saveIngredient(i: Ingredient): Promise<void> {
   // 简单 upsert：先尝试 update，0 行则 insert
-  const retryWithoutImage = async (fn: () => Promise<unknown>, rows: Record<string, unknown>) => {
-    try {
-      await fn();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : '';
-      if (!ingredientImageColumnMissing && msg.includes('image')) {
-        ingredientImageColumnMissing = true;
-        console.warn('[cloud] ingredients.image 列不存在，已跳过图片字段。请执行 ALTER TABLE ingredients ADD COLUMN image text;');
-        delete rows.image;
-        await fn();
-        return;
-      }
-      throw e;
-    }
-  };
-
   const row = ingRow(i);
-  await retryWithoutImage(
-    () => pgUpdateById('ingredients', i.id, row).then((updated) => {
-      if (!updated || updated.length === 0) return pgInsert('ingredients', row);
-      return updated;
-    }),
-    row
-  );
+  const write = async () => {
+    const updated = await pgUpdateById('ingredients', i.id, row);
+    if (!updated || updated.length === 0) return pgInsert('ingredients', row);
+    return updated;
+  };
+  try {
+    await write();
+  } catch (e) {
+    if (isMissingIngredientImageColumn(e)) {
+      throw new Error(
+        '数据库的 ingredients 表缺少 image 列，图片无法保存。' +
+          '请在 Supabase 控制台执行：ALTER TABLE ingredients ADD COLUMN image text;'
+      );
+    }
+    throw e;
+  }
 }
 
 async function listIngredientsFlat(): Promise<Array<{ id: string; data: Ingredient }>> {

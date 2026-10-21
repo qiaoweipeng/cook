@@ -8,7 +8,7 @@ import {
   dismissSeed,
   readDismissed,
 } from '@/lib/seedDismiss';
-import { isCloudEnabled } from '@/lib/supabase';
+import { isCloudEnabled, pgSelect } from '@/lib/supabase';
 import { cloudDelete, cloudList, cloudSet } from '@/lib/cloudSync';
 import { checkDishUsage } from '@/lib/usage';
 import { logOp } from '@/lib/opLog';
@@ -37,6 +37,36 @@ async function writeCloud(dish: Dish): Promise<void> {
     created_by: useAuthStore.getState().user?.uid ?? 'anonymous',
     updated_at: Date.now(),
   }, true);
+
+  /*
+    保存后回读校验 —— 这是防止「图片悄悄丢」的最后一道防线。
+
+    前面已经堵掉了两个已知漏洞（cover_image 列缺失时静默跳过、上传失败降级 Base64），
+    但只要写入链路上还有任何一条分支能悄悄丢掉图片字段，这里就能兜住：
+    写完立刻把这一行读回来比对，对不上就**明确报错**。
+
+    代价是一次额外的 GET（只在保存时发生，不影响读性能）。
+    收益：从「用户几天后才发现图没了」变成「保存当场就看到红色报错」。
+  */
+  if (dish.coverImage && isCloudEnabled()) {
+    try {
+      const [row] = await pgSelect<{ cover_image: string | null }>('dishes', {
+        id: `eq.${dish.id}`,
+        select: 'cover_image',
+        limit: 1,
+      });
+      if (!row || row.cover_image !== dish.coverImage) {
+        throw new Error(
+          '图片没有存进数据库：写入后回读发现地址不一致，' +
+            '图片已上传到 Storage 但记录丢失，请重新上传一次'
+        );
+      }
+    } catch (e) {
+      if (e instanceof Error && e.message.startsWith('图片没有存进数据库')) throw e;
+      // 校验本身失败（网络等）不阻断保存，但要留下痕迹
+      console.warn('[cloud] 图片回读校验失败：', e);
+    }
+  }
 }
 
 /**

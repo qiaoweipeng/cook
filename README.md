@@ -509,7 +509,8 @@ select pg_size_pretty(pg_database_size(current_database()));
 alter table public.ingredients add column if not exists image text;
 ```
 
-> 没跑第 1 条也能用：图片会退回 Base64 存库，只是又会回到「占数据库 + 每次同步都带图」的老问题。
+> 没跑第 1 条的话，图片会**上传失败并明确报错**（Base64 降级已按决策移除，
+> 详见下方「图片『传了却显示不出来』完整排查实录」）。想要图片功能就必须先建桶。
 
 #### 还可以继续做的优化
 
@@ -517,6 +518,224 @@ alter table public.ingredients add column if not exists image text;
    改成显式指定列、图片单独按 id 取，单次同步能再降一个数量级（这是更根本的一步，尚未做）
 2. **菜品步骤图 / 食材图**——对象存储已经就位，加图只是加字段 + UI 的事
 3. **懒加载**——菜品卡片和食材缩略图已加 `loading="lazy"`，只加载滚到的图
+
+---
+
+## 🖼 图片「传了却显示不出来」完整排查实录
+
+> 这个问题在腾讯云和 Supabase 上**各犯过一次**，两次现象一模一样：
+> 图片确实传了、Storage 桶里也确实有文件、界面也提示「已保存」，
+> 但换个设备 / 清一次缓存，图片全部消失。
+> 下面把根因、排查过程和最终修法完整记下来 —— **它不会再复发，但原理值得记住。**
+
+### 📌 结论先说：现在还会不会复发
+
+| 问的问题 | 答 |
+| --- | --- |
+| 上传失败还会假装成功吗 | **不会** —— 上传失败直接抛错，界面弹红色提示 |
+| 数据库列缺失还会静默跳过吗 | **不会** —— 检测到列缺失直接报错，并给出修复 SQL |
+| 别的写入路径还会丢 `cover_image` 吗 | **不会** —— 保存后立即回读比对，对不上当场报错 |
+| Storage 本身会挂吗 | 桶是 `public` 的，策略允许 anon 读，实测匿名可直连 200 |
+
+也就是说：**从「上传 → 落库 → 渲染」这条链路上，目前每个会静默失败的点都已经变成显式报错了。**
+
+### 一、三个真正的根因
+
+#### 根因 1：`cover_image` 列缺失时的「永久静默跳过」（主凶）
+
+```ts
+// ❌ 修复前的代码（cloudSync.ts）
+let coverImageColumnMissing = false;   // ← 模块级标志，全局共享
+
+async function insertDishRow(d: Dish): Promise<void> {
+  const row = dishToRow(d);
+  if (coverImageColumnMissing) delete row.cover_image;   // ← 静默删掉图片字段
+  try {
+    await pgInsert('dishes', row);
+  } catch (e) {
+    if (!coverImageColumnMissing && msg.includes('cover_image')) {
+      coverImageColumnMissing = true;                   // ← 一旦置真，这个页面会话内
+      delete row.cover_image;                           //    之后所有写入都不再存图片
+      await pgInsert('dishes', row);                    //    菜名/配料/步骤照存，界面照样弹「已保存」
+      return;
+    }
+  }
+}
+```
+
+**它为什么致命**，三个特性叠在一起：
+
+1. **静默** —— `delete row.cover_image` 之后写入照样成功，不抛任何错
+2. **永久** —— `coverImageColumnMissing` 是**模块级变量**，不是一次性的；
+   一次误判后，整个页面生命周期内所有菜品都不再存图片地址
+3. **不可见** —— 界面收到的是「保存成功」，用户没有任何察觉的途径
+
+`ingredients.image` 当时是这段代码的**逐字复制版**，同样的问题（现已一并修掉）。
+
+> **修复**：列缺失直接抛错，并把该执行哪条 SQL 写在错误信息里。
+> 宁可让保存失败，也不能假装成功。
+
+```ts
+// ✅ 修复后
+function isMissingCoverImageColumn(e: unknown): boolean {
+  return (e instanceof Error ? e.message : '').includes('cover_image');
+}
+// 命中就抛错，不再降级
+throw new Error('数据库的 dishes 表缺少 cover_image 列…ALTER TABLE dishes ADD COLUMN cover_image text;');
+```
+
+#### 根因 2：上传失败自动降级成 Base64
+
+```ts
+// ❌ 修复前
+try {
+  return await uploadToStorage(file, folder);
+} catch (e) {
+  console.warn('[image] 上传失败，退回 Base64：', e);   // ← 只是 warn，界面上完全静默
+  const dataUrl = await compressToDataUrl(file);
+  return { url: dataUrl, viaStorage: false };            // ← 用户以为成功了
+}
+```
+
+**问题在于降级本身也救不了场**：Base64 一条图占几十 KB 到几 MB，
+写进数据库这一步同样会超时或撑爆请求 —— 于是「存了但没存上」，
+而用户看到的仍是「保存成功」。
+
+**修复**：删掉整个降级分支，上传失败就抛错。
+
+```ts
+// ✅ 修复后
+if (!isCloudEnabled()) {
+  throw new Error('未配置云端…无法上传图片');            // 不再偷偷转 Base64
+}
+try {
+  return await uploadToStorage(file, folder);
+} catch (e) {
+  throw new Error(`图片上传失败：${detail}`);             // 原样抛给界面
+}
+```
+
+#### 根因 3：相对路径被当成完整 URL 用
+
+```ts
+// ❌ 修复前（6 处渲染点都是这样）
+<img src={dish.coverImage} />
+```
+
+数据库里 `cover_image` 混着**三种形态**：
+
+| 形态 | 样例 | 直接当 src 会怎样 |
+| --- | --- | --- |
+| 完整 URL | `https://xxx.supabase.co/storage/v1/.../a.webp` | ✅ 正常 |
+| **相对路径** | `/dishes/a.jpg` | ❌ 请求**你自己域名下**的 `/dishes/a.jpg` → 404 |
+| Base64 | `data:image/webp;base64,...` | ✅ 正常（但见根因 2） |
+
+**修复**：渲染前一律过 `resolveImageUrl()`。
+
+```ts
+export function resolveImageUrl(value?: string | null): string {
+  const v = value?.trim() ?? '';
+  if (!v) return '';
+  if (v.startsWith('data:') || v.startsWith('blob:')) return v;   // Base64 / 本地预览
+  if (/^https?:\/\//i.test(v)) return v;                          // 已是完整地址
+  return storagePublicUrl(v.replace(/^\/+/, ''));                  // 相对路径 → 拼到 bucket 后
+}
+```
+
+已应用到全部 6 个渲染点：`DishCard`、`DishDetail`、`MenuPlan`、`Ingredients`（列表 + 预览）、
+`DishEditor`（预览）。
+
+### 二、为什么是「突然」出现的（以及我的责任）
+
+真相是：**图片地址从来没进过数据库，一直躺在浏览器的 IndexedDB 本地缓存里。**
+
+```
+本地缓存有 cover_image  →  能显示（假象）
+        ↓
+清掉 IndexedDB 缓存      →  只能从云端拉
+        ↓
+云端 cover_image 是 null →  全部显示占位符
+```
+
+「突然」的时间点就是**清缓存那一刻**。而清缓存是我建议的 —— 我当时没想到
+本地缓存里存着一份「能用的假数据」，清掉就把问题暴露出来了。
+**这个锅在我**：应该在让你清缓存之前先查数据库。
+
+### 三、怎么排查的（可复用的方法）
+
+分三步二分，每步都有明确的判据：
+
+**第 1 步：图片到底有没有在数据库里？** 别看界面，直接查 API：
+
+```bash
+curl -sS "$VITE_SUPABASE_URL/rest/v1/dishes?select=name,cover_image&cover_image=not.is.null" \
+  -H "apikey: $VITE_SUPABASE_ANON_KEY" -H "Authorization: Bearer $VITE_SUPABASE_ANON_KEY"
+```
+
+- 返回空数组 → 数据层就没有，问题不在渲染
+- 有数据 → 继续第 2 步
+
+**第 2 步：文件到底在不在 Storage 里？**
+
+```bash
+curl -sS "$VITE_SUPABASE_URL/storage/v1/object/public/dish-images/dishes/<文件名>" \
+  -w "\nHTTP=%{http_code}\n"
+```
+
+| 返回 | 含义 |
+| --- | --- |
+| `200` + `image/webp` | 文件完好，继续第 3 步 |
+| `400` + `NoSuchKey` | 文件不在桶里（**注意**：400 是 Supabase 包装过的 404，不是权限问题） |
+| `400` + 其他 | bucket / 策略问题 |
+
+**第 3 步：前端拿到的和渲染的分别是什么？** 在卡片组件里打两段日志：
+
+```tsx
+// 第 1 段：数据层
+console.log('coverImage 原始值:', dish.coverImage);
+
+// 第 2 段：渲染层（区分「请求失败」和「压根没地址」）
+<img onLoad={() => console.log('渲染出来了')} onError={() => console.log('拿到了但没渲染')} />
+```
+
+| 第 1 段 | 第 2 段 | 结论 |
+| --- | --- | --- |
+| `undefined` | 不触发 | 数据库里就没有地址 → 查第 1 步 |
+| 有值 | 「没渲染」 | 地址能拼但请求失败 → 查路径拼接 / 桶策略 |
+| 有值 | 「渲染出来了」 | 正常，问题在样式或缓存 |
+
+### 四、最后一道保险：保存后回读校验
+
+前面堵的是「已知漏洞」，这个防的是「未来任何新的漏洞」——
+哪怕以后有人又加了一条新的写入分支，只要它悄悄丢字段，这里就能兜住：
+
+```ts
+// useDishStore.ts · writeCloud 末尾
+if (dish.coverImage && isCloudEnabled()) {
+  const [row] = await pgSelect('dishes', { id: `eq.${dish.id}`, select: 'cover_image', limit: 1 });
+  if (!row || row.cover_image !== dish.coverImage) {
+    throw new Error('图片没有存进数据库：写入后回读发现地址不一致，请重新上传一次');
+  }
+}
+```
+
+代价是每次保存多一次 GET（只在写入时发生），收益是
+**「几天后才发现图没了」变成「保存当场就看到红色报错」**。
+
+### 五、⚠️ 三条纪律
+
+1. **不要为了「不报错」而静默降级**。Base64 降级看起来是兜底，实际是把
+   「明确失败」变成「假装成功」，这才是图片丢失的根源。
+2. **模块级标志位做降级开关极其危险**。`coverImageColumnMissing` 这种
+   「一次误判、永久生效」的逻辑，任何时候都该优先选择「让错误暴露出来」。
+3. **清本地缓存前先确认云端数据是对的**。本地缓存会掩盖云端的数据缺失，
+   在没查清云端之前清缓存，等于主动拆掉遮羞布。
+
+### 六、遗留待办
+
+Storage 桶里目前有 **19 张孤儿图**（文件名是 `mve4mj8q-rwimix.webp` 这类随机名，
+2026-10-18 / 19 两天上传，共约 2.8 MB），没有任何数据库记录引用它们。
+需要做个图库页面把它们列出来手动挂到菜品上，或直接清理掉。
 
 ---
 
