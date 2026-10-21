@@ -34,14 +34,6 @@ export default function DishCard({ dish, cost }: Props) {
        [图片诊断] 第2步 渲染出来了     → 正常
   */
   const debugUrl = resolveImageUrl(dish.coverImage);
-  console.log(
-    `%c[图片诊断] 第1步 ${dish.coverImage ? '拿到了' : '根本没拿到'}`,
-    `color:${dish.coverImage ? '#E8743C' : '#d4380d'};font-weight:bold`,
-    '| 菜名:', dish.name,
-    '| coverImage 原始值:', JSON.stringify(dish.coverImage),
-    '| 类型:', typeof dish.coverImage,
-    '| 最终请求地址:', debugUrl || '(空)'
-  );
 
   /*
     封面加载状态。
@@ -97,27 +89,9 @@ export default function DishCard({ dish, cost }: Props) {
                   alt={dish.name}
                   loading="lazy"
                   decoding="async"
-                  onLoad={(e) => {
-                    // 第2步-A：onLoad 触发说明浏览器成功解码并渲染了这张图
-                    console.log(
-                      `%c[图片诊断] 第2步 渲染出来了`,
-                      'color:#52c41a;font-weight:bold',
-                      '| 菜名:', dish.name,
-                      '| 实际宽高:', e.currentTarget.naturalWidth + 'x' + e.currentTarget.naturalHeight
-                    );
-                    setCoverLoaded(true);
-                  }}
+                  onLoad={() => setCoverLoaded(true)}
                   // 图挂了也要把骨架屏收掉，否则位图一直流光
-                  onError={(e) => {
-                    // 第2步-B：拿到了地址但请求失败 —— 这才是「有图却显示不出来」
-                    console.error(
-                      `%c[图片诊断] 第2步 拿到了但没渲染出来`,
-                      'color:#d4380d;font-weight:bold',
-                      '| 菜名:', dish.name,
-                      '| 请求地址:', debugUrl
-                    );
-                    setCoverLoaded(true);
-                  }}
+                  onError={() => setCoverLoaded(true)}
                   style={{
                     width: '100%',
                     height: '100%',

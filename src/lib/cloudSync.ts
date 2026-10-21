@@ -14,25 +14,37 @@ import { dishToRow, ingToRow, rowToDish, rowToIng } from './rowMapper';
 
 // ======================== dishes（4 张表） ========================
 
-/**
- * cover_image 列可能还没建（需要在控制台跑 ALTER TABLE dishes ADD COLUMN cover_image text）。
- * 探测到列不存在后缓存标记，后续写入自动省略该字段，避免整个写入失败。
- */
-let coverImageColumnMissing = false;
+/*
+  ⚠️ 这里曾经埋着一个「静默丢图」的坑，别再改回去。
+
+  原来是这样：cover_image 列如果不存在（比如建表时漏了），代码会探测到报错，
+  然后设一个**模块级标志** coverImageColumnMissing = true，之后**所有**写入都
+  `delete row.cover_image` —— 包括菜品名、配料、步骤全都照存，唯独图片地址悄悄丢掉，
+  而且界面照样弹「已保存」。
+
+  后果是：用户传了图、图进了 Storage 桶、界面说成功了，数据库里却没有图片地址。
+  换台设备 / 清一次缓存，从云端重新拉，图片就全没了 —— 而用户完全不知道发生过什么。
+  这个项目因此丢过两批图。
+
+  现在改成：**列不存在就直接报错**，让上层把失败明确告诉用户。
+  宁可让保存失败，也不能假装成功。
+*/
+
+function isMissingCoverImageColumn(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e ?? '');
+  return msg.includes('cover_image');
+}
 
 async function insertDishRow(d: Dish): Promise<void> {
   const row: Record<string, unknown> = dishToRow(d);
-  if (coverImageColumnMissing) delete row.cover_image;
   try {
     await pgInsert('dishes', row);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : '';
-    if (!coverImageColumnMissing && msg.includes('cover_image')) {
-      coverImageColumnMissing = true;
-      console.warn('[cloud] dishes.cover_image 列不存在，已跳过封面字段。请执行 ALTER TABLE dishes ADD COLUMN cover_image text;');
-      delete row.cover_image;
-      await pgInsert('dishes', row);
-      return;
+    if (isMissingCoverImageColumn(e)) {
+      throw new Error(
+        '数据库的 dishes 表缺少 cover_image 列，图片无法保存。' +
+          '请在 Supabase 控制台执行：ALTER TABLE dishes ADD COLUMN cover_image text;'
+      );
     }
     throw e;
   }
@@ -49,16 +61,13 @@ async function upsertDishRow(d: Dish): Promise<void> {
     const updated = await pgUpdateById('dishes', d.id, row);
     if (updated && updated.length > 0) return;
   } catch (e) {
-    const msg = e instanceof Error ? e.message : '';
-    if (!coverImageColumnMissing && msg.includes('cover_image')) {
-      coverImageColumnMissing = true;
-      console.warn('[cloud] dishes.cover_image 列不存在，已跳过封面字段。请执行 ALTER TABLE dishes ADD COLUMN cover_image text;');
-      delete row.cover_image;
-      const updated = await pgUpdateById('dishes', d.id, row);
-      if (updated && updated.length > 0) return;
-    } else {
-      throw e;
+    if (isMissingCoverImageColumn(e)) {
+      throw new Error(
+        '数据库的 dishes 表缺少 cover_image 列，图片无法保存。' +
+          '请在 Supabase 控制台执行：ALTER TABLE dishes ADD COLUMN cover_image text;'
+      );
     }
+    throw e;
   }
   await insertDishRow(d);
 }

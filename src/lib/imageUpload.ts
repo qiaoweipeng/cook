@@ -131,8 +131,17 @@ export async function compressImage(
   return { blob: jpeg, ext: 'jpeg' };
 }
 
-/** 压缩后转 dataURL（降级方案：不依赖对象存储） */
-async function compressToDataUrl(file: File, maxW = MAX_W, quality = QUALITY): Promise<string> {
+/**
+ * 压缩后转 dataURL。
+ *
+ * 已经没有任何地方调用了（上传失败不再降级成 Base64），留着只是为了
+ * 「万一以后要在本地预览大图时用」。要用记得自己 import。
+ */
+export async function compressToDataUrl(
+  file: File,
+  maxW = MAX_W,
+  quality = QUALITY
+): Promise<string> {
   const { blob } = await compressImage(file, maxW, quality);
   return new Promise((resolve, reject) => {
     const fr = new FileReader();
@@ -209,9 +218,18 @@ export async function validateImageFile(file: File): Promise<string | null> {
 }
 
 /**
- * 统一入口：优先走对象存储，失败自动降级成 Base64。
- * 调用方只需要拿 `url` 存库，并通过 `viaStorage` 提示用户当前用的是哪种。
- * 格式不合法会直接抛错（文案已经是可读的中文），调用方 catch 后提示即可。
+ * 统一入口：压缩 → 上传对象存储 → 返回 URL。
+ *
+ * ⚠️ 这里以前有个「失败自动降级成 Base64」的分支，已经**删掉**了。
+ *
+ * 那个降级是「图片丢失」的元凶：上传失败时它不报错，悄悄把图片转成 Base64
+ * 存进数据库字段，界面照样提示「已保存」。但 Base64 一条能占几十 KB 到几 MB，
+ * 一旦撑爆请求/超时，写入同样失败 —— 而用户看到的仍然是「保存成功」。
+ * 结果就是：图进了 Storage 桶（或根本没进去）、数据库里没有地址、
+ * 换个设备 / 清一次缓存从云端重拉，图片全没了，全程零报错。
+ *
+ * 现在：**能上传就上传，不能上传就明确失败**。
+ * 失败必须让用户看见，否则就是在骗人。
  */
 export async function pickImage(
   file: File,
@@ -221,17 +239,17 @@ export async function pickImage(
   if (invalid) throw new Error(invalid);
 
   if (!isCloudEnabled()) {
-    const dataUrl = await compressToDataUrl(file);
-    return { url: dataUrl, viaStorage: false, size: dataUrl.length };
+    throw new Error('未配置云端（VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY），无法上传图片');
   }
+
   try {
     const { url, size } = await uploadToStorage(file, folder);
     return { url, viaStorage: true, size };
   } catch (e) {
-    // bucket 没建 / 没权限 / 网络问题 → 退回本地压缩图，不让用户传不了图
-    console.warn('[image] 对象存储上传失败，退回 Base64：', e);
-    const dataUrl = await compressToDataUrl(file);
-    return { url: dataUrl, viaStorage: false, size: dataUrl.length };
+    // 不再降级、不再假装成功，原样把失败抛给界面提示用户
+    console.error('[image] 上传失败：', e);
+    const detail = e instanceof Error ? e.message : String(e ?? '');
+    throw new Error(`图片上传失败${detail ? '：' + detail.slice(0, 200) : '，请稍后重试'}`);
   }
 }
 

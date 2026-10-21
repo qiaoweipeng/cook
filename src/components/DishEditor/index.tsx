@@ -132,18 +132,11 @@ export default function DishEditor({
   const handlePickImage = async (file: File) => {
     setImgProcessing(true);
     try {
-      // 压缩成 WebP → 上传对象存储 → 只把 URL 存库（失败时自动退回 Base64）
+      // 压缩成 WebP → 上传对象存储 → 只把 URL 存库（上传失败会直接抛错，不再降级）
       const picked = await pickImage(file, 'dishes');
       form.setFieldsValue({ coverImage: picked.url });
       // 体积存下来常驻显示，不再只靠弹窗（弹窗一闪而过，回头就查不到了）
       setImgInfo({ size: picked.size, viaStorage: picked.viaStorage });
-      if (!picked.viaStorage) {
-        // 只有异常（对象存储没开通）才弹窗，正常上传不打扰，大小在下面常驻显示
-        message.warning(
-          '对象存储没开通，已退回压缩图存本地。' +
-            '建议执行 supabase/storage.sql 建 bucket，图片就不会占数据库了'
-        );
-      }
     } catch (e) {
       // pickImage 抛出来的已经是可读文案（比如「不支持 GIF 动图…」），直接透传
       message.error((e as Error).message || '图片处理失败');
