@@ -222,30 +222,36 @@ export default function AppLayout() {
             style={{ flex: 1, minWidth: 0, borderBottom: 'none' }}
           />
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Badge
-              count={selectedDishCount}
-              offset={[-4, 6]}
-              color="#E8743C"
-              showZero={false}
-            >
-              <Button
-                type="text"
-                icon={<ShoppingCartOutlined style={{ fontSize: 20 }} />}
-                onClick={() => setDrawerOpen(true)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  height: 40,
-                  padding: '0 14px',
-                  borderRadius: 10,
-                  color: selectedDishCount > 0 ? '#E8743C' : '#666',
-                }}
+            {/*
+              采购清单入口：管理员隐藏。
+              采购清单是「买了什么」的记录，是家人的日常功能；
+              管理员这边是来维护数据（菜品、食材价格、用户）的，不参与采购，所以不给入口。
+            */}
+            {!isAdmin && (
+              <Badge
+                count={selectedDishCount}
+                offset={[-4, 6]}
+                color="#E8743C"
+                showZero={false}
               >
-                采购清单
-              </Button>
-            </Badge>
-
+                <Button
+                  type="text"
+                  icon={<ShoppingCartOutlined style={{ fontSize: 20 }} />}
+                  onClick={() => setDrawerOpen(true)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    height: 40,
+                    padding: '0 14px',
+                    borderRadius: 10,
+                    color: selectedDishCount > 0 ? '#E8743C' : '#666',
+                  }}
+                >
+                  采购清单
+                </Button>
+              </Badge>
+            )}
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
               <Button
                 type="text"

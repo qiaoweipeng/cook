@@ -131,16 +131,21 @@ export default function Menu() {
         原来这里有一块「今天想吃点啥？」+「收录 N 道菜 ｜ 成本说明」的标题区，
         现在整个删掉了 —— 桌面端也不用再显示这两行字。
 
-        ⚠️ 这块里原本还带着管理员的「添加菜品」按钮，而它是全页唯一的添加入口。
-        删掉标题区的同时，把按钮挪到了下面的筛选栏里（桌面端 Segmented 右边），
-        移动端本来就看不到这个按钮，所以只补桌面端这一处。
+        这块里原本还带着管理员的「添加菜品」按钮（它是全页唯一的添加入口），
+        现在由 DishManageTable 右上角的那个按钮承担，所以删掉这块不会让管理员没法加菜。
       */}
 
       {/*
         移动端：logo + 搜索框 + 标签栏常驻吸顶（一进页面就贴在顶部，滚动时不动），
         毛玻璃背景；搜索框靠右，左侧是「大厨房」logo。
         桌面端：保持原有布局不变。
+
+        ⚠️ 管理员桌面端（showManageTable）整块跳过：
+        下面 DishManageTable 自带搜索框 + 分类筛选列 + 「添加菜品」按钮，
+        这里再来一套搜索框和分类 tab 就是重复两遍，而且分类筛选在表格里是列筛选，
+        比 tab 切换更直观。两边都有会让管理员不知道该用哪个。
       */}
+      {!showManageTable && (
       <div
         style={
           isMobile
@@ -273,21 +278,12 @@ export default function Menu() {
                   checkedChildren="我的收藏"
                   unCheckedChildren="全部菜品"
                 />
-                {isAdmin && (
-                  <Button
-                    type="primary"
-                    size="small"
-                    icon={<PlusOutlined />}
-                    onClick={() => setEditorOpen(true)}
-                  >
-                    添加菜品
-                  </Button>
-                )}
               </Space>
             </div>
           )}
         </div>
       </div>
+      )}
 
       {showManageTable ? (
         <DishManageTable
