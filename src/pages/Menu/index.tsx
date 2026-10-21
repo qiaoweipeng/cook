@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { Input, Segmented, Empty, Row, Col, Switch, Space, Typography, Spin, Button } from 'antd';
+import { Input, Segmented, Empty, Row, Col, Switch, Space, Spin, Button } from 'antd';
 import { Tabs, PullToRefresh, Toast } from 'antd-mobile';
 import { PlusOutlined, SearchOutlined, StarOutlined, StarFilled } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
@@ -12,7 +12,7 @@ import { useIsAdmin } from '@/store/useAuthStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import type { DishCategory } from '@/types';
 
-const { Text } = Typography;
+// 顶部标题区（「今天想吃点啥？」+ 收录数量）已整块删除，这里原本解构的 Text 也不再需要。
 
 /**
  * 首页 Tab / PC 菜单的分类顺序（两端共用这一份）。
@@ -113,29 +113,14 @@ export default function Menu() {
 
   const content = (
     <div>
-      {/* 移动端：隐藏「今天想吃点啥？」标题与副标题，进入首页直接是 logo + 搜索区 */}
-      <div
-        style={{
-          marginBottom: 8,
-          display: isMobile && !isAdmin ? 'none' : 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-end',
-          flexWrap: 'wrap',
-          gap: 12,
-        }}
-      >
-        <div>
-          <Text style={{ fontSize: 22, fontWeight: 700, color: '#2D2A26' }}>今天想吃点啥？</Text>
-          <div style={{ color: '#888', marginTop: 4 }}>
-            收录 {dishes.length} 道菜 ｜ 每道菜的成本按当前食材库价格实时估算
-          </div>
-        </div>
-        {isAdmin && (
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditorOpen(true)}>
-            添加菜品
-          </Button>
-        )}
-      </div>
+      {/*
+        原来这里有一块「今天想吃点啥？」+「收录 N 道菜 ｜ 成本说明」的标题区，
+        现在整个删掉了 —— 桌面端也不用再显示这两行字。
+
+        ⚠️ 这块里原本还带着管理员的「添加菜品」按钮，而它是全页唯一的添加入口。
+        删掉标题区的同时，把按钮挪到了下面的筛选栏里（桌面端 Segmented 右边），
+        移动端本来就看不到这个按钮，所以只补桌面端这一处。
+      */}
 
       {/*
         移动端：logo + 搜索框 + 标签栏常驻吸顶（一进页面就贴在顶部，滚动时不动），
@@ -274,6 +259,16 @@ export default function Menu() {
                   checkedChildren="我的收藏"
                   unCheckedChildren="全部菜品"
                 />
+                {isAdmin && (
+                  <Button
+                    type="primary"
+                    size="small"
+                    icon={<PlusOutlined />}
+                    onClick={() => setEditorOpen(true)}
+                  >
+                    添加菜品
+                  </Button>
+                )}
               </Space>
             </div>
           )}
