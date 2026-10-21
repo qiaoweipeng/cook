@@ -23,6 +23,7 @@ import { DeleteOutlined, PictureOutlined, PlusOutlined } from '@ant-design/icons
 import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
 import { pickImage, formatSize, IMAGE_ACCEPT } from '@/lib/imageUpload';
+import { resolveImageUrl } from '@/lib/supabase';
 import type { Dish, DishCategory, DishIngredient, Step } from '@/types';
 
 const { Text } = Typography;
@@ -372,7 +373,7 @@ export default function DishEditor({
             </Form.Item>
             {coverImage && (
               <img
-                src={coverImage}
+                src={resolveImageUrl(coverImage)}
                 alt="封面预览"
                 style={{
                   width: 160,

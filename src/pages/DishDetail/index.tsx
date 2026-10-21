@@ -29,6 +29,7 @@ import { useShoppingStore } from '@/store/useShoppingStore';
 import { useIsAdmin } from '@/store/useAuthStore';
 import { calcDishCost, lineCost } from '@/utils/price';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { resolveImageUrl } from '@/lib/supabase';
 import PriceTag from '@/components/PriceTag';
 import DishEditor from '@/components/DishEditor';
 
@@ -171,7 +172,7 @@ export default function DishDetail() {
           <div style={placeholderStyle}>
             {dish.coverImage ? (
               <img
-                src={dish.coverImage}
+                src={resolveImageUrl(dish.coverImage)}
                 alt={dish.name}
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />

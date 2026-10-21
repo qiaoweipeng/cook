@@ -202,6 +202,37 @@ export function storagePublicUrl(path: string): string {
 }
 
 /**
+ * 把数据库里存的图片字段解析成浏览器能直接用的 src。
+ *
+ * ⚠️ 这个坑踩过：数据库里存的**不一定是完整 URL**，有三种形态混在一起 ——
+ *   1. 完整 URL   `https://xxx.supabase.co/storage/v1/object/public/dish-images/dishes/xxx.webp`
+ *                 （`storageUpload` 的返回值就是这种）
+ *   2. 相对路径   `/dishes/xxx.jpg`（手动粘贴、或历史数据）
+ *   3. Base64     `data:image/webp;base64,...`（Storage 挂了时的降级方案）
+ *
+ * 之前所有渲染处都是 `src={dish.coverImage}` 直接用，第 2 种就会去请求
+ * **你自己网站域名下的 /dishes/xxx.jpg**，那个路径当然不存在 → 404 → 白图。
+ * 桶里的文件其实好好的，只是没人把它拼成完整地址。
+ *
+ * 所以渲染前**一律**过这个函数，别再直接 src={xxx}。
+ */
+export function resolveImageUrl(value?: string | null): string {
+  if (!value) return '';
+  const v = value.trim();
+  if (!v) return '';
+  // Base64 / data URI：原样用
+  if (v.startsWith('data:')) return v;
+  // blob: 预览用
+  if (v.startsWith('blob:')) return v;
+  // 已经是完整 http(s) 地址
+  if (/^https?:\/\//i.test(v)) return v;
+  // 站内绝对路径 /xxx → 拼到 bucket 公共地址后面
+  if (v.startsWith('/')) return storagePublicUrl(v.replace(/^\/+/, ''));
+  // 裸路径 dishes/xxx.jpg
+  return storagePublicUrl(v);
+}
+
+/**
  * 上传文件到 Storage（同名自动覆盖）。
  * 返回的 URL 直接存进数据库的 text 字段即可，浏览器会走 CDN 缓存。
  *

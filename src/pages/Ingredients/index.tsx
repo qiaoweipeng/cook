@@ -33,6 +33,7 @@ import {
   PictureOutlined,
 } from '@ant-design/icons';
 import { pickImage, formatSize, IMAGE_ACCEPT } from '@/lib/imageUpload';
+import { resolveImageUrl } from '@/lib/supabase';
 import { useIngredientStore } from '@/store/useIngredientStore';
 import { useIsAdmin } from '@/store/useAuthStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -351,7 +352,7 @@ export default function Ingredients() {
                       >
                         {it.image ? (
                           <img
-                            src={it.image}
+                            src={resolveImageUrl(it.image)}
                             alt=""
                             loading="lazy"
                             style={{
@@ -774,7 +775,7 @@ export default function Ingredients() {
               </Form.Item>
               {currentImage && (
                 <img
-                  src={currentImage}
+                  src={resolveImageUrl(currentImage)}
                   alt="图片预览"
                   style={{
                     width: 120,

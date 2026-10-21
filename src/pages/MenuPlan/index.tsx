@@ -38,6 +38,7 @@ import {
 } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import { Link } from 'react-router-dom';
+import { resolveImageUrl } from '@/lib/supabase';
 import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
 import { useWeeklyStore } from '@/store/useWeeklyStore';
@@ -448,7 +449,7 @@ export default function MenuPlan() {
               >
                 {dish.coverImage ? (
                   <img
-                    src={dish.coverImage}
+                    src={resolveImageUrl(dish.coverImage)}
                     alt={dish.name}
                     loading="lazy"
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}

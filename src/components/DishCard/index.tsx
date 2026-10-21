@@ -3,6 +3,7 @@ import { Card, Tag, Space } from 'antd';
 import { Link } from 'react-router-dom';
 import type { Dish } from '@/types';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { resolveImageUrl } from '@/lib/supabase';
 import PriceTag from '../PriceTag';
 
 interface Props {
@@ -73,7 +74,7 @@ export default function DishCard({ dish, cost }: Props) {
               <>
                 {!coverLoaded && <span className="sk-cover" aria-hidden />}
                 <img
-                  src={dish.coverImage}
+                  src={resolveImageUrl(dish.coverImage)}
                   alt={dish.name}
                   loading="lazy"
                   decoding="async"
