@@ -72,6 +72,30 @@ export const useDishStore = create<DishState>()(
         }
         set({ loading: true });
         const remote = await cloudList<Dish>('dishes');
+
+        /* ========== 拉取诊断（排查图片丢失，查完可删） ==========
+           看控制台这两行就知道是「云端没返回」还是「返回了但没进 store」：
+             [菜品拉取] 云端返回 N 条，其中 M 条带 cover_image
+             [菜品拉取] 样例：<菜名> → <cover_image 原值>
+        */
+        {
+          const withCover = remote.filter((r) => !!r.data?.coverImage);
+          console.log(
+            `%c[菜品拉取] 云端返回 ${remote.length} 条，其中 ${withCover.length} 条带 cover_image`,
+            'color:#1677ff;font-weight:bold'
+          );
+          for (const r of withCover.slice(0, 3)) {
+            console.log('   样例:', r.data.name, '→', r.data.coverImage);
+          }
+          if (withCover.length === 0) {
+            console.warn(
+              '%c[菜品拉取] 云端一条 cover_image 都没有 —— 说明数据库里本来就没存，' +
+                '或者 pgSelect 取字段时漏了 cover_image',
+              'color:#d4380d;font-weight:bold'
+            );
+          }
+        }
+
         // 清理已下架的菜（连云端一起删）
         const retired = new Set(RETIRED_DISH_IDS);
         for (const r of remote) {

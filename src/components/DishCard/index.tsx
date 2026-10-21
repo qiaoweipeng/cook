@@ -24,6 +24,25 @@ export default function DishCard({ dish, cost }: Props) {
   const isMobile = useIsMobile();
   const coverRadius = isMobile ? '12px 12px 0 0' : '16px 16px 0 0';
 
+  /* ========== 图片诊断（排查「图片加载不出来」，查完可删） ==========
+     第 1 步：拿到图片地址了吗？
+     第 2 步：拿到地址后，浏览器真的把图渲染出来了吗？
+     看控制台输出的这几行就能定位卡在哪一环：
+       [图片诊断] 第1步 拿到了   有地址 → 继续看第2步
+       [图片诊断] 第1步 根本没拿到 → 数据里就没有图片地址
+       [图片诊断] 第2步 拿到了但没渲染出来 → 地址给了但请求失败（404/网络/CORS）
+       [图片诊断] 第2步 渲染出来了     → 正常
+  */
+  const debugUrl = resolveImageUrl(dish.coverImage);
+  console.log(
+    `%c[图片诊断] 第1步 ${dish.coverImage ? '拿到了' : '根本没拿到'}`,
+    `color:${dish.coverImage ? '#E8743C' : '#d4380d'};font-weight:bold`,
+    '| 菜名:', dish.name,
+    '| coverImage 原始值:', JSON.stringify(dish.coverImage),
+    '| 类型:', typeof dish.coverImage,
+    '| 最终请求地址:', debugUrl || '(空)'
+  );
+
   /*
     封面加载状态。
     之前封面是个灰底方块，图从网络/Base64 解码出来之前就那么空着，
@@ -74,13 +93,31 @@ export default function DishCard({ dish, cost }: Props) {
               <>
                 {!coverLoaded && <span className="sk-cover" aria-hidden />}
                 <img
-                  src={resolveImageUrl(dish.coverImage)}
+                  src={debugUrl}
                   alt={dish.name}
                   loading="lazy"
                   decoding="async"
-                  onLoad={() => setCoverLoaded(true)}
+                  onLoad={(e) => {
+                    // 第2步-A：onLoad 触发说明浏览器成功解码并渲染了这张图
+                    console.log(
+                      `%c[图片诊断] 第2步 渲染出来了`,
+                      'color:#52c41a;font-weight:bold',
+                      '| 菜名:', dish.name,
+                      '| 实际宽高:', e.currentTarget.naturalWidth + 'x' + e.currentTarget.naturalHeight
+                    );
+                    setCoverLoaded(true);
+                  }}
                   // 图挂了也要把骨架屏收掉，否则位图一直流光
-                  onError={() => setCoverLoaded(true)}
+                  onError={(e) => {
+                    // 第2步-B：拿到了地址但请求失败 —— 这才是「有图却显示不出来」
+                    console.error(
+                      `%c[图片诊断] 第2步 拿到了但没渲染出来`,
+                      'color:#d4380d;font-weight:bold',
+                      '| 菜名:', dish.name,
+                      '| 请求地址:', debugUrl
+                    );
+                    setCoverLoaded(true);
+                  }}
                   style={{
                     width: '100%',
                     height: '100%',
