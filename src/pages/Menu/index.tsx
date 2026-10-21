@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { Input, Segmented, Empty, Row, Col, Switch, Space, Spin, Button } from 'antd';
+import { Input, Segmented, Empty, Row, Col, Switch, Space, Spin, Button, App as AntApp } from 'antd';
 import { Tabs, PullToRefresh, Toast } from 'antd-mobile';
 import { PlusOutlined, SearchOutlined, StarOutlined, StarFilled } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
@@ -8,9 +8,10 @@ import { useIngredientStore } from '@/store/useIngredientStore';
 import { calcDishCost } from '@/utils/price';
 import DishCard from '@/components/DishCard';
 import DishEditor from '@/components/DishEditor';
+import DishManageTable from '@/components/DishManageTable';
 import { useIsAdmin } from '@/store/useAuthStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import type { DishCategory } from '@/types';
+import type { Dish, DishCategory } from '@/types';
 
 // 顶部标题区（「今天想吃点啥？」+ 收录数量）已整块删除，这里原本解构的 Text 也不再需要。
 
@@ -39,6 +40,7 @@ const PAGE_SIZE = 8;
 
 export default function Menu() {
   const navigate = useNavigate();
+  const { message } = AntApp.useApp();
   const dishes = useDishStore((s) => s.items);
   const ingredients = useIngredientStore((s) => s.items);
   const isAdmin = useIsAdmin();
@@ -48,7 +50,19 @@ export default function Menu() {
   const [favOnly, setFavOnly] = useState(false);
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [editing, setEditing] = useState<Dish | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
+
+  /*
+    PC 端 + 管理员：这里换成「菜单管理」表格，一行一道菜、字段摊开、编辑删除行内完成。
+    卡片墙适合浏览挑选，不适合逐条核对维护 —— 管理员进来是干活的，不是逛的。
+
+    其他情况（移动端 / 非管理员）继续用原来的卡片墙，一行代码都不走这条分支。
+  */
+  const showManageTable = isAdmin && !isMobile;
+
+  // 删除走表格行内的删除按钮；编辑走 DishEditor 的 edit 模式，这里不用 update
+  const removeDish = useDishStore((s) => s.remove);
 
   const filtered = useMemo(() => {
     const k = keyword.trim().toLowerCase();
@@ -275,7 +289,24 @@ export default function Menu() {
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {showManageTable ? (
+        <DishManageTable
+          dishes={filtered}
+          ingredients={ingredients}
+          onCreate={() => {
+            setEditing(null);
+            setEditorOpen(true);
+          }}
+          onEdit={(d) => {
+            setEditing(d);
+            setEditorOpen(true);
+          }}
+          onDelete={async (id) => {
+            await removeDish(id);
+            message.success('已删除');
+          }}
+        />
+      ) : filtered.length === 0 ? (
         <Empty description="没找到这道菜，换个关键词试试" style={{ marginTop: 48 }} />
       ) : (
         <>
@@ -316,10 +347,19 @@ export default function Menu() {
       )}
 
       <DishEditor
-        mode="create"
+        mode={editing ? 'edit' : 'create'}
+        dish={editing ?? undefined}
         open={editorOpen}
-        onClose={() => setEditorOpen(false)}
+        onClose={() => {
+          setEditorOpen(false);
+          setEditing(null);
+        }}
         onCreated={(d) => navigate('/menu/' + d.id)}
+        onSaved={() => {
+          message.success('已保存');
+          setEditorOpen(false);
+          setEditing(null);
+        }}
       />
     </div>
   );

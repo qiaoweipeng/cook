@@ -36,6 +36,16 @@ import AddToHomeScreen from '@/components/AddToHomeScreen';
 
 const { Header, Content, Footer } = Layout;
 
+/*
+  PC 端顶部导航栏 —— 管理员和非管理员是**两套不同的菜单**。
+
+  管理员看到的是「管理台」视角：/menu 和 /ingredients 在他这里是表格/配置页，
+  用来维护数据，所以叫「菜单管理」「食材库管理」；「今日菜单」是给家人日常
+  看的排菜单页，管理端用不上，直接从 PC 端去掉（家人走移动端底部 TabBar，不受影响）。
+
+  非管理员看到的保持原样：菜单 / 今日菜单 / 食材库，因为他是在「用」这个应用，
+  不是在「管」它 —— 管理台那一套对他没有意义。
+*/
 const baseNavItems = [
   { key: '/menu', icon: <AppstoreOutlined />, label: '菜单' },
   { key: '/menu-plan', icon: <CalendarOutlined />, label: '今日菜单' },
@@ -43,6 +53,8 @@ const baseNavItems = [
 ];
 
 const adminNavItems = [
+  { key: '/menu', icon: <AppstoreOutlined />, label: '菜单管理' },
+  { key: '/ingredients', icon: <DatabaseOutlined />, label: '食材库管理' },
   { key: '/admin/users', icon: <TeamOutlined />, label: '用户管理' },
   { key: '/admin/system', icon: <DashboardOutlined />, label: '系统管理' },
 ];
@@ -69,7 +81,9 @@ export default function AppLayout() {
   const cloud = isCloudEnabled();
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
-  const navItems = isAdmin ? [...baseNavItems, ...adminNavItems] : baseNavItems;
+  // 管理员和非管理员是两套互斥的菜单，不能合并 —— 合并会让 /menu、/ingredients
+  // 出现重复 key，Menu 的高亮就会随机落在其中一个上
+  const navItems = isAdmin ? adminNavItems : baseNavItems;
 
   const handleSignOut = async () => {
     await signOut();
