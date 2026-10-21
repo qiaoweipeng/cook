@@ -350,6 +350,7 @@ export default function Menu() {
         mode={editing ? 'edit' : 'create'}
         dish={editing ?? undefined}
         open={editorOpen}
+        container={showManageTable ? 'drawer' : 'modal'}
         onClose={() => {
           setEditorOpen(false);
           setEditing(null);

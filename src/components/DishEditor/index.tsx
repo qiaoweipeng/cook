@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Modal,
+  Drawer,
   Form,
   Input,
   InputNumber,
@@ -45,6 +46,16 @@ interface Props {
   onSaved?: (d: Dish) => void;
   /** 删除成功 */
   onDeleted?: (id: string) => void;
+  /**
+   * 容器类型：modal（默认，详情页 / 卡片墙用）还是 drawer（管理台用）。
+   *
+   * 管理台的「菜单管理」是表格，一行行扫着改。弹框会把整张表盖住，
+   * 关掉又要重新找刚才那条。换成右侧抽屉，表单拉出来时表格还在左边，
+   * 改完可以直接接着看下一条 —— 所以管理台统一用抽屉。
+   */
+  container?: 'modal' | 'drawer';
+  /** drawer 模式宽度，默认 720 */
+  drawerWidth?: number;
 }
 
 interface FormValues {
@@ -74,6 +85,8 @@ export default function DishEditor({
   onCreated,
   onSaved,
   onDeleted,
+  container = 'modal',
+  drawerWidth = 720,
 }: Props) {
   const { message } = AntApp.useApp();
   const addDish = useDishStore((s) => s.add);
@@ -296,41 +309,38 @@ export default function DishEditor({
     label: `${i.name}（${i.unit}）`,
   }));
 
-  return (
-    <Modal
-      title={mode === 'create' ? '添加菜品' : `编辑菜品：${dish?.name ?? ''}`}
-      open={open}
-      onCancel={onClose}
-      width={760}
-      forceRender
-      footer={
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          {mode === 'edit' ? (
-            <Popconfirm
-              title="删除这道菜？"
-              description="如果有人正把它放在采购清单或菜单（今日/本周/本月）里，会被拒"
-              okText="删除"
-              cancelText="取消"
-              okButtonProps={{ danger: true }}
-              onConfirm={onDelete}
-            >
-              <Button danger icon={<DeleteOutlined />} loading={removing}>
-                删除菜品
-              </Button>
-            </Popconfirm>
-          ) : (
-            <span />
-          )}
-          <Space>
-            <Button onClick={onClose}>取消</Button>
-            <Button type="primary" onClick={onSave} loading={saving}>
-              保存
-            </Button>
-          </Space>
-        </div>
-      }
-    >
-      <Form form={form} layout="vertical" preserve={false}>
+  const title = mode === 'create' ? '添加菜品' : `编辑菜品：${dish?.name ?? ''}`;
+
+  const footer = (
+    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+      {mode === 'edit' ? (
+        <Popconfirm
+          title="删除这道菜？"
+          description="如果有人正把它放在采购清单或菜单（今日/本周/本月）里，会被拒"
+          okText="删除"
+          cancelText="取消"
+          okButtonProps={{ danger: true }}
+          onConfirm={onDelete}
+        >
+          <Button danger icon={<DeleteOutlined />} loading={removing}>
+            删除菜品
+          </Button>
+        </Popconfirm>
+      ) : (
+        <span />
+      )}
+      <Space>
+        <Button onClick={onClose}>取消</Button>
+        <Button type="primary" onClick={onSave} loading={saving}>
+          保存
+        </Button>
+      </Space>
+    </div>
+  );
+
+  // 表单内容：两种容器共用同一份，容器只负责外壳（标题 / 关闭 / 底部按钮）
+  const formBody = (
+    <Form form={form} layout="vertical" preserve={false}>
         <Space wrap size={12} style={{ width: '100%' }}>
           <Form.Item
             name="name"
@@ -527,7 +537,35 @@ export default function DishEditor({
             autoSize={{ minRows: 1, maxRows: 4 }}
           />
         </Form.Item>
-      </Form>
+    </Form>
+  );
+
+  if (container === 'drawer') {
+    return (
+      <Drawer
+        title={title}
+        open={open}
+        onClose={onClose}
+        width={drawerWidth}
+        forceRender
+        styles={{ body: { paddingTop: 12 } }}
+        footer={footer}
+      >
+        {formBody}
+      </Drawer>
+    );
+  }
+
+  return (
+    <Modal
+      title={title}
+      open={open}
+      onCancel={onClose}
+      width={760}
+      forceRender
+      footer={footer}
+    >
+      {formBody}
     </Modal>
   );
 }
