@@ -3,7 +3,7 @@
 //   <DishEditor mode="create" open onClose onCreated={dish => navigate('/menu/' + dish.id)} />
 //   <DishEditor mode="edit" open dish={current} onClose onSaved={dish => ...} />
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Modal,
   Form,
@@ -23,7 +23,7 @@ import { DeleteOutlined, PictureOutlined, PlusOutlined } from '@ant-design/icons
 import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
 import { pickImage, formatSize, IMAGE_ACCEPT } from '@/lib/imageUpload';
-import { resolveImageUrl } from '@/lib/supabase';
+import { resolveImageUrl, storageDelete } from '@/lib/supabase';
 import type { Dish, DishCategory, DishIngredient, Step } from '@/types';
 
 const { Text } = Typography;
@@ -94,6 +94,13 @@ export default function DishEditor({
    */
   const [imgInfo, setImgInfo] = useState<{ size: number; viaStorage: boolean } | null>(null);
 
+  /*
+    本次会话新上传、但**还没存进数据库**的那张图。
+    用 ref 而不是 state：它只在保存/回滚时读写，不参与渲染。
+    null = 当前没有「待提交」的新图。
+  */
+  const pendingUploadRef = useRef<{ url: string; path: string } | null>(null);
+
   // 每次打开编辑器都清掉上一次的大小信息（这次还没传图，不该显示上次的数字）
   useEffect(() => setImgInfo(null), [open]);
 
@@ -132,9 +139,20 @@ export default function DishEditor({
   const handlePickImage = async (file: File) => {
     setImgProcessing(true);
     try {
-      // 压缩成 WebP → 上传对象存储 → 只把 URL 存库（上传失败会直接抛错，不再降级）
+      // 压缩成 WebP → 上传对象存储 → 只把 URL 填进表单（上传失败会直接抛错）
       const picked = await pickImage(file, 'dishes');
       form.setFieldsValue({ coverImage: picked.url });
+      /*
+        记下「本次新传的这张图」。
+
+        上传和保存是**两步**：先传图（成功），再点保存写数据库。
+        这两步之间可能隔着十几秒，而第二步完全可能失败 ——
+        一旦失败，桶里就多了一张没人引用的图，数据库里却没地址，
+        正是「桶里有图、数据库没记录」这种不一致状态的来源。
+
+        记下路径，onSave 失败时用它把图删掉，让两边回到一致。
+      */
+      pendingUploadRef.current = { url: picked.url, path: picked.storagePath };
       // 体积存下来常驻显示，不再只靠弹窗（弹窗一闪而过，回头就查不到了）
       setImgInfo({ size: picked.size, viaStorage: picked.viaStorage });
     } catch (e) {
@@ -142,6 +160,20 @@ export default function DishEditor({
       message.error((e as Error).message || '图片处理失败');
     } finally {
       setImgProcessing(false);
+    }
+  };
+
+  /** 回滚：删掉刚上传但没能存进数据库的图，保证桶与数据库一致 */
+  const rollbackUpload = async () => {
+    const pending = pendingUploadRef.current;
+    if (!pending) return;
+    pendingUploadRef.current = null;
+    try {
+      await storageDelete(pending.path);
+      console.warn('[image] 数据库没存住，已回滚删除桶里的图：', pending.path);
+    } catch (e) {
+      // 删不掉不算保存失败，但必须留下痕迹，否则又是一张查不到来源的孤儿图
+      console.error('[image] 回滚删除失败，桶里可能留下一张孤儿图：', pending.path, e);
     }
   };
 
@@ -205,6 +237,8 @@ export default function DishEditor({
           steps: cleanedSteps,
         };
         await addDish(newDish);
+        // 数据库确认存住了（writeCloud 里有回读校验），这张图才算「有主」了
+        pendingUploadRef.current = null;
         message.success('已添加');
         onCreated?.(newDish);
       } else if (dish) {
@@ -221,11 +255,20 @@ export default function DishEditor({
           steps: cleanedSteps,
         };
         await updateDish(dish.id, patch);
+        pendingUploadRef.current = null;
         message.success('已保存');
         onSaved?.({ ...dish, ...patch });
       }
       onClose();
     } catch (e) {
+      /*
+        保存失败 —— 这里是最容易留下不一致状态的地方：
+        图已经在桶里了（十几秒前传上去的），但数据库没存住地址。
+
+        把刚传的图删掉，回到「桶和数据库都没有」的一致状态，
+        而不是留下「桶里有、库里没有」的半成品。
+      */
+      await rollbackUpload();
       const msg = (e as Error).message;
       if (msg) message.error(msg);
     } finally {
@@ -344,6 +387,15 @@ export default function DishEditor({
                   onClick={() => {
                     form.setFieldsValue({ coverImage: '' });
                     setImgInfo(null);
+                    /*
+                      传完又点「清除图片」＝ 用户反悔了。
+                      刚传到桶里的那张图现在没人要了，直接删掉，
+                      否则又是一张永远不会被引用的孤儿图。
+                    */
+                    void (async () => {
+                      await rollbackUpload();
+                      message.success('已清除');
+                    })();
                   }}
                 >
                   清除图片

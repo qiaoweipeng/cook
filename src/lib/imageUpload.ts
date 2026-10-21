@@ -32,12 +32,19 @@ const EXT_BY_MIME: Record<string, ImageExt> = {
 };
 
 export interface PickedImage {
-  /** 最终存进数据库的字符串：Storage 的 URL，或降级后的 dataURL */
+  /** 最终存进数据库的字符串：Storage 的公网 URL */
   url: string;
-  /** true = 走了对象存储；false = 降级成 Base64 */
+  /** true = 走了对象存储（目前恒为 true，Base64 降级已移除） */
   viaStorage: boolean;
   /** 压缩后的体积（字节），给用户看一眼 */
   size: number;
+  /**
+   * 桶内的对象路径（如 `dishes/xxx.webp`）。
+   *
+   * 存库失败时要用它把刚传上去的图删掉，保证「桶和数据库」始终一致：
+   * 要么两边都有，要么两边都没有 —— 详见 DishEditor.onSave 里的回滚逻辑。
+   */
+  storagePath: string;
 }
 
 /** 把文件读成 <img>（用 objectURL，比 FileReader 转 dataURL 快且不占内存） */
@@ -151,15 +158,15 @@ export async function compressToDataUrl(
   });
 }
 
-/** 上传到 Supabase Storage，返回可直接访问的公网 URL */
+/** 上传到 Supabase Storage，返回可直接访问的公网 URL + 桶内对象路径（供回滚用） */
 export async function uploadToStorage(
   file: File,
   folder: 'dishes' | 'ingredients'
-): Promise<{ url: string; size: number }> {
+): Promise<{ url: string; size: number; path: string }> {
   const { blob, ext } = await compressImage(file);
   const path = `${folder}/${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const url = await storageUpload(path, blob, blob.type || `image/${ext}`);
-  return { url, size: blob.size };
+  return { url, size: blob.size, path };
 }
 
 /**
@@ -243,8 +250,8 @@ export async function pickImage(
   }
 
   try {
-    const { url, size } = await uploadToStorage(file, folder);
-    return { url, viaStorage: true, size };
+    const { url, size, path } = await uploadToStorage(file, folder);
+    return { url, viaStorage: true, size, storagePath: path };
   } catch (e) {
     // 不再降级、不再假装成功，原样把失败抛给界面提示用户
     console.error('[image] 上传失败：', e);

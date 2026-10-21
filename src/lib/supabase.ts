@@ -202,6 +202,32 @@ export function storagePublicUrl(path: string): string {
 }
 
 /**
+ * 删掉 Storage 里的一个文件 —— 用于「回滚」：数据库没存住地址时，
+ * 把刚传上去的图一并删掉，避免桶里留下没人引用的孤儿文件。
+ */
+export async function storageDelete(path: string): Promise<void> {
+  await pgFetch(`${IMAGE_BUCKET}/${path}`, { method: 'DELETE' });
+}
+
+/**
+ * 从「完整 URL」或「相对路径」反推出桶内的对象路径，失败返回 null。
+ * storageDelete 需要它：库里存的是 URL，删的时候要的是 `dishes/xxx.webp`。
+ */
+export function storagePathFromUrl(value: string): string | null {
+  if (!value) return null;
+  let p = value.trim();
+  if (p.startsWith('data:') || p.startsWith('blob:')) return null; // 不是桶里的文件
+  // 完整 URL → 截出 /storage/v1/object/public/dish-images/ 后面的部分
+  const marker = `/object/public/${IMAGE_BUCKET}/`;
+  const i = p.indexOf(marker);
+  if (i >= 0) return p.slice(i + marker.length);
+  // 相对路径 /dishes/xxx.webp 或 dishes/xxx.webp
+  if (p.startsWith('/')) return p.replace(/^\/+/, '');
+  if (!/^https?:\/\//i.test(p)) return p;
+  return null;
+}
+
+/**
  * 把数据库里存的图片字段解析成浏览器能直接用的 src。
  *
  * ⚠️ 这个坑踩过：数据库里存的**不一定是完整 URL**，有三种形态混在一起 ——
