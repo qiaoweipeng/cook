@@ -4,7 +4,7 @@ body,
   margin: 0;
   padding: 0;
   min-height: 100%;
-  background: #faf7f2;
+  background: #ffffff;
 }
 
 body {
@@ -130,7 +130,9 @@ a {
   color: #6b645c;
   font-size: 14px;
   line-height: 1.25;
-  transition: color 180ms ease, background-color 180ms ease;
+  transition:
+    color 180ms ease,
+    background-color 180ms ease;
 }
 
 .ing-side-bar .adm-side-bar-item-active {
@@ -169,12 +171,14 @@ a {
   display: block;
   /* 未选中：降饱和 + 压淡，让位给当前选中的那个 */
   filter: grayscale(1) brightness(1.05) opacity(0.45);
-  transition: filter 240ms ease, transform 240ms ease;
+  transition:
+    filter 240ms ease,
+    transform 240ms ease;
 }
 
 .tab-ico::before {
   /* 选中时从图标背后展开的浅橙胶囊 */
-  content: '';
+  content: "";
   position: absolute;
   left: 50%;
   top: 50%;
@@ -185,7 +189,9 @@ a {
   background: #fff1e8;
   transform: scale(0.4);
   opacity: 0;
-  transition: transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 200ms ease;
+  transition:
+    transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 200ms ease;
   z-index: -1;
 }
 
@@ -246,7 +252,7 @@ html {
 */
 @media (display-mode: standalone) {
   body::before {
-    content: '';
+    content: "";
     position: fixed;
     top: 0;
     left: 0;
@@ -254,9 +260,9 @@ html {
     height: calc(env(safe-area-inset-top) + 14px);
     background: linear-gradient(
       180deg,
-      #f7e2d5 0%,
-      rgba(247, 226, 213, 0.7) 55%,
-      rgba(247, 226, 213, 0) 100%
+      #ffffff 0%,
+      rgba(255, 255, 255, 0.85) 55%,
+      rgba(255, 255, 255, 0) 100%
     );
     pointer-events: none;
     z-index: 1;
@@ -286,7 +292,7 @@ html {
 
 input,
 textarea,
-[contenteditable='true'] {
+[contenteditable="true"] {
   -webkit-user-select: text;
   user-select: text;
   -webkit-touch-callout: default;
@@ -331,7 +337,7 @@ textarea,
 }
 
 .sk-cover::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   transform: translateX(-100%);

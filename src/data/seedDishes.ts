@@ -12,6 +12,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'dish_garlic_green',
     name: '蒜蓉炒青菜',
+    coverImage: '/seeds/dish_garlic_green.webp',
     emoji: '🥬',
     category: '快手',
     tags: ['快手', '素食'],
@@ -38,6 +39,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'dish_sour_potato',
     name: '酸辣土豆丝',
+    coverImage: '/seeds/dish_sour_potato.webp',
     emoji: '🥔',
     category: '家常',
     tags: ['下饭', '开胃'],
@@ -68,6 +70,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'dish_sweet_sour_pork',
     name: '糖醋里脊',
+    coverImage: '/seeds/dish_sweet_sour_pork.webp',
     emoji: '🍖',
     category: '家常',
     tags: ['宴客', '经典'],
@@ -98,6 +101,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'dish_braised_ribs',
     name: '红烧排骨',
+    coverImage: '/seeds/dish_braised_ribs.webp',
     emoji: '🍖',
     category: '家常',
     tags: ['硬菜', '下饭'],
@@ -131,6 +135,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'dish_mapo_tofu',
     name: '麻婆豆腐',
+    coverImage: '/seeds/dish_mapo_tofu.webp',
     emoji: '🌶️',
     category: '川菜',
     tags: ['川菜', '下饭', '经典'],
@@ -165,6 +170,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'dish_garlic_shrimp',
     name: '蒜蓉蒸虾',
+    coverImage: '/seeds/dish_garlic_shrimp.webp',
     emoji: '🦐',
     category: '粤菜',
     tags: ['宴客', '海鲜'],
@@ -194,6 +200,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'dish_steamed_bass',
     name: '清蒸鲈鱼',
+    coverImage: '/seeds/dish_steamed_bass.webp',
     emoji: '🐟',
     category: '粤菜',
     tags: ['粤菜', '清淡', '宴客'],
@@ -223,6 +230,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'dish_pepper_pork',
     name: '青椒炒肉',
+    coverImage: '/seeds/dish_pepper_pork.webp',
     emoji: '🌶️',
     category: '家常',
     tags: ['下饭', '快手'],
@@ -252,6 +260,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'dish_tomato_beef_noodle',
     name: '番茄牛肉面',
+    coverImage: '/seeds/dish_tomato_beef_noodle.webp',
     emoji: '🍜',
     category: '家常',
     tags: ['主食', '暖胃'],
@@ -1274,6 +1283,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'dish_home_tofu',
     name: '家常豆腐',
+    coverImage: '/seeds/dish_home_tofu.webp',
     category: '家常',
     tags: ['下饭', '素食'],
     difficulty: 1,
@@ -1514,6 +1524,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'dish_baby_cabbage_soup',
     name: '上汤娃娃菜',
+    coverImage: '/seeds/dish_baby_cabbage_soup.webp',
     category: '粤菜',
     tags: ['粤菜', '汤羹', '清淡'],
     difficulty: 1,
@@ -1622,6 +1633,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'dish_winter_melon_meatball_soup',
     name: '冬瓜肉丸汤',
+    coverImage: '/seeds/dish_winter_melon_meatball_soup.webp',
     category: '汤羹',
     tags: ['汤羹', '清淡', '暖胃'],
     difficulty: 1,
@@ -1776,6 +1788,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'diet_boiled_chicken_breast',
     name: '水煮鸡胸肉',
+    coverImage: '/seeds/diet_boiled_chicken_breast.webp',
     emoji: '🍗',
     category: '减脂',
     tags: ['减脂', '高蛋白'],
@@ -1803,6 +1816,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'diet_stirfry_broccoli',
     name: '清炒西兰花',
+    coverImage: '/seeds/diet_stirfry_broccoli.webp',
     emoji: '🥦',
     category: '减脂',
     tags: ['减脂', '高纤维'],

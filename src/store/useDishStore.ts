@@ -27,6 +27,10 @@ interface DishState {
   remove: (id: string) => Promise<void>;
   toggleFavorite: (id: string) => Promise<void>;
   resetToSeed: () => Promise<void>;
+  /** 人工播种：把「种子里有、云端没有」的菜补到云端（管理端系统页触发） */
+  seedMissingToCloud: () => Promise<{ written: number }>;
+  /** 人工种子覆盖：用种子版本覆盖云端指定菜品（危险操作，逐道调用） */
+  overwriteDishFromSeed: (id: string) => Promise<void>;
 }
 
 async function writeCloud(dish: Dish): Promise<void> {
@@ -58,7 +62,7 @@ async function writeCloud(dish: Dish): Promise<void> {
       if (!row || row.cover_image !== dish.coverImage) {
         throw new Error(
           '图片没有存进数据库：写入后回读发现地址不一致，' +
-            '图片已上传到 Storage 但记录丢失，请重新上传一次'
+          '图片已上传到 Storage 但记录丢失，请重新上传一次'
         );
       }
     } catch (e) {
@@ -70,10 +74,10 @@ async function writeCloud(dish: Dish): Promise<void> {
 }
 
 /**
- * 种子里有、但当前数据里还没有的菜 —— load 时把这些补进去（只加不删）。
+ * 种子里有、但当前数据里还没有的菜 —— 人工播种时把这些补进去（只加不删）。
  * 用户自己删过的（dismissed）不算缺失，补回去等于删了白删。
  */
-function missingSeedDishes(haveIds: Set<string>): Dish[] {
+export function missingSeedDishes(haveIds: Set<string>): Dish[] {
   const dismissed = readDismissed(DISMISSED_DISHES_KEY);
   return seedDishes.filter((d) => !haveIds.has(d.id) && !dismissed.has(d.id));
 }
@@ -101,7 +105,17 @@ export const useDishStore = create<DishState>()(
           return;
         }
         set({ loading: true });
-        const remote = await cloudList<Dish>('dishes');
+        let remote: Array<{ id: string; data: Dish }>;
+        try {
+          // throwOnError：拉取失败必须和「云端空表」区分开。
+          // 以前失败被吞成 []，会被下面误判为空表 → 把 51 道种子全量覆盖到云端，
+          // cover_image 被种子的 null 抹掉 —— 种子前 9 道菜的图就是这么丢的。
+          remote = await cloudList<Dish>('dishes', { throwOnError: true });
+        } catch (e) {
+          console.error('[load] 云端拉取失败，本次跳过云端比对（绝不写云端）：', e);
+          set({ loaded: true, loading: false, cloudAvailable: false });
+          return;
+        }
 
         /* ========== 拉取诊断（排查图片丢失，查完可删） ==========
            看控制台这两行就知道是「云端没返回」还是「返回了但没进 store」：
@@ -120,43 +134,33 @@ export const useDishStore = create<DishState>()(
           if (withCover.length === 0) {
             console.warn(
               '%c[菜品拉取] 云端一条 cover_image 都没有 —— 说明数据库里本来就没存，' +
-                '或者 pgSelect 取字段时漏了 cover_image',
+              '或者 pgSelect 取字段时漏了 cover_image',
               'color:#d4380d;font-weight:bold'
             );
           }
         }
 
-        // 清理已下架的菜（连云端一起删）
+        // 清理已下架的菜（连云端一起删）—— 这是代码里明确下架的 id（如「番茄炒蛋」），
+        // 目的明确且幂等，不算「播种」，保留自动执行
         const retired = new Set(RETIRED_DISH_IDS);
         for (const r of remote) {
           if (retired.has(r.data.id)) await cloudDelete('dishes', r.data.id);
         }
         const valid = remote.filter((r) => !retired.has(r.data.id));
-        if (valid.length === 0) {
-          // 云端是空表 → 上传种子
-          for (const dish of seedDishes) await writeCloud(dish);
-          set({ items: seedDishes, loaded: true, loading: false, cloudAvailable: true });
-        } else {
-          /*
-            云端已有数据 → 以云端为准，但把种子里**新增**的菜补进去（按 id 判断，只加不删）。
-
-            以前是完全不补：那时补的是 localStorage 里的旧数据，确实可能引用已被替换 /
-            重命名的 ingredientId 而触发外键冲突。现在补的是当前代码里的 seedDishes，
-            引用的 id 全部有效（supabase/schema.sql 建表时也没加外键约束），不存在那个问题。
-
-            不补的后果很实在：云端一旦有数据就再也不读种子了，
-            种子里后加的菜（比如减脂那 8 道）永远进不来。
-
-            dismissed：用户自己删过的菜不补，否则删完一刷新又回来了。
-          */
-          const missing = missingSeedDishes(new Set(valid.map((r) => r.data.id)));
-          for (const dish of missing) await writeCloud(dish);
-
-          const items = [...valid.map((r) => r.data), ...missing].sort(
-            (a, b) => a.createdAt - b.createdAt
-          );
-          set({ items, loaded: true, loading: false, cloudAvailable: true });
-        }
+        /*
+          load 一律只读。以前这里有两个自动写入路径：
+            1) valid.length === 0 时把 51 道种子全量覆盖云端 ——
+               拉取失败被误判成空表时就是灾难（README「图片消失第二回」的根因）；
+            2) 自动补缺失种子 —— 刷新会让删掉的种子菜复活，同样不受控。
+          现在播种改为人工控制：缺什么、什么时候补，由管理员在系统页手动执行
+          （seedMissingToCloud / overwriteDishFromSeed）。
+        */
+        set({
+          items: valid.map((r) => r.data).sort((a, b) => a.createdAt - b.createdAt),
+          loaded: true,
+          loading: false,
+          cloudAvailable: true,
+        });
       },
 
       add: async (dish) => {
@@ -168,7 +172,14 @@ export const useDishStore = create<DishState>()(
       update: async (id, patch) => {
         const old = get().items.find((it) => it.id === id);
         if (!old) return;
-        const next = { ...old, ...patch };
+        // 跳过 undefined 的字段：DishEditor 每次都把 coverImage 放进 patch，
+        // 即使用户没重新上传图片，值也是 undefined。直接 spread 会把 old.coverImage
+        // 覆盖成 undefined，然后 dishToRow 又把 undefined 转成 null —— 编辑一次丢一次图。
+        const cleaned: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(patch)) {
+          if (v !== undefined) cleaned[k] = v;
+        }
+        const next = { ...old, ...cleaned };
         set((s) => ({ items: s.items.map((it) => (it.id === id ? next : it)) }));
         await writeCloud(next);
         logOp('编辑菜品', old.name);
@@ -178,10 +189,23 @@ export const useDishStore = create<DishState>()(
         const usage = await checkDishUsage(id);
         if (!usage.ok) throw new Error(usage.reason ?? '该菜品正在被使用，无法删除');
         const old = get().items.find((it) => it.id === id);
-        // 删的是种子菜 → 记一笔，以后补种子时跳过，不然会复活
-        if (seedDishes.some((d) => d.id === id)) dismissSeed(DISMISSED_DISHES_KEY, id);
         set((s) => ({ items: s.items.filter((it) => it.id !== id) }));
-        await cloudDelete('dishes', id);
+        try {
+          // throwOnError：云端删除失败必须报错并回滚。以前 cloudDelete 静默吞错，
+          // 界面删了、云端还在，下次 load 拉回来 —— 「删了又复活」
+          await cloudDelete('dishes', id, { throwOnError: true });
+        } catch (e) {
+          // 回滚：把菜放回本地，让用户当场看到删除失败，而不是刷新后发现菜复活
+          if (old) {
+            set((s) => ({
+              items: [...s.items, old].sort((a, b) => a.createdAt - b.createdAt),
+            }));
+          }
+          throw e;
+        }
+        // 删的是种子菜 → 记一笔，人工播种时跳过（必须在云端删除成功后再记，
+        // 否则删除失败回滚后，dismissed 记录会让未来播种跳过这道其实还在的菜）
+        if (seedDishes.some((d) => d.id === id)) dismissSeed(DISMISSED_DISHES_KEY, id);
         logOp('删除菜品', old?.name ?? id);
       },
 
@@ -203,6 +227,32 @@ export const useDishStore = create<DishState>()(
         // 主动重置 = 想要完整种子，把「已删除」记录清掉，否则下次 load 会跳过这几道
         clearDismissed(DISMISSED_DISHES_KEY);
         set({ items: seedDishes });
+      },
+
+      seedMissingToCloud: async () => {
+        // 显式失败：读不到云端就报错，绝不带着「可能读空了」的状态往下写
+        const remote = await cloudList<Dish>('dishes', { throwOnError: true });
+        const missing = missingSeedDishes(new Set(remote.map((r) => r.data.id)));
+        for (const dish of missing) await writeCloud(dish);
+        // 种进云端的菜同时并进本地 store，界面立刻可见
+        if (missing.length) {
+          const curIds = new Set(get().items.map((d) => d.id));
+          const added = missing.filter((d) => !curIds.has(d.id));
+          set((s) => ({
+            items: [...s.items, ...added].sort((a, b) => a.createdAt - b.createdAt),
+          }));
+        }
+        logOp('播种种子数据', '', `补入 ${missing.length} 道缺失菜品`);
+        return { written: missing.length };
+      },
+
+      overwriteDishFromSeed: async (id) => {
+        const seed = seedDishes.find((d) => d.id === id);
+        if (!seed) throw new Error('种子里没有这道菜');
+        await writeCloud({ ...seed });
+        // 本地同步替换（浅拷贝，避免后续 mutate 污染种子常量）
+        set((s) => ({ items: s.items.map((it) => (it.id === id ? { ...seed } : it)) }));
+        logOp('种子覆盖', seed.name);
       },
     }),
     {

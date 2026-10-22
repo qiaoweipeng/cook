@@ -212,7 +212,7 @@ export default function AppLayout() {
             style={{ marginRight: 40, cursor: 'pointer' }}
             onClick={() => navigate('/menu')}
           >
-            大厨房
+            我是大厨
           </div>
           <Menu
             mode="horizontal"
@@ -324,7 +324,7 @@ export default function AppLayout() {
         styles={{
           body: {
             padding: showMobileNav ? '12px' : '20px 24px 32px',
-            background: '#FAF7F2',
+            background: '#ffffff',
           },
         }}
         closeIcon={null}

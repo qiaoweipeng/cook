@@ -13,6 +13,10 @@ import {
   Space,
   Button,
   Tooltip,
+  Modal,
+  Select,
+  Alert,
+  message,
 } from 'antd';
 import {
   DashboardOutlined,
@@ -23,6 +27,10 @@ import {
 import { getCloudHost, pgCount } from '@/lib/supabase';
 import { listLoginLogs, type LoginLogRow } from '@/lib/clientInfo';
 import { listOpLogs, type OpLogRow } from '@/lib/opLog';
+import { cloudList } from '@/lib/cloudSync';
+import { seedDishes } from '@/data/seedDishes';
+import { missingSeedDishes, useDishStore } from '@/store/useDishStore';
+import type { Dish } from '@/types';
 
 const { Title, Text } = Typography;
 
@@ -55,6 +63,16 @@ export default function AdminSystem() {
   const [opLogsLoading, setOpLogsLoading] = useState(false);
   const [cacheUsage, setCacheUsage] = useState<string>('—');
   const [refreshing, setRefreshing] = useState(false);
+
+  /* ===== 种子数据播种（人工控制） ===== */
+  const [seedChecking, setSeedChecking] = useState(false);
+  const [seedMissing, setSeedMissing] = useState<Dish[] | null>(null);
+  const [seeding, setSeeding] = useState(false);
+  const [overwriteOpen, setOverwriteOpen] = useState(false);
+  const [overwriteIds, setOverwriteIds] = useState<string[]>([]);
+  const [overwriting, setOverwriting] = useState(false);
+  const seedMissingToCloud = useDishStore((s) => s.seedMissingToCloud);
+  const overwriteDishFromSeed = useDishStore((s) => s.overwriteDishFromSeed);
 
   const loadStatus = async () => {
     setCountsLoading(true);
@@ -116,6 +134,75 @@ export default function AdminSystem() {
     } finally {
       setOpLogsLoading(false);
     }
+  };
+
+  /* ===== 种子数据播种（人工控制） ===== */
+
+  // 检查缺失：种子里有、云端没有的菜。必须 throwOnError——
+  // 读失败时得到的「缺失」可能是假的（整表没读到），绝不能拿去触发写入
+  const checkMissing = async () => {
+    setSeedChecking(true);
+    try {
+      const remote = await cloudList<Dish>('dishes', { throwOnError: true });
+      setSeedMissing(missingSeedDishes(new Set(remote.map((r) => r.data.id))));
+    } catch (e) {
+      setSeedMissing(null);
+      message.error('读取云端菜品失败，无法判断缺失，请检查网络后重试');
+      console.error('[seed] 检查缺失失败：', e);
+    } finally {
+      setSeedChecking(false);
+    }
+  };
+
+  const showSeedConfirm = () => {
+    if (!seedMissing?.length) return;
+    const names = seedMissing.map((d) => d.name).join('、');
+    Modal.confirm({
+      title: `补入 ${seedMissing.length} 道缺失的种子菜？`,
+      content: (
+        <div style={{ maxHeight: 200, overflow: 'auto' }}>
+          {names}（只新增，不覆盖云端已有的任何菜）
+        </div>
+      ),
+      okText: '播种',
+      onOk: async () => {
+        setSeeding(true);
+        try {
+          const { written } = await seedMissingToCloud();
+          message.success(`已补入 ${written} 道种子菜`);
+          setSeedMissing([]);
+          loadStatus();
+        } catch (e) {
+          message.error(`播种失败：${(e as Error).message ?? '请重试'}`);
+        } finally {
+          setSeeding(false);
+        }
+      },
+    });
+  };
+
+  const doOverwrite = async () => {
+    if (!overwriteIds.length) return;
+    setOverwriting(true);
+    let ok = 0;
+    const failed: string[] = [];
+    for (const id of overwriteIds) {
+      try {
+        await overwriteDishFromSeed(id);
+        ok += 1;
+      } catch {
+        failed.push(seedDishes.find((d) => d.id === id)?.name ?? id);
+      }
+    }
+    setOverwriting(false);
+    if (failed.length) {
+      message.warning(`已覆盖 ${ok} 道，失败 ${failed.length} 道：${failed.join('、')}`);
+    } else {
+      message.success(`已用种子覆盖 ${ok} 道菜`);
+    }
+    setOverwriteOpen(false);
+    setOverwriteIds([]);
+    loadStatus();
   };
 
   useEffect(() => {
@@ -217,6 +304,71 @@ export default function AdminSystem() {
           ]}
         />
       </Card>
+
+      {/* 种子数据播种（人工控制） */}
+      <Card title="种子数据播种（人工控制）" style={{ marginBottom: 16 }}>
+        <Text type="secondary">
+          启动加载只读云端，<Text strong>绝不自动播种</Text>
+          （防止网络失败被误判成空表 → 种子覆盖云端数据，见 README「图片消失第二回」）。
+          缺什么、什么时候补，由你在这里手动决定。
+        </Text>
+        <div style={{ marginTop: 12 }}>
+          <Space wrap>
+            <Button loading={seedChecking} onClick={checkMissing}>
+              检查缺失
+            </Button>
+            <Button
+              type="primary"
+              loading={seeding}
+              disabled={!seedMissing?.length}
+              onClick={showSeedConfirm}
+            >
+              补缺失种子{seedMissing ? `（${seedMissing.length} 道）` : ''}
+            </Button>
+            <Button danger onClick={() => setOverwriteOpen(true)}>
+              种子覆盖…
+            </Button>
+          </Space>
+          {seedMissing !== null && seedMissing.length === 0 && (
+            <Text type="secondary" style={{ marginLeft: 12 }}>
+              种子与云端一致，无缺失
+            </Text>
+          )}
+        </div>
+      </Card>
+
+      {/* 种子覆盖弹窗（危险操作） */}
+      <Modal
+        title="用种子版本覆盖云端菜品"
+        open={overwriteOpen}
+        onCancel={() => !overwriting && setOverwriteOpen(false)}
+        onOk={doOverwrite}
+        okText={`覆盖 ${overwriteIds.length} 道`}
+        okButtonProps={{ danger: true, disabled: !overwriteIds.length }}
+        confirmLoading={overwriting}
+        width={520}
+      >
+        <Alert
+          type="warning"
+          showIcon
+          message="危险操作"
+          description="将用代码里的种子版本整体替换所选菜品（名称、食材、步骤、图地址全部替换）。这些菜在 App 里做过的修改会丢失。适用于：种子配方更新后的同步、恢复被覆盖的图地址。"
+          style={{ marginBottom: 12 }}
+        />
+        <Select
+          mode="multiple"
+          showSearch
+          allowClear
+          placeholder="选择要覆盖的菜品（可搜索）"
+          style={{ width: '100%' }}
+          value={overwriteIds}
+          onChange={setOverwriteIds}
+          options={seedDishes.map((d) => ({ value: d.id, label: d.name }))}
+          filterOption={(input, option) =>
+            (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
+          }
+        />
+      </Modal>
 
       {/* 操作日志 */}
       <Card

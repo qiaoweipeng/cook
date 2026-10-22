@@ -9,7 +9,7 @@ export const theme: ThemeConfig = {
     borderRadius: 12,
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif',
-    colorBgLayout: '#FAF7F2',
+    colorBgLayout: '#FFFFFF',
     colorTextHeading: '#2D2A26',
   },
   components: {
@@ -19,7 +19,7 @@ export const theme: ThemeConfig = {
     },
     Layout: {
       headerBg: '#FFFFFF',
-      bodyBg: '#FAF7F2',
+      bodyBg: '#FFFFFF',
       headerHeight: 64,
     },
     Menu: {

@@ -125,10 +125,10 @@ export async function subscribePush(uid: string, familyId?: string | null): Prom
   const perm = await withTimeout(
     Notification.requestPermission(),
     15000,
-    '通知权限弹窗一直没有响应，请到系统设置 → 大厨房 → 通知里确认开关状态'
+    '通知权限弹窗一直没有响应，请到系统设置 → 我是大厨 → 通知里确认开关状态'
   );
   if (perm !== 'granted') {
-    throw new Error('通知权限被拒绝，请在系统设置 → 大厨房 → 通知里打开');
+    throw new Error('通知权限被拒绝，请在系统设置 → 我是大厨 → 通知里打开');
   }
 
   const reg = await withTimeout(

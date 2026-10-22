@@ -43,7 +43,7 @@ async function insertDishRow(d: Dish): Promise<void> {
     if (isMissingCoverImageColumn(e)) {
       throw new Error(
         '数据库的 dishes 表缺少 cover_image 列，图片无法保存。' +
-          '请在 Supabase 控制台执行：ALTER TABLE dishes ADD COLUMN cover_image text;'
+        '请在 Supabase 控制台执行：ALTER TABLE dishes ADD COLUMN cover_image text;'
       );
     }
     throw e;
@@ -64,7 +64,7 @@ async function upsertDishRow(d: Dish): Promise<void> {
     if (isMissingCoverImageColumn(e)) {
       throw new Error(
         '数据库的 dishes 表缺少 cover_image 列，图片无法保存。' +
-          '请在 Supabase 控制台执行：ALTER TABLE dishes ADD COLUMN cover_image text;'
+        '请在 Supabase 控制台执行：ALTER TABLE dishes ADD COLUMN cover_image text;'
       );
     }
     throw e;
@@ -160,7 +160,7 @@ async function saveIngredient(i: Ingredient): Promise<void> {
     if (isMissingIngredientImageColumn(e)) {
       throw new Error(
         '数据库的 ingredients 表缺少 image 列，图片无法保存。' +
-          '请在 Supabase 控制台执行：ALTER TABLE ingredients ADD COLUMN image text;'
+        '请在 Supabase 控制台执行：ALTER TABLE ingredients ADD COLUMN image text;'
       );
     }
     throw e;
@@ -272,7 +272,11 @@ export async function cloudSet(
   }
 }
 
-export async function cloudDelete(collection: string, id: string): Promise<void> {
+export async function cloudDelete(
+  collection: string,
+  id: string,
+  opts?: { throwOnError?: boolean }
+): Promise<void> {
   try {
     if (collection === 'dishes') await deleteDishFull(id);
     else if (collection === 'ingredients') await deleteIngredient(id);
@@ -280,12 +284,17 @@ export async function cloudDelete(collection: string, id: string): Promise<void>
     else if (collection === 'weekly_menus') await deleteWeekly(id);
     else console.warn(`[cloud] unknown collection: ${collection}`);
   } catch (e) {
+    // 删除失败绝不能静默：调用方通常已经本地删掉了，云端没删掉的话
+    // 下次 load 会把它拉回来 —— 界面上就是「删了又复活」。
+    // 要写云端语义的调用方（store.remove）必须传 throwOnError 并回滚本地。
+    if (opts?.throwOnError) throw e;
     swallow(e);
   }
 }
 
 export async function cloudList<T = any>(
-  collection: string
+  collection: string,
+  opts?: { throwOnError?: boolean }
 ): Promise<Array<{ id: string; data: T }>> {
   try {
     if (collection === 'dishes') return (await listDishesMerged()) as any;
@@ -295,6 +304,10 @@ export async function cloudList<T = any>(
     console.warn(`[cloud] unknown collection: ${collection}`);
     return [];
   } catch (e) {
+    // 拉取失败和「空表」是两回事。默认吞掉错误返回 [] 是给普通展示用的；
+    // 但调用方如果拿这个返回值做「空表→写云端」的判断（比如 load 补种子），
+    // 一次网络抖动就会用本地数据全量覆盖云端。要写云端的地方必须传 throwOnError。
+    if (opts?.throwOnError) throw e;
     swallow(e);
     return [];
   }

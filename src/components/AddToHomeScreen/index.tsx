@@ -47,7 +47,7 @@ export default function AddToHomeScreen() {
   return (
     <Modal
       open={open}
-      title="把「大厨房」添加到主屏幕"
+      title="把「我是大厨」添加到主屏幕"
       width={320}
       centered
       footer={

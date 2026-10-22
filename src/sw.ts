@@ -126,7 +126,7 @@ sw.addEventListener('push', (event: any) => {
   }
 
   event.waitUntil(
-    sw.registration.showNotification(data.title || '大厨房', {
+    sw.registration.showNotification(data.title || '我是大厨', {
       body: data.body || '',
       icon: '/icon/192*192.png',
       badge: '/icon/192*192.png',

@@ -90,7 +90,7 @@ export default function Profile() {
     try {
       const r = await sendPush({
         uids: [user?.uid ?? ''],
-        title: '大厨房',
+        title: '我是大厨',
         body: '推送链路是通的，这条是测试消息',
         url: '/menu-plan',
       });
@@ -308,7 +308,7 @@ export default function Profile() {
               !standalone
                 ? 'iPhone 需先「添加到主屏幕」，从桌面图标打开才能订阅'
                 : pushPerm === 'denied'
-                  ? '通知权限已被关闭，去系统设置 → 大厨房 → 通知里打开'
+                  ? '通知权限已被关闭，去系统设置 → 我是大厨 → 通知里打开'
                   : undefined
             }
           >

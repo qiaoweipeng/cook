@@ -17,7 +17,8 @@ export function dishToRow(d: Dish) {
     difficulty: d.difficulty,
     cook_time_min: d.cookTimeMin,
     servings: d.servings,
-    cover_image: d.coverImage ?? null,
+    // '' 归一化为 null：编辑器把「清空图片」传成空串，落库统一存 null
+    cover_image: d.coverImage || null,
     cover_color: d.coverColor ?? null,
     favorite: d.favorite ? 1 : 0,
     created_at: new Date(d.createdAt).toISOString(),

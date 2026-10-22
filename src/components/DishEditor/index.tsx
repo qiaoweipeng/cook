@@ -113,6 +113,9 @@ export default function DishEditor({
     null = 当前没有「待提交」的新图。
   */
   const pendingUploadRef = useRef<{ url: string; path: string } | null>(null);
+  // 编辑器打开那一刻 dish 的图地址。用来区分「用户主动清空」和
+  // 「打开太早、数据还没从云端就位所以表单本来就是空的」——后者绝不能当清空处理
+  const openedCoverRef = useRef<string | undefined>(undefined);
 
   // 每次打开编辑器都清掉上一次的大小信息（这次还没传图，不该显示上次的数字）
   useEffect(() => setImgInfo(null), [open]);
@@ -122,6 +125,7 @@ export default function DishEditor({
   useEffect(() => {
     if (!open) return;
     if (mode === 'edit' && dish) {
+      openedCoverRef.current = dish.coverImage;
       form.setFieldsValue({
         name: dish.name,
         category: dish.category,
@@ -135,6 +139,7 @@ export default function DishEditor({
       setRows(dish.ingredients.map((i) => ({ ...i })));
       setSteps(dish.steps.map((s) => s.text));
     } else {
+      openedCoverRef.current = undefined;
       form.resetFields();
       form.setFieldsValue({
         category: '家常',
@@ -232,7 +237,15 @@ export default function DishEditor({
         .map((text, i) => ({ order: i + 1, text }));
 
       setSaving(true);
-      const coverImage = values.coverImage?.trim() || undefined;
+      /*
+        表单里图地址的取值，三档语义（配合 useDishStore.update 的 undefined 跳过逻辑）：
+        - 有 URL/路径 → 照传，正常保存
+        - 空串，但打开编辑器时有图 → 用户真的清空了，传 '' 落库为 null
+        - 空串，且打开时就没图 → 打开太早云端数据还没就位，表单空≠清空，
+          传 undefined 让 update 跳过该字段，保住数据库里已有的图地址
+      */
+      const formCover = values.coverImage !== undefined ? values.coverImage.trim() : undefined;
+      const coverImage = formCover === '' && !openedCoverRef.current ? undefined : formCover;
       if (mode === 'create') {
         const newDish: Dish = {
           id: 'dish_' + Date.now().toString(36),
@@ -341,202 +354,202 @@ export default function DishEditor({
   // 表单内容：两种容器共用同一份，容器只负责外壳（标题 / 关闭 / 底部按钮）
   const formBody = (
     <Form form={form} layout="vertical" preserve={false}>
-        <Space wrap size={12} style={{ width: '100%' }}>
-          <Form.Item
-            name="name"
-            label="菜名"
-            rules={[{ required: true, message: '请输入菜名' }]}
-            style={{ minWidth: 200, flex: 1 }}
-          >
-            <Input placeholder="如：西红柿炒鸡蛋" />
-          </Form.Item>
-          <Form.Item name="category" label="分类" rules={[{ required: true }]}>
-            <Select options={CATEGORIES.map((c) => ({ value: c, label: c }))} style={{ width: 120 }} />
-          </Form.Item>
-          <Form.Item name="difficulty" label="难度" rules={[{ required: true }]}>
-            <Select
-              options={[
-                { value: 1, label: '★☆☆' },
-                { value: 2, label: '★★☆' },
-                { value: 3, label: '★★★' },
-              ]}
-              style={{ width: 100 }}
-            />
-          </Form.Item>
-          <Form.Item name="cookTimeMin" label="用时(分钟)" rules={[{ required: true, type: 'number', min: 1 }]}>
-            <InputNumber min={1} max={999} style={{ width: 100 }} />
-          </Form.Item>
-          <Form.Item name="servings" label="份量(人份)" rules={[{ required: true, type: 'number', min: 1 }]}>
-            <InputNumber min={1} max={20} style={{ width: 100 }} />
-          </Form.Item>
-        </Space>
-
-        <Form.Item name="tags" label="标签（回车添加）">
-          <Select mode="tags" placeholder="如：下饭、快手" />
-        </Form.Item>
-
-        <Form.Item label="封面图（可选）">
-          <Space direction="vertical" size={8} style={{ width: '100%' }}>
-            <Space wrap>
-              <Upload
-                accept={IMAGE_ACCEPT}
-                showUploadList={false}
-                beforeUpload={(file) => {
-                  void handlePickImage(file);
-                  return false;
-                }}
-              >
-                <Button icon={<PictureOutlined />} loading={imgProcessing}>
-                  选择本地图片
-                </Button>
-              </Upload>
-              {coverImage ? (
-                <Button
-                  danger
-                  icon={<DeleteOutlined />}
-                  onClick={() => {
-                    form.setFieldsValue({ coverImage: '' });
-                    setImgInfo(null);
-                    /*
-                      传完又点「清除图片」＝ 用户反悔了。
-                      刚传到桶里的那张图现在没人要了，直接删掉，
-                      否则又是一张永远不会被引用的孤儿图。
-                    */
-                    void (async () => {
-                      await rollbackUpload();
-                      message.success('已清除');
-                    })();
-                  }}
-                >
-                  清除图片
-                </Button>
-              ) : (
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  支持 JPG / PNG / WebP 静态图
-                </Text>
-              )}
-              {/* 上传完把大小常驻在这里，不再只是弹窗一闪而过 */}
-              {imgInfo && (
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {formatSize(imgInfo.size)}
-                  {imgInfo.viaStorage ? ' · 已存云端' : ' · 压缩后存本地'}
-                </Text>
-              )}
-            </Space>
-            <Form.Item name="coverImage" noStyle>
-              <Input placeholder="或粘贴图片链接（如 /dishes/xxx.jpg 或 http://…）" allowClear />
-            </Form.Item>
-            {coverImage && (
-              <img
-                src={resolveImageUrl(coverImage)}
-                alt="封面预览"
-                style={{
-                  width: 160,
-                  height: 90,
-                  objectFit: 'cover',
-                  borderRadius: 8,
-                  border: '1px solid #eee',
-                }}
-              />
-            )}
-          </Space>
-        </Form.Item>
-
-        <Divider orientation="left" plain>
-          食材
-        </Divider>
-        {rows.length === 0 && (
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            还没添加食材，点下面的按钮加一行
-          </Text>
-        )}
-        {rows.map((row, i) => (
-          <Space.Compact key={i} style={{ display: 'flex', marginBottom: 8, gap: 8 }}>
-            <Select
-              showSearch
-              optionFilterProp="label"
-              placeholder="选食材"
-              value={row.ingredientId}
-              onChange={(v) => {
-                const ing = ingredients.find((x) => x.id === v);
-                updateRow(i, { ingredientId: v, unit: ing?.unit || row.unit });
-              }}
-              options={ingredientOptions}
-              style={{ flex: 2, minWidth: 160 }}
-            />
-            <InputNumber
-              placeholder="用量"
-              min={0}
-              value={row.amount}
-              onChange={(v) => updateRow(i, { amount: v ?? undefined })}
-              style={{ flex: 1, minWidth: 90 }}
-            />
-            <Input
-              placeholder="单位"
-              value={row.unit}
-              onChange={(e) => updateRow(i, { unit: e.target.value })}
-              style={{ flex: 1, minWidth: 70 }}
-            />
-            <Button danger icon={<DeleteOutlined />} onClick={() => removeRow(i)} />
-          </Space.Compact>
-        ))}
-        <Button
-          type="dashed"
-          icon={<PlusOutlined />}
-          onClick={addRow}
-          block
-          style={{ marginTop: 4 }}
+      <Space wrap size={12} style={{ width: '100%' }}>
+        <Form.Item
+          name="name"
+          label="菜名"
+          rules={[{ required: true, message: '请输入菜名' }]}
+          style={{ minWidth: 200, flex: 1 }}
         >
-          添加一行食材
-        </Button>
-
-        <Divider orientation="left" plain>
-          烹饪步骤
-        </Divider>
-        {steps.map((text, i) => (
-          <div
-            key={i}
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 8,
-              marginBottom: 10,
-            }}
-          >
-            <Tag color="orange" style={{ marginTop: 6, minWidth: 28, textAlign: 'center' }}>
-              {i + 1}
-            </Tag>
-            <Input.TextArea
-              placeholder={`第 ${i + 1} 步`}
-              value={text}
-              onChange={(e) => updateStep(i, e.target.value)}
-              autoSize={{ minRows: 1, maxRows: 4 }}
-              style={{ flex: 1 }}
-            />
-            <Button
-              danger
-              icon={<DeleteOutlined />}
-              disabled={steps.length <= 1}
-              onClick={() => removeStep(i)}
-            />
-          </div>
-        ))}
-        <Button
-          type="dashed"
-          icon={<PlusOutlined />}
-          onClick={addStep}
-          block
-          style={{ marginTop: 4 }}
-        >
-          添加一个步骤
-        </Button>
-
-        <Form.Item name="tips" label="小贴士（可选）" style={{ marginTop: 20 }}>
-          <Input.TextArea
-            placeholder="如：番茄要炒到绵软出汁才够味"
-            autoSize={{ minRows: 1, maxRows: 4 }}
+          <Input placeholder="如：西红柿炒鸡蛋" />
+        </Form.Item>
+        <Form.Item name="category" label="分类" rules={[{ required: true }]}>
+          <Select options={CATEGORIES.map((c) => ({ value: c, label: c }))} style={{ width: 120 }} />
+        </Form.Item>
+        <Form.Item name="difficulty" label="难度" rules={[{ required: true }]}>
+          <Select
+            options={[
+              { value: 1, label: '★☆☆' },
+              { value: 2, label: '★★☆' },
+              { value: 3, label: '★★★' },
+            ]}
+            style={{ width: 100 }}
           />
         </Form.Item>
+        <Form.Item name="cookTimeMin" label="用时(分钟)" rules={[{ required: true, type: 'number', min: 1 }]}>
+          <InputNumber min={1} max={999} style={{ width: 100 }} />
+        </Form.Item>
+        <Form.Item name="servings" label="份量(人份)" rules={[{ required: true, type: 'number', min: 1 }]}>
+          <InputNumber min={1} max={20} style={{ width: 100 }} />
+        </Form.Item>
+      </Space>
+
+      <Form.Item name="tags" label="标签（回车添加）">
+        <Select mode="tags" placeholder="如：下饭、快手" />
+      </Form.Item>
+
+      <Form.Item label="封面图（可选）">
+        <Space direction="vertical" size={8} style={{ width: '100%' }}>
+          <Space wrap>
+            <Upload
+              accept={IMAGE_ACCEPT}
+              showUploadList={false}
+              beforeUpload={(file) => {
+                void handlePickImage(file);
+                return false;
+              }}
+            >
+              <Button icon={<PictureOutlined />} loading={imgProcessing}>
+                选择本地图片
+              </Button>
+            </Upload>
+            {coverImage ? (
+              <Button
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() => {
+                  form.setFieldsValue({ coverImage: '' });
+                  setImgInfo(null);
+                  /*
+                    传完又点「清除图片」＝ 用户反悔了。
+                    刚传到桶里的那张图现在没人要了，直接删掉，
+                    否则又是一张永远不会被引用的孤儿图。
+                  */
+                  void (async () => {
+                    await rollbackUpload();
+                    message.success('已清除');
+                  })();
+                }}
+              >
+                清除图片
+              </Button>
+            ) : (
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                支持 JPG / PNG / WebP 静态图
+              </Text>
+            )}
+            {/* 上传完把大小常驻在这里，不再只是弹窗一闪而过 */}
+            {imgInfo && (
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {formatSize(imgInfo.size)}
+                {imgInfo.viaStorage ? ' · 已存云端' : ' · 压缩后存本地'}
+              </Text>
+            )}
+          </Space>
+          <Form.Item name="coverImage" noStyle>
+            <Input placeholder="或粘贴图片链接（如 /dishes/xxx.jpg 或 http://…）" allowClear />
+          </Form.Item>
+          {coverImage && (
+            <img
+              src={resolveImageUrl(coverImage)}
+              alt="封面预览"
+              style={{
+                width: 160,
+                height: 90,
+                objectFit: 'cover',
+                borderRadius: 8,
+                border: '1px solid #eee',
+              }}
+            />
+          )}
+        </Space>
+      </Form.Item>
+
+      <Divider orientation="left" plain>
+        食材
+      </Divider>
+      {rows.length === 0 && (
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          还没添加食材，点下面的按钮加一行
+        </Text>
+      )}
+      {rows.map((row, i) => (
+        <Space.Compact key={i} style={{ display: 'flex', marginBottom: 8, gap: 8 }}>
+          <Select
+            showSearch
+            optionFilterProp="label"
+            placeholder="选食材"
+            value={row.ingredientId}
+            onChange={(v) => {
+              const ing = ingredients.find((x) => x.id === v);
+              updateRow(i, { ingredientId: v, unit: ing?.unit || row.unit });
+            }}
+            options={ingredientOptions}
+            style={{ flex: 2, minWidth: 160 }}
+          />
+          <InputNumber
+            placeholder="用量"
+            min={0}
+            value={row.amount}
+            onChange={(v) => updateRow(i, { amount: v ?? undefined })}
+            style={{ flex: 1, minWidth: 90 }}
+          />
+          <Input
+            placeholder="单位"
+            value={row.unit}
+            onChange={(e) => updateRow(i, { unit: e.target.value })}
+            style={{ flex: 1, minWidth: 70 }}
+          />
+          <Button danger icon={<DeleteOutlined />} onClick={() => removeRow(i)} />
+        </Space.Compact>
+      ))}
+      <Button
+        type="dashed"
+        icon={<PlusOutlined />}
+        onClick={addRow}
+        block
+        style={{ marginTop: 4 }}
+      >
+        添加一行食材
+      </Button>
+
+      <Divider orientation="left" plain>
+        烹饪步骤
+      </Divider>
+      {steps.map((text, i) => (
+        <div
+          key={i}
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 8,
+            marginBottom: 10,
+          }}
+        >
+          <Tag color="orange" style={{ marginTop: 6, minWidth: 28, textAlign: 'center' }}>
+            {i + 1}
+          </Tag>
+          <Input.TextArea
+            placeholder={`第 ${i + 1} 步`}
+            value={text}
+            onChange={(e) => updateStep(i, e.target.value)}
+            autoSize={{ minRows: 1, maxRows: 4 }}
+            style={{ flex: 1 }}
+          />
+          <Button
+            danger
+            icon={<DeleteOutlined />}
+            disabled={steps.length <= 1}
+            onClick={() => removeStep(i)}
+          />
+        </div>
+      ))}
+      <Button
+        type="dashed"
+        icon={<PlusOutlined />}
+        onClick={addStep}
+        block
+        style={{ marginTop: 4 }}
+      >
+        添加一个步骤
+      </Button>
+
+      <Form.Item name="tips" label="小贴士（可选）" style={{ marginTop: 20 }}>
+        <Input.TextArea
+          placeholder="如：番茄要炒到绵软出汁才够味"
+          autoSize={{ minRows: 1, maxRows: 4 }}
+        />
+      </Form.Item>
     </Form>
   );
 

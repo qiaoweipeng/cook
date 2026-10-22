@@ -103,7 +103,22 @@ export default function DishCard({ dish, cost }: Props) {
                 />
               </>
             ) : (
-              <span>图片</span>
+              // 没有封面图的种子菜：用 emoji + coverColor 做彩色占位，
+              // 比灰色方块 + "图片"两字好看得多，也能一眼认出是哪道菜
+              <div
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  background: dish.coverColor ?? '#f0eee9',
+                  borderRadius: coverRadius,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: isMobile ? 48 : 72,
+                }}
+              >
+                {dish.emoji || dish.name[0] || '🍳'}
+              </div>
             )}
           </div>
         }

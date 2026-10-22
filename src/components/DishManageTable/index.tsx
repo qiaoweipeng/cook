@@ -199,6 +199,7 @@ export default function DishManageTable({ dishes, ingredients, onEdit, onDelete,
       <Table<Dish>
         rowKey="id"
         size="small"
+        bordered
         columns={columns}
         dataSource={rows}
         scroll={{ x: 1080 }}

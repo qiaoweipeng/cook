@@ -1,47 +1,43 @@
 # 我是大厨
 
-> 一套**前后端协同**的做饭管理系统，把「菜谱 → 食材 → 价格 → 采购清单 → 家庭共享」串起来，
-> 再加上**超级管理员**统一管理菜单、食材库与所有用户。
-> 灵感来源：每次想做菜都得翻小红书/抖音找菜谱，买菜时又算不清要花多少钱，家人多口难调——这个工具就是为「想做饭 + 不想动脑 + 要管账」的人准备的。
+## 这个项目解决什么
 
----
+**「我是大厨」是一套前后端协同的做饭管理系统**，围绕「今天吃什么」这件事， 是常做饭的小伙伴首选 APP。
+把 **菜谱 → 食材 → 价格 → 采购清单 → 家庭共享 ** 串成一条线，主要解决以下日常痛点：
 
-## ✨ 这个项目解决什么
+| 痛点               | 怎么解决                                                                                                                    |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| **上班族每天吃啥** | 提前把一周的菜排好，到点打开就照着做，不用临时纠结                                                                          |
+| **不会做**         | 每道菜给出完整**用料 + 分步做法**，照着走完一遍就能上桌，不用再去翻视频或搜教程，每道菜还可以根据自己的口味进行微调并记录。 |
+| **食材成本不好控** | 每道菜都自动算出**大概成本**，食材库统一登记单价，成本按最新单价折算，买之前就知道这道菜要花多少钱                          |
+| **不知道买哪些菜** | 根据你想吃的菜，自动生成采购清单，到菜市场/超市买一样勾一样                                                                 |
+| **减肥人群友好**   | 每道菜都有相应的热量、能量的数据 ，不会让你吃胖。                                                                           |
 
-**「我是大厨」是一套前后端协同的做饭管理系统**，围绕「今天吃什么」这件事，
-把 **菜谱 → 食材 → 价格 → 采购清单 → 家庭共享** 串成一条线，主要解决四个日常痛点：
+## （TODO）APP 功能简介
 
-| 痛点 | 怎么解决 |
-| --- | --- |
-| **不知道买哪些菜** | 每道菜都自动算出**大概成本**；勾选想做的菜，直接生成一份采购清单，到菜市场/超市买一样勾一样 |
-| **不会做** | 每道菜给出完整**用料 + 分步做法**，照着走完一遍就能上桌，不用再去翻视频或搜教程 |
-| **食材成本不好控** | 食材库统一登记单价，成本按最新单价折算，买之前就知道这道菜要花多少钱 |
-| **上班族每天吃啥** | 提前把一周的菜排好，到点打开就照着做，不用临时纠结 |
+- 菜单：收录每道菜的标签、难度、用时、份量、食材用量和分步做法，想找的时候一搜就有。
 
-落到具体模块上：
+- 今日菜单：
 
-- **菜谱管理**：收录每道菜的标签、难度、用时、份量、食材用量和分步做法，支持新增 / 编辑 / 删除 / 收藏，想找的时候一搜就有。
-- **食材库**：集中维护食材的名称、单位、单价与单位换算（支持 Excel 导入导出）。价格随行就市，管理员改一下单价，所有菜的成本立刻跟着更新，所以算出来的成本基本贴近实际买菜价。
-- **自动算账**：自动折算每道菜的成本、合并重复食材算总价，并生成一份可以直接照着买的采购清单。
-- **家庭共享**：多人共用一份菜单与食材库，采购清单、菜单安排各自独立；家庭相关的功能（邀请加入、成员权限、管理员转让等）也在逐步补完。
+- 食材库：
 
-> ⚠️ 项目整体还处在**测试完善阶段**：普通用户注册流程比较简单（暂无验证码），部分功能的边界还没打磨好，
+- 采购清单：
+
+- 家庭共享：多人共用一份菜单与食材库，采购清单、菜单安排各自独立
+
+- 多平台适配：PC、Pad、移动设备全部适配，体验感无与伦比。
+
+> ⚠️ 项目整体还处在**测试完善阶段**：普通用户注册流程比较简单（暂无验证码），部分功能的边界还没打磨好，  
 > 这些属于「能用但不算完善」，不影响日常使用，后面会持续改进。
 
----
-
-## 🛡 角色与权限
+## 角色与权限
 
 | 角色           | 账号                                                                 | 能力                                            |
 | -------------- | -------------------------------------------------------------------- | ----------------------------------------------- |
 | **超级管理员** | `0000` / `000000`（**硬编码，不依赖 users 表**，不可修改、不可删除） | 编辑所有菜谱 / 食材库；用户管理（启停普通账号） |
-| **普通用户**   | 自助注册（昵称 2-20 字 + 密码 6 位以上）                             | 浏览菜单、看食材价格、用采购清单/今日菜单       |
+| **普通用户**   | 自助注册（昵称 2-10字 + 密码 6 位以上）                              | 浏览菜单、看食材价格、用采购清单/今日菜单       |
 
-> 登录页会**优先匹配管理员账号**（`0000` / `000000`），再走普通登录/注册流程。
-> 普通账号被管理员停用后，再次登录会被拒（提示「该账号已被停用」）。
-> 每个用户可以上传自己的头像（顶栏右上角 → 头像下拉 → 上传头像），存在云端 `users.avatar`（dataURL）。
-
-> ⚠️ **安全现状（后续会改进，暂不适合放真实重要数据）**
+> **⚠️安全现状（后续会改进，暂不适合放真实重要数据）**
 >
 > - 超级管理员账号是**硬编码**的（`src/lib/userAdmin.ts` 里的 `ADMIN_UID` / `ADMIN_PASSWORD`），改不了也删不掉，后续要改成可配置 + 强哈希存储
 > - 普通用户注册只要昵称 + 密码，**没有邮箱/手机号验证、没有验证码**，谁都能随手注册
@@ -52,49 +48,56 @@
 
 ### 超级管理员能做什么
 
-**管理员没有专属 UI**——看到的还是同一套界面（同样的顶栏导航、同样的菜品卡片），
-只是**比普通用户多一些入口和按钮**，用来维护系统里的数据；所有管理操作都在 **PC 端**完成。
+> 管理员必须使用超级管理员账号并在PC 端登录，才能正常操作：
 
-按顺序，管理员比普通用户多出来的能力：
+1. **菜单管理:**
+   - 点击右上角新增菜品,可以添加菜品
+   - 选择某一个菜品 ，点击编辑菜品，可以修改和维护菜品信息。
+     - 编辑菜品时：
+       1. 点击“完成”，即编辑完成。
+       2. 点击“取消”，即编辑取消。
+       3. 点击“删除”，删除此菜品。前提是此菜品没有被用户添加到当日的每日菜单中，及当日的采购清单中。
+          - 如果用户将此菜品添加到今日以后的菜单中 管理员删除此菜单后 给用户一个弹窗 显示“此菜品已下架” 请用户重新选择其他菜品。
+   - 直接点击菜品的图片，可以查看菜品图片大图， 并可以修改和维护菜品图片
 
-- 顶部横向导航栏多出 **「用户管理」** 和 **「系统管理」** 两个入口（仅管理员可见）
-- **菜单页**：右上角 **「添加菜品」**
-- **菜品详情页**：底部 **「编辑」** 按钮，打开后有 **添加封面图 / 修改信息 / 保存**
-- **编辑菜品弹窗**：底部 **「删除菜品」**（有人在采购清单或菜单里用了它 → 拒绝删除）
-- **食材库页**：**「新增食材」** + **「编辑食材」**（需先单选某一行），行内没有编辑/删除按钮
-- **食材库页**（管理员专属区）：**「下载模板 / 导出 Excel / 导入 Excel」**
-- **编辑食材弹窗**：底部 **「删除」**（有任何菜品引用该食材 → 拒绝删除）
-- **用户管理页**：查看全部用户、按昵称/账号搜索、**停用 / 启用某个账号**、查看最近登录信息（设备 / 系统 / 浏览器 / IP / 地区）
-- **系统管理页**：云端连通性、14 张表的行数、**操作日志**、**登录日志**、本机浏览器缓存占用
+2. **食材库管理:**
+   - 点击右上角新增食材可以添加食材
+   - 选择某一个食材 点击编辑食材 可以修改和维护食材信息。
+   - 编辑食材时：
+     1. 点击“完成”：即编辑完成。
+     2. 点击“取消”：即取消编辑。
+     3. 点击“删除”：删除此食材（前提是此食材没有被用在菜品当中）。必须先从被用的菜品中移除此食材 此食材才能被删除。
+   - 直接点击食材的图片 可以查看食材图片大图 并可以修改和维护食材图片。
+   - 点击下载模板 可以将食材库的 Excel 模板下载下来。
+   - 点击导出 excel 可以将食材库的数据导到 excel 中 点击导入 excel 可以将编辑好的 excel 导入到食材库中。
+
+3. **用户管理:**查看全部用户、按昵称/账号搜索、**停用 / 启用某个账号**、查看最近登录信息（设备 / 系统 / 浏览器 / IP / 地区）
+4. **系统管理：**云端连通性、14 张表的行数、**操作日志**、**登录日志**、本机浏览器缓存占用
 
 ### 删除级联规则
 
 - **删除食材**：如果有任何菜品正在使用它，**禁止删除**，提示列出引用它的菜品数量。
-- **删除菜品**：如果有任何用户把它加进了采购清单或菜单，**禁止删除**，提示使用人数。
-
-> 📱 **移动端不做管理员适配**：`AppLayout` 里判断条件是 `showMobileNav = isMobile && !isAdmin`，
-> 管理员登录后走的就是 PC 端那套界面（横向导航栏），不做移动端适配。
-> 会拿手机登录的**都是普通用户**，移动端只需保证普通用户「看得清、点得动」即可。
+- **删除菜品**：如果有任何用户把它加进了当日采购清单或当日菜单，**禁止删除**，提示使用人数。
 
 ---
 
-## 🎨 视觉与交互基调
+## 视觉与交互基调
 
-两套 UI：**PC 端用 Ant Design 5**，**移动端用 Ant Design Mobile**，共用同一套品牌色。
+两套 UI：**PC 端用 Ant Design 6**，**移动端用 Ant Design Mobile**，共用同一套品牌色。
 
-### PC 端 · Ant Design 5
+### PC 端 · Ant Design 6
 
 在 `src/theme.ts` 里通过 `ConfigProvider` 覆写了 Design Token，做出一层「厨房感」主题：
 
-| Token | 值 | 说明 |
-| --- | --- | --- |
-| `colorPrimary` / `colorInfo` | `#E8743C` | 暖橙主色，接近红烧/糖色，比 AntD 默认蓝更「有食欲」 |
-| `colorSuccess` / `colorWarning` | `#7BB661` / `#F0AD4E` | 青菜绿、暖黄，配合主色形成食材感的配色 |
-| `borderRadius` | `12`（Card 用 `16`） | 圆角偏大 + 大留白，像菜谱 App 而不像 OA 后台 |
-| `colorBgLayout` | `#FAF7F2` | 燕麦米白，长时间看菜谱不刺眼 |
-| `colorTextHeading` | `#2D2A26` | 软黑，避免纯黑的生硬感 |
-| Layout | 顶栏白底、高 `64`，选中项底色 `#FFF1E8` | 主次分明，导航位置稳定 |
-| 字体 | PingFang SC / 微软雅黑 优先 | 中文显示效果优先 |
+| Token                           | 值                                      | 说明                                                |
+| ------------------------------- | --------------------------------------- | --------------------------------------------------- |
+| `colorPrimary` / `colorInfo`    | `#E8743C`                               | 暖橙主色，接近红烧/糖色，比 AntD 默认蓝更「有食欲」 |
+| `colorSuccess` / `colorWarning` | `#7BB661` / `#F0AD4E`                   | 青菜绿、暖黄，配合主色形成食材感的配色              |
+| `borderRadius`                  | `12`（Card 用 `16`）                    | 圆角偏大 + 大留白，像菜谱 App 而不像 OA 后台        |
+| `colorBgLayout`                 | `#FAF7F2`                               | 燕麦米白，长时间看菜谱不刺眼                        |
+| `colorTextHeading`              | `#2D2A26`                               | 软黑，避免纯黑的生硬感                              |
+| Layout                          | 顶栏白底、高 `64`，选中项底色 `#FFF1E8` | 主次分明，导航位置稳定                              |
+| 字体                            | PingFang SC / 微软雅黑 优先             | 中文显示效果优先                                    |
 
 **为什么这么定**：这是个每天都会打开的生活类工具，不是后台管理系统。暖橙唤起食欲，米白降低长时间阅读疲劳，大圆角削弱「表格感」，最终目标是让人愿意天天用，而不是让人觉得在点 OA。
 
@@ -106,23 +109,34 @@
 - **为什么用 antd-mobile**：它是为**触屏**设计的——组件按手指热区尺寸做的安全区/高度、`PullToRefresh`、`SwipeAction` 等手势类交互都现成，体积也远小于桌面组件；而不是把 PC 组件缩到小屏上（按钮会挤、点击区过小）。
 - 交互上采用**底部 TabBar 常驻**（首页 / 今日菜单 / 食材库 / 采购清单 / 个人，带徽标提示），搜索框与标签栏**吸顶**，单列卡片流式展示，减少层级跳转。
 
-### 📱 状态栏与吸顶栏一体化（iOS 已做 / Android 待做）
+### 用户与 UI 的关系
 
-**问题**：添加到主屏幕当 App 用之后，手机顶部那条系统状态栏（时间 / 运营商 / 电量）是**纯白底**的，
+首先 UI 适配了三种系统：PC 端 pad 端和移动端。其次 用户分两类 一类是普通用户 一类是管理员。UI 跟用户的关系是：
+
+- 使用普通用户账号、登录 PC 端显示 PC 端页面
+- 使用普通用户账号、登录 Pad端显示 Pad端页面
+
+- 使用普通用户账号、登录 移动端显示 移动端页面
+- 使用管理员账号登录 PC 端 显示 PC 端页面
+- 使用管理员账号登录 pad 端和移动端 弹框显示“请使用 PC 端登录！”
+
+### TODO📱 状态栏与吸顶栏一体化（iOS 已做 / Android 待做）
+
+**问题**：添加到主屏幕当 App 用之后，手机顶部那条系统状态栏（时间 / 运营商 / 电量）是**纯白底**的，  
 和首页吸顶那条橙色渐变之间横着一道明显分界，一眼就能看出是「系统一条 + 网页一条」两截。
 
 **目标**：让吸顶的橙色渐变直接铺到状态栏底下，两者连成一片。
 
 #### iOS（已实现，改动在三处）
 
-| 位置 | 改了什么 | 作用 |
-| --- | --- | --- |
-| `index.html` | `apple-mobile-web-app-status-bar-style` → `black-translucent` | 状态栏背景变透明，网页从屏幕最顶端 `(0,0)` 开始绘制，状态栏浮在内容之上 |
-| `index.html` | viewport 带 `viewport-fit=cover`（原来就有） | 配合上一条，`env(safe-area-inset-top)` 才会等于状态栏高度 |
-| `src/components/AppLayout` | Content 的 `paddingTop: calc(16px + env(safe-area-inset-top))` | 给状态栏让出高度，否则各页面顶部会被它压住 |
-| `src/pages/Menu` | 吸顶栏 `marginTop: calc(-16px - env(safe-area-inset-top))` | 把上面让出来的高度抵消掉，让吸顶栏顶到 `(0,0)`，渐变顺势盖住状态栏 |
+| 位置                       | 改了什么                                                       | 作用                                                                    |
+| -------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `index.html`               | `apple-mobile-web-app-status-bar-style` → `black-translucent`  | 状态栏背景变透明，网页从屏幕最顶端 `(0,0)` 开始绘制，状态栏浮在内容之上 |
+| `index.html`               | viewport 带 `viewport-fit=cover`（原来就有）                   | 配合上一条，`env(safe-area-inset-top)` 才会等于状态栏高度               |
+| `src/components/AppLayout` | Content 的 `paddingTop: calc(16px + env(safe-area-inset-top))` | 给状态栏让出高度，否则各页面顶部会被它压住                              |
+| `src/pages/Menu`           | 吸顶栏 `marginTop: calc(-16px - env(safe-area-inset-top))`     | 把上面让出来的高度抵消掉，让吸顶栏顶到 `(0,0)`，渐变顺势盖住状态栏      |
 
-吸顶栏内部仍保留 `padding: calc(10px + env(safe-area-inset-top)) 12px 10px`，
+吸顶栏内部仍保留 `padding: calc(10px + env(safe-area-inset-top)) 12px 10px`，  
 所以搜索框、分类标签都还在状态栏下方，不会被压住。
 
 **要点与已知取舍**：
@@ -137,13 +151,12 @@
 Android 的状态栏颜色由 **`theme_color`** 控制，规则和 iOS 完全不同：
 
 - **只认纯色，不支持渐变**。写 `linear-gradient(...)` 进去会被直接忽略。
-- 取值建议 `#F7E2D5`（就是首页渐变左上角那一小块的实际合成色：品牌橙 16% 叠在米白 `#FAF7F2` 上）。
+- 取值建议 `#F7E2D5`（就是首页渐变左上角那一小块的实际合成色：品牌橙 16% 叠在米白 `#FAF7F2` 上）。  
   用它当状态栏底色，和吸顶栏最浓的那一端能对上，接缝不明显。
 
 要动的话是这两处，改完重新部署 + 重装 PWA：
 
 ```html
-<!-- index.html -->
 <meta name="theme-color" content="#f7e2d5" />
 ```
 
@@ -155,7 +168,7 @@ manifest: {
 }
 ```
 
-> standalone 模式下 **manifest 的 `theme_color` 优先级高于 `<meta name="theme-color">`**，两个都要改，只改一个不生效。
+> standalone 模式下 **manifest 的 `theme_color` 优先级高于 `<meta name="theme-color">`**，两个都要改，只改一个不生效。  
 > 状态栏文字颜色 Android 是**按背景深浅自动适配**的（浅底 → 深色字），所以不用管对比度，这点比 iOS 省心。
 
 ---
@@ -199,20 +212,20 @@ manifest: {
 
 ## 🏗 技术栈
 
-| 分类         | 选型                            | 理由                                                       |
-| ------------ | ------------------------------- | ---------------------------------------------------------- |
-| 框架         | **React 18 + TypeScript 5**     | 主流、类型安全                                             |
-| 构建         | **Vite 5**                      | 启动快、HMR 舒服                                           |
-| UI           | **Ant Design 5**                | 组件全（Card/Table/Form/Drawer/Statistic…都现成）          |
-| 路由         | **React Router v6**             | 单页多视图                                                 |
-| 状态         | **Zustand 4** + `persist`       | 比 Redux 轻很多，菜品/食材/采购清单/菜单各自独立持久化 |
-| 日期         | **dayjs**                       | AntD 内置日期库，用于格式化与"做菜记录"时间戳              |
-| 表格导入导出 | **SheetJS (`xlsx`)**            | 食材库支持 Excel 导入 / 导出 / 下载模板                    |
-| 后端         | **Supabase PostgreSQL**         | 免费额度够用；之前 CloudBase 体验版 3000 资源点 4 天耗尽并触发资源隔离 |
-| 数据库访问   | **Supabase Data API（PostgREST）** | 前端 `fetch` 直接调 REST，无中间层                                    |
-| 鉴权         | **anon key + 表级 RLS**         | 前端可公开的 JWT，靠 RLS 策略兜底；用户只用昵称+密码，无需邮箱手机    |
-| 工程         | **TS 路径别名 `@/*`**           | `@/types`、`@/lib/...` 引用更短（见 `tsconfig.json`）      |
-| 部署         | **CloudBase 静态网站托管**      | 免备案，CDN 加速                                           |
+| 分类         | 选型                               | 理由                                                                   |
+| ------------ | ---------------------------------- | ---------------------------------------------------------------------- |
+| 框架         | **React 18 + TypeScript 5**        | 主流、类型安全                                                         |
+| 构建         | **Vite 5**                         | 启动快、HMR 舒服                                                       |
+| UI           | **Ant Design 5**                   | 组件全（Card/Table/Form/Drawer/Statistic…都现成）                      |
+| 路由         | **React Router v6**                | 单页多视图                                                             |
+| 状态         | **Zustand 4** + `persist`          | 比 Redux 轻很多，菜品/食材/采购清单/菜单各自独立持久化                 |
+| 日期         | **dayjs**                          | AntD 内置日期库，用于格式化与"做菜记录"时间戳                          |
+| 表格导入导出 | **SheetJS (`xlsx`)**               | 食材库支持 Excel 导入 / 导出 / 下载模板                                |
+| 后端         | **Supabase PostgreSQL**            | 免费额度够用；之前 CloudBase 体验版 3000 资源点 4 天耗尽并触发资源隔离 |
+| 数据库访问   | **Supabase Data API（PostgREST）** | 前端 `fetch` 直接调 REST，无中间层                                     |
+| 鉴权         | **anon key + 表级 RLS**            | 前端可公开的 JWT，靠 RLS 策略兜底；用户只用昵称+密码，无需邮箱手机     |
+| 工程         | **TS 路径别名 `@/*`**              | `@/types`、`@/lib/...` 引用更短（见 `tsconfig.json`）                  |
+| 部署         | **CloudBase 静态网站托管**         | 免备案，CDN 加速                                                       |
 
 ---
 
@@ -276,22 +289,22 @@ cook/
 
 ### 表（14 张）
 
-| 表名                 | 用途                      | 关键字段                                                                                                                              |
-| -------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `dishes`             | 菜品主表                  | `id` (text PK), `name`, `category`, `difficulty`, `cook_time_min`, `servings`, `cover_image`, `cover_color`, `favorite`, `created_at` |
-| `ingredients`        | 食材库                    | `id` (text PK), `name`, `category`, `price_per_unit`, `unit`, `spec`, `note`, `unit_grams`, `unit_ml`                                 |
-| `dish_tags`          | 菜-标签（多对多）         | `dish_id`, `tag`（联合主键）                                                                                                          |
-| `dish_ingredients`   | 菜-食材（含用量）         | `id` (bigserial PK), `dish_id`, `ingredient_id`, `amount`, `unit`                                                                     |
-| `dish_steps`         | 烹饪步骤                  | `dish_id`, `step_order`, `step_text`（联合主键）                                                                                      |
-| `users`              | 用户账号                  | `id` (text PK, 归一化昵称), `nick`, `display_name`, `salt`, `password_hash`, `avatar`, `disabled`, `created_at`                       |
-| `shopping_lists`     | 采购清单（按用户隔离）    | `id` (text PK, =uid), `data` (jsonb), `updated_at`                                                                                    |
-| `weekly_menus`       | 菜单安排（按日期存，按用户/家庭隔离）| `id` (text PK, =uid 或家庭 id), `data` (jsonb, `{ 日期key: 菜品id[] }`), `updated_at`                                                |
-| `families`           | 家庭                      | `id` (text PK, `fam_<创建者uid>`), `admin_uid`, `created_at`                                                                          |
-| `family_members`     | 家庭成员                  | `id` (text PK, `<famId>__<uid>`), `family_id`, `uid`, `name`, `role`, `permission`, `joined_at`                                       |
-| `family_invites`     | 家庭邀请 / 管理员转让     | `id` (uuid PK), `family_id`, `from_uid`, `to_uid`, `to_name`, `status`, `type`, `created_at`                                          |
-| `family_menu_audit`  | 家庭菜单修改历史          | `id` (uuid PK), `family_id`, `actor_uid`, `actor_name`, `action`, `day`, `detail`, `created_at`                                       |
-| `login_logs`         | 登录日志                  | `id` (text PK), `uid`, `nick`, `login_at`, `ip`, `region`, `device`, `os`, `browser`, `ua`, `screen`, `language`                      |
-| `op_logs`            | 操作日志（审计）          | `id` (text PK), `actor_uid`, `actor_name`, `action`, `target`, `detail`, `created_at`                                                 |
+| 表名                | 用途                                  | 关键字段                                                                                                                              |
+| ------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `dishes`            | 菜品主表                              | `id` (text PK), `name`, `category`, `difficulty`, `cook_time_min`, `servings`, `cover_image`, `cover_color`, `favorite`, `created_at` |
+| `ingredients`       | 食材库                                | `id` (text PK), `name`, `category`, `price_per_unit`, `unit`, `spec`, `note`, `unit_grams`, `unit_ml`                                 |
+| `dish_tags`         | 菜-标签（多对多）                     | `dish_id`, `tag`（联合主键）                                                                                                          |
+| `dish_ingredients`  | 菜-食材（含用量）                     | `id` (bigserial PK), `dish_id`, `ingredient_id`, `amount`, `unit`                                                                     |
+| `dish_steps`        | 烹饪步骤                              | `dish_id`, `step_order`, `step_text`（联合主键）                                                                                      |
+| `users`             | 用户账号                              | `id` (text PK, 归一化昵称), `nick`, `display_name`, `salt`, `password_hash`, `avatar`, `disabled`, `created_at`                       |
+| `shopping_lists`    | 采购清单（按用户隔离）                | `id` (text PK, =uid), `data` (jsonb), `updated_at`                                                                                    |
+| `weekly_menus`      | 菜单安排（按日期存，按用户/家庭隔离） | `id` (text PK, =uid 或家庭 id), `data` (jsonb, `{ 日期key: 菜品id[] }`), `updated_at`                                                 |
+| `families`          | 家庭                                  | `id` (text PK, `fam_<创建者uid>`), `admin_uid`, `created_at`                                                                          |
+| `family_members`    | 家庭成员                              | `id` (text PK, `<famId>__<uid>`), `family_id`, `uid`, `name`, `role`, `permission`, `joined_at`                                       |
+| `family_invites`    | 家庭邀请 / 管理员转让                 | `id` (uuid PK), `family_id`, `from_uid`, `to_uid`, `to_name`, `status`, `type`, `created_at`                                          |
+| `family_menu_audit` | 家庭菜单修改历史                      | `id` (uuid PK), `family_id`, `actor_uid`, `actor_name`, `action`, `day`, `detail`, `created_at`                                       |
+| `login_logs`        | 登录日志                              | `id` (text PK), `uid`, `nick`, `login_at`, `ip`, `region`, `device`, `os`, `browser`, `ua`, `screen`, `language`                      |
+| `op_logs`           | 操作日志（审计）                      | `id` (text PK), `actor_uid`, `actor_name`, `action`, `target`, `detail`, `created_at`                                                 |
 
 > 建表脚本刻意**没有加外键**：种子数据的写入顺序不受控（菜品可能先于食材写入），加了外键会在初始化阶段冲突。
 
@@ -323,8 +336,14 @@ GRANT ALL ON ALL TABLES IN SCHEMA public TO anon;
 数据源只有一个：`src/data/seedDishes.ts`（**57 道家常菜**）和 `src/data/seedIngredients.ts`（**83 种常见食材**）。
 它承担两件事：
 
-1. **App 自动播种**：首次打开时如果 `dishes` / `ingredients` 是空表，前端会自动把它们写进去
-2. **手动补种**：数据库被清空、或想恢复出厂菜谱时，直接在命令行重跑
+1. **App 启动只读，播种靠人工**（2026-10 起改为人工控制）：
+   App 打开时只从云端**拉取展示，绝不自动写入**。拉取失败也不会再被误判成空表去播种
+   （那正是图片被种子覆盖的事故根源，见「图片消失第二回」）。
+   播种入口：**管理端 → 系统管理 → 种子数据播种**：
+   - **检查缺失 / 补缺失种子**：把「种子里有、云端没有」的菜补进去（只新增，不覆盖任何已有菜）
+   - **种子覆盖…**：用代码里的种子版本整体替换所选菜品（危险操作，带红色警告；
+     用于种子配方更新后的同步、恢复被覆盖的图地址）
+2. **命令行补种**：批量操作或数据库被清空时也可以跑脚本
 
 ```bash
 pnpm seed                    # 只填空表：已有数据的表会跳过（默认，安全）
@@ -338,6 +357,24 @@ pnpm seed -- --only=dishes   # 只补菜单（--only=ingredients 同理）
 >
 > 脚本和运行时共用同一份字段转换（`src/lib/rowMapper.ts`），改了表结构只需要改那一处。
 > `--force` 不会删掉你自己新增的菜或食材，只会把内置种子同步进去。
+
+#### 🖼 图片怎么跟着种子播（相对路径方案）
+
+种子菜的封面图**不放代码里**（图片太大），也**不写完整 URL**（会绑死某台服务器）。
+数据库里存的是相对路径，URL 前缀由运行环境拼接：
+
+- `seedDishes.ts` 里写：`coverImage: '/seeds/dish_mapo_tofu.webp'`
+- 渲染时 `resolveImageUrl()`（`src/lib/supabase.ts`）自动拼成
+  `<当前环境 SUPABASE_URL>/storage/v1/object/public/dish-images/seeds/dish_mapo_tofu.webp`
+
+这样图片文件只存在 Storage 的 `seeds/` 目录里；换服务器 / 换 Supabase 项目时，
+把文件传到新桶、改一行环境变量即可，代码和数据库记录一个字都不用动 —— **图片独立于载体**。
+
+新增一颗带图种子菜的固定流程：
+
+1. 图片（webp，压缩后）上传到 Storage 的 `dish-images/seeds/` 目录，**文件名用菜谱 id**（如 `dish_mapo_tofu.webp`）
+2. `seedDishes.ts` 给对应菜加 `coverImage: '/seeds/<id>.webp'`
+3. 完事 —— 播种时图地址随种子一起写入，图文件躺在桶里谁也不依赖
 
 ### 💾 备份与恢复
 
@@ -357,15 +394,15 @@ pnpm backup -- --restore=backups/xxx.json --force # 从备份恢复（会先清�
 
 ### 💰 Supabase 免费版容量（能装多少东西）
 
-| 项目 | 免费版额度 | 本项目现状 / 结论 |
-| --- | --- | --- |
-| **数据库容量** | **500 MB** | 现在 57 道菜 + 83 食材**不到 1 MB**，占比可忽略 |
-| 行数上限 | **无限制**（只看容量） | 随便加，行数不是瓶颈 |
-| 表数量 | **无硬性限制** | 现在 14 张；再翻倍到 30 张也没问题 |
-| API 请求 | 不限次数，但有公平使用软阈值 | 前端每次刷新约拉 5~10 个请求，家用远达不到 |
-| 每月出口流量 | 5 GB | 首包（含 image/JPEG 封面）约 2 MB，够几千次首屏 |
-| 文件存储 | 1 GB | 本项目没用到（封面图走 dataURL 存库，没走 Storage） |
-| 空闲 7 天自动暂停 | 连续 7 天无任何请求会暂停 | 控制台点 Restore 即可恢复；长期用建议每周访问一次或升 Pro |
+| 项目              | 免费版额度                   | 本项目现状 / 结论                                         |
+| ----------------- | ---------------------------- | --------------------------------------------------------- |
+| **数据库容量**    | **500 MB**                   | 现在 57 道菜 + 83 食材**不到 1 MB**，占比可忽略           |
+| 行数上限          | **无限制**（只看容量）       | 随便加，行数不是瓶颈                                      |
+| 表数量            | **无硬性限制**               | 现在 14 张；再翻倍到 30 张也没问题                        |
+| API 请求          | 不限次数，但有公平使用软阈值 | 前端每次刷新约拉 5~10 个请求，家用远达不到                |
+| 每月出口流量      | 5 GB                         | 首包（含 image/JPEG 封面）约 2 MB，够几千次首屏           |
+| 文件存储          | 1 GB                         | 本项目没用到（封面图走 dataURL 存库，没走 Storage）       |
+| 空闲 7 天自动暂停 | 连续 7 天无任何请求会暂停    | 控制台点 Restore 即可恢复；长期用建议每周访问一次或升 Pro |
 
 **换算成实际能加多少**：
 
@@ -389,11 +426,11 @@ pnpm backup -- --restore=backups/xxx.json --force # 从备份恢复（会先清�
 2. 压成 JPEG（质量 0.82）
 3. 转成 Base64 dataURL，**直接存在 `dishes.cover_image` 这个 text 列里**
 
-| 环节 | 大小 |
-| --- | --- |
-| 压缩后的 JPEG 二进制 | 约 **120~250 KB** |
-| Base64 膨胀（×1.37） | 约 **160~340 KB** |
-| **落库后每张封面** | 取中位估算 **≈ 200 KB** |
+| 环节                 | 大小                    |
+| -------------------- | ----------------------- |
+| 压缩后的 JPEG 二进制 | 约 **120~250 KB**       |
+| Base64 膨胀（×1.37） | 约 **160~340 KB**       |
+| **落库后每张封面**   | 取中位估算 **≈ 200 KB** |
 
 想看自己库里的真实数字，在 Supabase SQL Editor 跑：
 
@@ -412,11 +449,11 @@ select pg_size_pretty(pg_database_size(current_database()));
 
 #### 三种场景测算（按你的目标量：300~500 道菜）
 
-| 场景 | 每张占用 | 300 道菜 | 500 道菜 | 占 500 MB 额度 |
-| --- | --- | --- | --- | --- |
-| **A. 只给每道菜一张封面**（当前） | ~200 KB | **~60 MB** | **~100 MB** | 12% ~ 20% ✅ 很安全 |
+| 场景                               | 每张占用          | 300 道菜    | 500 道菜    | 占 500 MB 额度        |
+| ---------------------------------- | ----------------- | ----------- | ----------- | --------------------- |
+| **A. 只给每道菜一张封面**（当前）  | ~200 KB           | **~60 MB**  | **~100 MB** | 12% ~ 20% ✅ 很安全   |
 | **B. 再加步骤图**（每道菜约 3 张） | 4×200 KB = 800 KB | **~240 MB** | **~400 MB** | 48% ~ 80% ⚠️ 接近上限 |
-| **C. 再加食材图**（100~300 种） | +20~60 MB | ~300 MB | ~460 MB | 60% ~ 92% ❌ 已经危险 |
+| **C. 再加食材图**（100~300 种）    | +20~60 MB         | ~300 MB     | ~460 MB     | 60% ~ 92% ❌ 已经危险 |
 
 > 表格里的「支出」是**纯磁盘**。结论很直接：
 > **A 可以放心用 Base64；B 就要谨慎了；C 加上去基本就触顶了。**
@@ -429,11 +466,11 @@ select pg_size_pretty(pg_database_size(current_database()));
 
 > **每次全量同步，会把所有菜的 Base64 封面一起拉下来。**
 
-| 菜品数 | 单次全量同步要下载 | 5 GB/月流量够撑几次 |
-| --- | --- | --- |
-| 100 道（都有图） | ~20 MB | ~250 次 |
-| 300 道 | ~60 MB | ~80 次 |
-| 500 道 | ~100 MB | **~50 次** |
+| 菜品数           | 单次全量同步要下载 | 5 GB/月流量够撑几次 |
+| ---------------- | ------------------ | ------------------- |
+| 100 道（都有图） | ~20 MB             | ~250 次             |
+| 300 道           | ~60 MB             | ~80 次              |
+| 500 道           | ~100 MB            | **~50 次**          |
 
 也就是说：**500 道带图菜品时，家里两个人每天各开两三次，一个月就能把 5 GB 出口流量刷穿**
 （虽然 Supabase 另有 5 GB「缓存外发」额度，API 结果未必算缓存，别指望它）。
@@ -462,7 +499,6 @@ select pg_size_pretty(pg_database_size(current_database()));
    这点要纠正一个常见误解：**对象存储不一定非要花钱**。
    Supabase 免费版本身就带 **1 GB Storage**，图片传上去得到一个 HTTPS 地址，
    数据库里只存这个 URL（几十字节）。好处是：
-
    - 磁盘占用从几百 MB 降到几 MB，`dishes.cover_image` 变成一个短字符串
    - 图片是**静态文件 URL**，浏览器和 CDN 都能缓存，不像 API 响应每次都要重新拉
    - 下一次全量同步不再带着几十 MB 图片，回到毫秒级
@@ -474,12 +510,12 @@ select pg_size_pretty(pg_database_size(current_database()));
 
 满足**任意一条**就该迁到对象存储了（不用等到爆）：
 
-| 红线 | 阈值 | 去哪里看 |
-| --- | --- | --- |
-| 数据库体积 | **> 300 MB**（500 MB 的 60%）——要给 autovacuum 和表膨胀留余地 | Dashboard → Settings → Usage；或上面那条 `pg_database_size()` SQL |
-| 月流量 | **> 3 GB**（5 GB 的 60%） | Dashboard → Settings → Usage → Egress |
-| 单次同步 | **> 5 MB** 或首屏超过 3 秒 | DevTools → Network 看 `rest/v1/dishes` 那一条的 size |
-| 准备加步骤图 / 食材图 | **一开始就要迁**，别先塞进去再想着救 | —— |
+| 红线                  | 阈值                                                          | 去哪里看                                                          |
+| --------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------- |
+| 数据库体积            | **> 300 MB**（500 MB 的 60%）——要给 autovacuum 和表膨胀留余地 | Dashboard → Settings → Usage；或上面那条 `pg_database_size()` SQL |
+| 月流量                | **> 3 GB**（5 GB 的 60%）                                     | Dashboard → Settings → Usage → Egress                             |
+| 单次同步              | **> 5 MB** 或首屏超过 3 秒                                    | DevTools → Network 看 `rest/v1/dishes` 那一条的 size              |
+| 准备加步骤图 / 食材图 | **一开始就要迁**，别先塞进去再想着救                          | ——                                                                |
 
 **一句话版本**：只给菜品封面用，几百张 Base64 完全够用；
 一旦想给**步骤**加图（图片数量直接翻 3~5 倍），或者数据库超过 300 MB / 月流量超过 3 GB，
@@ -530,13 +566,13 @@ alter table public.ingredients add column if not exists image text;
 
 ### 📌 结论先说：现在还会不会复发
 
-| 问的问题 | 答 |
-| --- | --- |
-| 上传失败还会假装成功吗 | **不会** —— 上传失败直接抛错，界面弹红色提示 |
-| 数据库列缺失还会静默跳过吗 | **不会** —— 检测到列缺失直接报错，并给出修复 SQL |
-| 别的写入路径还会丢 `cover_image` 吗 | **不会** —— 保存后立即回读比对，对不上当场报错 |
+| 问的问题                                       | 答                                                      |
+| ---------------------------------------------- | ------------------------------------------------------- |
+| 上传失败还会假装成功吗                         | **不会** —— 上传失败直接抛错，界面弹红色提示            |
+| 数据库列缺失还会静默跳过吗                     | **不会** —— 检测到列缺失直接报错，并给出修复 SQL        |
+| 别的写入路径还会丢 `cover_image` 吗            | **不会** —— 保存后立即回读比对，对不上当场报错          |
 | **桶里有图、库里没记录**这种不一致状态还会有吗 | **不会** —— 保存失败 / 反悔清除时自动撤销上传，见第五节 |
-| Storage 本身会挂吗 | 桶是 `public` 的，策略允许 anon 读，实测匿名可直连 200 |
+| Storage 本身会挂吗                             | 桶是 `public` 的，策略允许 anon 读，实测匿名可直连 200  |
 
 也就是说：**从「上传 → 落库 → 渲染」这条链路上，所有会静默失败的点都已变成显式报错，
 并且跨系统的多步操作具备了撤销能力 —— 要么两边都有，要么两边都没有。**
@@ -547,18 +583,18 @@ alter table public.ingredients add column if not exists image text;
 
 ```ts
 // ❌ 修复前的代码（cloudSync.ts）
-let coverImageColumnMissing = false;   // ← 模块级标志，全局共享
+let coverImageColumnMissing = false; // ← 模块级标志，全局共享
 
 async function insertDishRow(d: Dish): Promise<void> {
   const row = dishToRow(d);
-  if (coverImageColumnMissing) delete row.cover_image;   // ← 静默删掉图片字段
+  if (coverImageColumnMissing) delete row.cover_image; // ← 静默删掉图片字段
   try {
-    await pgInsert('dishes', row);
+    await pgInsert("dishes", row);
   } catch (e) {
-    if (!coverImageColumnMissing && msg.includes('cover_image')) {
-      coverImageColumnMissing = true;                   // ← 一旦置真，这个页面会话内
-      delete row.cover_image;                           //    之后所有写入都不再存图片
-      await pgInsert('dishes', row);                    //    菜名/配料/步骤照存，界面照样弹「已保存」
+    if (!coverImageColumnMissing && msg.includes("cover_image")) {
+      coverImageColumnMissing = true; // ← 一旦置真，这个页面会话内
+      delete row.cover_image; //    之后所有写入都不再存图片
+      await pgInsert("dishes", row); //    菜名/配料/步骤照存，界面照样弹「已保存」
       return;
     }
   }
@@ -580,10 +616,12 @@ async function insertDishRow(d: Dish): Promise<void> {
 ```ts
 // ✅ 修复后
 function isMissingCoverImageColumn(e: unknown): boolean {
-  return (e instanceof Error ? e.message : '').includes('cover_image');
+  return (e instanceof Error ? e.message : "").includes("cover_image");
 }
 // 命中就抛错，不再降级
-throw new Error('数据库的 dishes 表缺少 cover_image 列…ALTER TABLE dishes ADD COLUMN cover_image text;');
+throw new Error(
+  "数据库的 dishes 表缺少 cover_image 列…ALTER TABLE dishes ADD COLUMN cover_image text;",
+);
 ```
 
 #### 根因 2：上传失败自动降级成 Base64
@@ -593,9 +631,9 @@ throw new Error('数据库的 dishes 表缺少 cover_image 列…ALTER TABLE dis
 try {
   return await uploadToStorage(file, folder);
 } catch (e) {
-  console.warn('[image] 上传失败，退回 Base64：', e);   // ← 只是 warn，界面上完全静默
+  console.warn("[image] 上传失败，退回 Base64：", e); // ← 只是 warn，界面上完全静默
   const dataUrl = await compressToDataUrl(file);
-  return { url: dataUrl, viaStorage: false };            // ← 用户以为成功了
+  return { url: dataUrl, viaStorage: false }; // ← 用户以为成功了
 }
 ```
 
@@ -608,12 +646,12 @@ try {
 ```ts
 // ✅ 修复后
 if (!isCloudEnabled()) {
-  throw new Error('未配置云端…无法上传图片');            // 不再偷偷转 Base64
+  throw new Error("未配置云端…无法上传图片"); // 不再偷偷转 Base64
 }
 try {
   return await uploadToStorage(file, folder);
 } catch (e) {
-  throw new Error(`图片上传失败：${detail}`);             // 原样抛给界面
+  throw new Error(`图片上传失败：${detail}`); // 原样抛给界面
 }
 ```
 
@@ -626,21 +664,21 @@ try {
 
 数据库里 `cover_image` 混着**三种形态**：
 
-| 形态 | 样例 | 直接当 src 会怎样 |
-| --- | --- | --- |
-| 完整 URL | `https://xxx.supabase.co/storage/v1/.../a.webp` | ✅ 正常 |
-| **相对路径** | `/dishes/a.jpg` | ❌ 请求**你自己域名下**的 `/dishes/a.jpg` → 404 |
-| Base64 | `data:image/webp;base64,...` | ✅ 正常（但见根因 2） |
+| 形态         | 样例                                            | 直接当 src 会怎样                               |
+| ------------ | ----------------------------------------------- | ----------------------------------------------- |
+| 完整 URL     | `https://xxx.supabase.co/storage/v1/.../a.webp` | ✅ 正常                                         |
+| **相对路径** | `/dishes/a.jpg`                                 | ❌ 请求**你自己域名下**的 `/dishes/a.jpg` → 404 |
+| Base64       | `data:image/webp;base64,...`                    | ✅ 正常（但见根因 2）                           |
 
 **修复**：渲染前一律过 `resolveImageUrl()`。
 
 ```ts
 export function resolveImageUrl(value?: string | null): string {
-  const v = value?.trim() ?? '';
-  if (!v) return '';
-  if (v.startsWith('data:') || v.startsWith('blob:')) return v;   // Base64 / 本地预览
-  if (/^https?:\/\//i.test(v)) return v;                          // 已是完整地址
-  return storagePublicUrl(v.replace(/^\/+/, ''));                  // 相对路径 → 拼到 bucket 后
+  const v = value?.trim() ?? "";
+  if (!v) return "";
+  if (v.startsWith("data:") || v.startsWith("blob:")) return v; // Base64 / 本地预览
+  if (/^https?:\/\//i.test(v)) return v; // 已是完整地址
+  return storagePublicUrl(v.replace(/^\/+/, "")); // 相对路径 → 拼到 bucket 后
 }
 ```
 
@@ -684,27 +722,30 @@ curl -sS "$VITE_SUPABASE_URL/storage/v1/object/public/dish-images/dishes/<文件
   -w "\nHTTP=%{http_code}\n"
 ```
 
-| 返回 | 含义 |
-| --- | --- |
-| `200` + `image/webp` | 文件完好，继续第 3 步 |
-| `400` + `NoSuchKey` | 文件不在桶里（**注意**：400 是 Supabase 包装过的 404，不是权限问题） |
-| `400` + 其他 | bucket / 策略问题 |
+| 返回                 | 含义                                                                 |
+| -------------------- | -------------------------------------------------------------------- |
+| `200` + `image/webp` | 文件完好，继续第 3 步                                                |
+| `400` + `NoSuchKey`  | 文件不在桶里（**注意**：400 是 Supabase 包装过的 404，不是权限问题） |
+| `400` + 其他         | bucket / 策略问题                                                    |
 
 **第 3 步：前端拿到的和渲染的分别是什么？** 在卡片组件里打两段日志：
 
 ```tsx
 // 第 1 段：数据层
-console.log('coverImage 原始值:', dish.coverImage);
+console.log("coverImage 原始值:", dish.coverImage);
 
 // 第 2 段：渲染层（区分「请求失败」和「压根没地址」）
-<img onLoad={() => console.log('渲染出来了')} onError={() => console.log('拿到了但没渲染')} />
+<img
+  onLoad={() => console.log("渲染出来了")}
+  onError={() => console.log("拿到了但没渲染")}
+/>;
 ```
 
-| 第 1 段 | 第 2 段 | 结论 |
-| --- | --- | --- |
-| `undefined` | 不触发 | 数据库里就没有地址 → 查第 1 步 |
-| 有值 | 「没渲染」 | 地址能拼但请求失败 → 查路径拼接 / 桶策略 |
-| 有值 | 「渲染出来了」 | 正常，问题在样式或缓存 |
+| 第 1 段     | 第 2 段        | 结论                                     |
+| ----------- | -------------- | ---------------------------------------- |
+| `undefined` | 不触发         | 数据库里就没有地址 → 查第 1 步           |
+| 有值        | 「没渲染」     | 地址能拼但请求失败 → 查路径拼接 / 桶策略 |
+| 有值        | 「渲染出来了」 | 正常，问题在样式或缓存                   |
 
 ### 四、最后一道保险：保存后回读校验
 
@@ -714,9 +755,15 @@ console.log('coverImage 原始值:', dish.coverImage);
 ```ts
 // useDishStore.ts · writeCloud 末尾
 if (dish.coverImage && isCloudEnabled()) {
-  const [row] = await pgSelect('dishes', { id: `eq.${dish.id}`, select: 'cover_image', limit: 1 });
+  const [row] = await pgSelect("dishes", {
+    id: `eq.${dish.id}`,
+    select: "cover_image",
+    limit: 1,
+  });
   if (!row || row.cover_image !== dish.coverImage) {
-    throw new Error('图片没有存进数据库：写入后回读发现地址不一致，请重新上传一次');
+    throw new Error(
+      "图片没有存进数据库：写入后回读发现地址不一致，请重新上传一次",
+    );
   }
 }
 ```
@@ -739,6 +786,7 @@ if (dish.coverImage && isCloudEnabled()) {
 没有分布式事务**（也不打算为此引入两阶段提交那种复杂度）。
 
 能做到的是**补偿事务**（Compensating Transaction）：
+
 > 先做第一步，第二步失败时**撤销**第一步的效果，让系统回到操作前的状态。
 
 效果上和用户期望的一致，代价只是「失败路径要多一次删除请求」。
@@ -756,12 +804,12 @@ T+10s   点「保存」     → 写数据库   ← 这一步完全可能失败
 第二步失败时，第一步的成果（桶里的图）**就留在那里没人管了**。
 更糟的是第三、四条路径同样泄漏：
 
-| 路径 | 原来的结果 |
-| --- | --- |
-| 传图 → 保存失败 | 桶里有图，库里没地址 → **孤儿图** |
+| 路径                      | 原来的结果                        |
+| ------------------------- | --------------------------------- |
+| 传图 → 保存失败           | 桶里有图，库里没地址 → **孤儿图** |
 | 传图 → 点「清除图片」反悔 | 桶里有图，库里没地址 → **孤儿图** |
-| 传图 → 直接关掉弹窗 | 桶里有图，库里没地址 → **孤儿图** |
-| 传图 → 保存成功 | ✅ 正常 |
+| 传图 → 直接关掉弹窗       | 桶里有图，库里没地址 → **孤儿图** |
+| 传图 → 保存成功           | ✅ 正常                           |
 
 **本项目那 19 张孤儿图就是这么攒出来的** —— 每一个都对应一次
 「传了图，但这次编辑没走到最后一步」。
@@ -788,12 +836,12 @@ onClick={() => { form.setFieldsValue({ coverImage: '' }); void rollbackUpload();
 
 修完之后的不变式：
 
-| 场景 | 桶 | 数据库 |
-| --- | --- | --- |
-| 传图 + 保存成功 | 有 | 有 ✅ |
-| 传图 + 保存失败 | **无**（已撤销） | 无 ✅ |
-| 传图 + 点「清除图片」 | **无**（已撤销） | 无 ✅ |
-| 传图 + 关掉弹窗 | 无（本来就没写库） | 无 ✅ |
+| 场景                  | 桶                 | 数据库 |
+| --------------------- | ------------------ | ------ |
+| 传图 + 保存成功       | 有                 | 有 ✅  |
+| 传图 + 保存失败       | **无**（已撤销）   | 无 ✅  |
+| 传图 + 点「清除图片」 | **无**（已撤销）   | 无 ✅  |
+| 传图 + 关掉弹窗       | 无（本来就没写库） | 无 ✅  |
 
 **「桶里有图、库里没记录」这个状态从此不再存在。**
 
@@ -802,13 +850,13 @@ onClick={() => { form.setFieldsValue({ coverImage: '' }); void rollbackUpload();
 `storageDelete` 需要桶内的**对象路径**，但表单里存的是**完整 URL**，
 所以需要反推。`storagePathFromUrl` 覆盖五种输入（已实测）：
 
-| 输入 | 反推结果 | 说明 |
-| --- | --- | --- |
-| `https://xxx.supabase.co/storage/v1/object/public/dish-images/dishes/a.webp` | `dishes/a.webp` | 标准 Storage URL |
-| `/dishes/a.webp` | `dishes/a.webp` | 相对路径 |
-| `dishes/a.webp` | `dishes/a.webp` | 裸路径 |
-| `data:image/webp;base64,...` | `null` | 不是桶里的文件，**不删** |
-| `https://example.com/x.png` | `null` | 外部图片，**绝对不能删** |
+| 输入                                                                         | 反推结果        | 说明                     |
+| ---------------------------------------------------------------------------- | --------------- | ------------------------ |
+| `https://xxx.supabase.co/storage/v1/object/public/dish-images/dishes/a.webp` | `dishes/a.webp` | 标准 Storage URL         |
+| `/dishes/a.webp`                                                             | `dishes/a.webp` | 相对路径                 |
+| `dishes/a.webp`                                                              | `dishes/a.webp` | 裸路径                   |
+| `data:image/webp;base64,...`                                                 | `null`          | 不是桶里的文件，**不删** |
+| `https://example.com/x.png`                                                  | `null`          | 外部图片，**绝对不能删** |
 
 后两条是安全底线：**撤销只能删「本次会话自己刚传的」那张图**，
 绝不能因为用户换了一张图就把旧图或外链图误删。
@@ -818,10 +866,10 @@ onClick={() => { form.setFieldsValue({ coverImage: '' }); void rollbackUpload();
 
 #### 两层防护的分工
 
-| 层 | 防什么 | 触发时机 |
-| --- | --- | --- |
-| **补偿撤销** | 状态不一致（桶里有、库里没有） | 失败当下，自动回滚 |
-| **回读校验** | 静默丢字段（写入成功但字段没进去） | 保存后立刻比对 |
+| 层           | 防什么                             | 触发时机           |
+| ------------ | ---------------------------------- | ------------------ |
+| **补偿撤销** | 状态不一致（桶里有、库里没有）     | 失败当下，自动回滚 |
+| **回读校验** | 静默丢字段（写入成功但字段没进去） | 保存后立刻比对     |
 
 两层是互补的：撤销保证「失败不留痕」，回读保证「问题当场可见」。
 
@@ -842,6 +890,142 @@ Storage 桶里目前有 **19 张孤儿图**（文件名是 `mve4mj8q-rwimix.webp
 2026-10-18 / 19 两天上传，共约 2.8 MB），没有任何数据库记录引用它们。
 这是补偿机制上线**之前**的历史遗留；新流程不会再产生孤儿图。
 需要做个图库页面把它们列出来手动挂到菜品上，或直接清理掉。
+
+---
+
+## 🖼 图片消失第二回：「拉取失败被当成空表」种子覆盖实录
+
+> 上一篇解决的是「传了却显示不出来」（上传/落库链路的静默失败）。
+> 这一篇是另一类事故：**图片当初传得好好的，数据库里的地址却被代码悄悄覆盖成 null**。
+> 用户确认上传过、手机电脑一直显示正常，某天突然全没了。
+> 两篇合起来才是图片链路的完整防护史。
+
+### 📌 事故现象
+
+种子菜里的前 9 道（蒜蓉炒青菜、酸辣土豆丝、糖醋里脊、红烧排骨、麻婆豆腐、
+蒜蓉蒸虾、清蒸鲈鱼、椒盐排骨、番茄牛肉面）在数据库里 `cover_image` 全部变成了 `null`。
+操作日志显示 2026-10-21 晚上确实编辑过其中 7 道，但用户**没有动过图片字段**。
+
+### 一、根因：三个 bug 的连环相撞
+
+#### 主凶：`cloudList` 吞错 + `load()` 把「拉取失败」误判为「云端空表」
+
+```ts
+// ❌ 修复前（cloudSync.ts）
+export async function cloudList(collection: string) {
+  try {
+    /* ... 四张表查询 ... */
+  } catch (e) {
+    swallow(e);
+    return []; // ← 网络抖动 / RLS 拒绝 / 超时，全被吞成「空数组」
+  }
+}
+
+// ❌ 修复前（useDishStore.ts → load()）
+const remote = await cloudList<Dish>("dishes");
+const valid = remote.filter(/* ... */);
+if (valid.length === 0) {
+  // 云端是空表 → 上传种子
+  for (const dish of seedDishes) await writeCloud(dish); // ← 51 道种子全量覆盖云端！
+}
+```
+
+**它为什么致命**：`[]` 在这里有两个完全不同的含义——「云端真的是空表」和
+「我根本没读到云端」。前者该补种子，后者**什么都该做，唯独不该写云端**。
+合并处理的结果是：某次拉取失败，51 道种子菜被逐个 PATCH 覆盖到云端，
+`dishToRow` 把种子里不存在的 `cover_image` 写成 `null`，用户上传的图地址被抹掉。
+
+**为什么恰好丢 9 道**：覆盖循环写到第 9 道时写入失败，循环中止。
+丢失的 9 道菜与 `seedDishes.ts` 数组的前 9 条**顺序完全一致**——这就是实锤，
+不是巧合。后面 60+ 道用户自建菜没轮到，幸免。
+
+#### 帮凶 1：`update()` 的 spread 合并不区分「未提供」和「提供为 undefined」
+
+```ts
+// ❌ 修复前（useDishStore.ts）
+update: async (id, patch) => {
+  const old = get().items.find((it) => it.id === id);
+  const next = { ...old, ...patch };   // patch.coverImage === undefined 也会覆盖 old 的有效值！
+```
+
+编辑器保存时 patch **总是带着** `coverImage` 这个 key。表单值为空时它是
+`undefined`，spread 后把 `old.coverImage` 覆盖成 `undefined`，`dishToRow`
+再转成 `null` 落库——**编辑一次丢一次图**。
+
+#### 帮凶 2：`DishEditor` 把空串转 undefined，丢掉了「清空」的语义
+
+```ts
+// ❌ 修复前
+const coverImage = values.coverImage?.trim() || undefined; // '' → undefined
+```
+
+用户主动清空图片输入框（表单值 `''`）和「从来没传过图」被压成了同一个值。
+修完帮凶 1 后这个 bug 反而会显形：清空图片保存，`undefined` 被 update 跳过，
+图清不掉了。
+
+#### 帮凶 3：启动窗口期，store 里是种子数据
+
+zustand 初始 state 是 `items: seedDishes`，云端数据要等 `load()` 完成才替换。
+在窗口期打开编辑器，表单回填的是种子菜（没有图地址），保存时全量 PATCH
+就会覆盖云端的有效数据——和主凶是同一种伤害，只是触发条件不同。
+
+### 二、修复：四道闸门
+
+| 闸门                      | 位置                                                             | 防什么                                                                                                |
+| ------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| **拉取失败绝不写云端**    | `cloudList(…, { throwOnError: true })` + `load()` try/catch 中止 | 主凶。拉取失败直接 return，永远走不到「空表→传种子」                                                  |
+| **update 跳过 undefined** | `useDishStore.update()` 过滤 patch 里的 undefined 字段           | 帮凶 1。编辑器没动图就不覆盖                                                                          |
+| **三档语义**              | `DishEditor` 用 `openedCoverRef` 记住打开时刻的图状态            | 帮凶 2+3。有图照存 / 打开时有图+表单空=真清空 / 打开时就没图+表单空=数据没就位，传 undefined 保护旧值 |
+| **空串归一化**            | `dishToRow` 的 `cover_image: d.coverImage \|\| null`             | 落库统一存 null，不在库里留 `''`                                                                      |
+
+#### 用户视角：现在图片什么时候在、什么时候没
+
+| 你的操作                   | 结果                             |
+| -------------------------- | -------------------------------- |
+| 编辑菜品其他字段（不动图） | 图地址原样保留                   |
+| 主动清空图片输入框保存     | 图没了（你主动删的，唯一途径）   |
+| 换一张新图                 | 换成新的                         |
+| 网络失败时打开系统         | 什么都不写，等网络好了正常拉     |
+| 管理端人工播种（补缺失）   | 只新增缺失的菜，不碰已有的任何菜 |
+
+一句话：**只要你没有人为删图，图永远在。** 图片的「没」只有两个合法来源：
+你主动清空，或管理端「种子覆盖」时你明确勾选了这道菜。
+
+### 三、排查方法（可复用）
+
+1. **丢了什么，先看「丢的集合」有没有规律**。9 道菜 = 种子数组前 9 条且顺序一致，
+   一眼锁定「按种子顺序的批量写入」。如果是用户随机编辑造成，集合不会有这种连续性。
+2. **op_logs 只存 `action / target / detail` 三个字符串，没有数据快照**——
+   日志能证明「谁在什么时候碰过它」，救不回数据本身。
+3. **PostgreSQL 没有行级历史**，被覆盖的值在数据库层面找不回来。
+   Supabase 免费版也没有 PITR。所以防护只能做在**写入之前**，不能指望事后恢复。
+4. anon key 查 Storage 桶列表返回 `[]` / "Bucket not found" **不代表桶没了**，
+   只是 anon 无权 list。判断桶是否健在，看库里已有的 Storage URL 能不能 200。
+
+### 四、⚠️ 三条新纪律（接上一篇的四条）
+
+5. **`[]` / 空结果 ≠ 数据不存在**。吞错降级后的返回值，绝不能作为「触发写入」
+   的依据。要写云端的地方，读取必须显式失败（throwOnError）。
+6. **spread 合并 patch 前先想清楚语义**。「字段没提供」和「字段提供为空」
+   是两回事，合并逻辑必须区分，否则未改动的字段会被静默覆盖。
+7. **全量覆盖类操作（补种子、批量 upsert）是最高危操作**。它假设「我手里的
+   数据是完整的最新版」——这个假设在启动窗口期、拉取失败时都不成立。
+   写之前要么校验，要么不做。
+
+### 五、遗留待办（2026-10-22 更新：恢复方案已落地）
+
+被覆盖成 null 的图地址无法从数据层恢复，但图片文件都还在 Storage 桶里。
+恢复方案已随「图片播种」机制落地（见「种子数据」章节的相对路径方案）：
+
+1. 在 Supabase Dashboard → Storage → dish-images 里把这些图找到，
+   移入 `seeds/` 目录并按菜谱 id 重命名（如 `dish_mapo_tofu.webp`）；
+2. `seedDishes.ts` 已给对应 14 道菜挂上 `/seeds/<id>.webp` 相对路径；
+3. 管理端 → 系统管理 → **种子覆盖** 勾选这几道菜执行，图地址随种子整体写回；
+   或者逐道在编辑器的「图片链接」输入框粘贴 `/seeds/<id>.webp`
+   （更精准，只动图字段，不碰你改过的其他内容）。
+
+⚠️ 注意：这些图在 Storage 里的文件名还是随机串（`mvi9tn27-...`），
+上面的第 1 步做完之前，种子路径指向的文件还不存在，卡片会显示裂图 —— 属预期现象。
 
 ---
 
@@ -912,11 +1096,11 @@ pnpm push:netlify # 本地构建并部署到 Netlify
 
 项目里已带 `netlify.toml`，三件事都配好了：
 
-| 配置 | 作用 |
-| --- | --- |
-| `command = "pnpm build"` / `publish = "dist"` | 检测到 `pnpm-lock.yaml` 会自动用 pnpm 构建 |
-| `/* → /index.html` (200) | **SPA 回退**，解决访问 `/menu-plan` 或刷新页面 404 |
-| `sw.js` 禁缓存 | 避免 PWA 让用户卡在旧版本 |
+| 配置                                          | 作用                                               |
+| --------------------------------------------- | -------------------------------------------------- |
+| `command = "pnpm build"` / `publish = "dist"` | 检测到 `pnpm-lock.yaml` 会自动用 pnpm 构建         |
+| `/* → /index.html` (200)                      | **SPA 回退**，解决访问 `/menu-plan` 或刷新页面 404 |
+| `sw.js` 禁缓存                                | 避免 PWA 让用户卡在旧版本                          |
 
 **A. 连仓库自动部署（推荐，最省事）**
 
@@ -993,22 +1177,22 @@ npx netlify-cli deploy --prod --dir=dist                          # 2) 上传到
 
 ### 关键坑（已踩过）
 
-| 坑                                      | 症状                                            | 解法                                                            |
-| --------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------- |
-| 静态托管没在控制台开通                  | 部署"成功"但什么也访问不到                      | 控制台手动点「开通」                                            |
-| `VITE_TCB_ENV_ID` 没注入                | 页面打开白屏                                    | `.env` 填了之后**重新 `pnpm build`**                            |
-| RLS 开了但没建 policy                   | 页面数据是空的但不报错                          | 跑 `supabase/schema.sql` 末尾 policy 那段                       |
-| key 填成了 Secret / service_role        | 一切正常但数据库裸奔（绕过 RLS）                | 前端只能用 Publishable / anon public key                        |
-| 新版 `sb_publishable_` key 报 JWT 无效  | `Invalid JWT` / 401                             | 非 JWT 的 key 只能走 `apikey` 头（代码已自动处理）              |
-| Supabase 单次返回上限                   | 表超过 1000 行时后面读不到                      | 日志类大表用 `limit` + 分页，别一次性全拉                       |
-| 免费项目 7 天无活动                     | 项目被自动暂停，API 全部不可用                  | 控制台点 Restore；长期用建议定期访问或升 Pro                    |
-| Exposed schemas 不含 `public`           | 所有请求 404                                    | Settings → API → 把 `public` 加进 Exposed schemas               |
-| SPA 刷新 404                            | F5 报 404                                       | 控制台 → 静态托管 → 设置 → 错误页面 → 404 用 `/index.html` 兜底 |
-| PostgREST 0 行返回 406                  | `pgSelectOne` 改成 `pgSelect`（数组）           | 已修                                                            |
-| 默认域名访问偶尔 418                    | 边缘节点风控，**用无痕窗口**打开                | 不要带 `?v=xxx` 查询参数                                        |
-| 静态页面 `VM169:1 cls is not defined`   | CloudBase CDN 注入的引导脚本                    | 配 404 → index.html 兜底后自动消失                              |
-| `cover_image` / `users.avatar` 列不存在 | PostgREST 报 42703                              | 跑增量 SQL 里的 `ALTER TABLE`                                   |
-| 全站响应带 `Content-Disposition: attachment` | 站点变成「下载页面」（地址栏出现 `download.html`） | 见下面「站点被当成下载」一节                                  |
+| 坑                                           | 症状                                               | 解法                                                            |
+| -------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------- |
+| 静态托管没在控制台开通                       | 部署"成功"但什么也访问不到                         | 控制台手动点「开通」                                            |
+| `VITE_TCB_ENV_ID` 没注入                     | 页面打开白屏                                       | `.env` 填了之后**重新 `pnpm build`**                            |
+| RLS 开了但没建 policy                        | 页面数据是空的但不报错                             | 跑 `supabase/schema.sql` 末尾 policy 那段                       |
+| key 填成了 Secret / service_role             | 一切正常但数据库裸奔（绕过 RLS）                   | 前端只能用 Publishable / anon public key                        |
+| 新版 `sb_publishable_` key 报 JWT 无效       | `Invalid JWT` / 401                                | 非 JWT 的 key 只能走 `apikey` 头（代码已自动处理）              |
+| Supabase 单次返回上限                        | 表超过 1000 行时后面读不到                         | 日志类大表用 `limit` + 分页，别一次性全拉                       |
+| 免费项目 7 天无活动                          | 项目被自动暂停，API 全部不可用                     | 控制台点 Restore；长期用建议定期访问或升 Pro                    |
+| Exposed schemas 不含 `public`                | 所有请求 404                                       | Settings → API → 把 `public` 加进 Exposed schemas               |
+| SPA 刷新 404                                 | F5 报 404                                          | 控制台 → 静态托管 → 设置 → 错误页面 → 404 用 `/index.html` 兜底 |
+| PostgREST 0 行返回 406                       | `pgSelectOne` 改成 `pgSelect`（数组）              | 已修                                                            |
+| 默认域名访问偶尔 418                         | 边缘节点风控，**用无痕窗口**打开                   | 不要带 `?v=xxx` 查询参数                                        |
+| 静态页面 `VM169:1 cls is not defined`        | CloudBase CDN 注入的引导脚本                       | 配 404 → index.html 兜底后自动消失                              |
+| `cover_image` / `users.avatar` 列不存在      | PostgREST 报 42703                                 | 跑增量 SQL 里的 `ALTER TABLE`                                   |
+| 全站响应带 `Content-Disposition: attachment` | 站点变成「下载页面」（地址栏出现 `download.html`） | 见下面「站点被当成下载」一节                                    |
 
 ### 😱 站点被当成下载（响应头 `Content-Disposition: attachment`）
 
@@ -1038,13 +1222,13 @@ curl -sI https://<你的域名>/ | grep -i content-disposition
 
 ### 启用条件
 
-| 条件 | 说明 |
-| --- | --- |
-| iOS **16.4+** | 更低版本不支持 Web Push |
-| **必须「添加到主屏幕」** | 要从桌面图标打开才能订阅，Safari 里直接访问会被拒 |
-| Netlify 配 `VITE_VAPID_PUBLIC_KEY` | 没配时「菜单通知」开关**不渲染**（`pushEnvReady()` 返回 false），不报错也不影响现有功能 |
-| Supabase 建 `push_subscriptions` 表 | SQL 见 `supabase/push.sql` |
-| 部署 Edge Function + 三个 Secrets | `VAPID_PRIVATE_KEY` / `VAPID_PUBLIC_KEY` / `VAPID_SUBJECT`（**不能用 `SUPABASE_` 前缀**，那是平台保留的） |
+| 条件                                | 说明                                                                                                      |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| iOS **16.4+**                       | 更低版本不支持 Web Push                                                                                   |
+| **必须「添加到主屏幕」**            | 要从桌面图标打开才能订阅，Safari 里直接访问会被拒                                                         |
+| Netlify 配 `VITE_VAPID_PUBLIC_KEY`  | 没配时「菜单通知」开关**不渲染**（`pushEnvReady()` 返回 false），不报错也不影响现有功能                   |
+| Supabase 建 `push_subscriptions` 表 | SQL 见 `supabase/push.sql`                                                                                |
+| 部署 Edge Function + 三个 Secrets   | `VAPID_PRIVATE_KEY` / `VAPID_PUBLIC_KEY` / `VAPID_SUBJECT`（**不能用 `SUPABASE_` 前缀**，那是平台保留的） |
 
 > 改完环境变量记得 **Clear cache and deploy site** —— Vite 的变量是 build 时内联进 bundle 的。
 
@@ -1056,22 +1240,40 @@ curl -sI https://<你的域名>/ | grep -i content-disposition
 但 **Safari / iOS 只认早期草案那套**（`web-push` 库底层的 `http_ece` 实现的就是它）。
 两套算法结果完全不同：
 
-| | ❌ RFC 8291（Safari 解不开） | ✅ 早期草案（Safari 只认这套） |
-| --- | --- | --- |
-| context 标签 | `"P-256\0"` + **2 字节长度前缀** | `"WebPush: info\0"` + **无长度前缀** |
-| HKDF 轮数 | 1 轮，salt = authSecret | **2 轮**，第二轮 salt 换成随机 salt |
-| Expand 的 info | `"…aes128gcm\0"` **+ context** | `"…aes128gcm\0"`，**不带 context** |
+|                | ❌ RFC 8291（Safari 解不开）     | ✅ 早期草案（Safari 只认这套）       |
+| -------------- | -------------------------------- | ------------------------------------ |
+| context 标签   | `"P-256\0"` + **2 字节长度前缀** | `"WebPush: info\0"` + **无长度前缀** |
+| HKDF 轮数      | 1 轮，salt = authSecret          | **2 轮**，第二轮 salt 换成随机 salt  |
+| Expand 的 info | `"…aes128gcm\0"` **+ context**   | `"…aes128gcm\0"`，**不带 context**   |
 
 ```ts
 // ✅ 现在的实现（supabase/functions/send-push/index.ts）
-const authInfo = concat(enc.encode('WebPush: info\0'), uaPublic, asPublic);
+const authInfo = concat(enc.encode("WebPush: info\0"), uaPublic, asPublic);
 const intermediate = await crypto.subtle.deriveBits(
-  { name: 'HKDF', hash: 'SHA-256', salt: authSecret, info: authInfo }, ikmKey, 256);
+  { name: "HKDF", hash: "SHA-256", salt: authSecret, info: authInfo },
+  ikmKey,
+  256,
+);
 const prkKey = await crypto.subtle.importKey(
-  'raw', salt, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-const prk = new Uint8Array(await crypto.subtle.sign('HMAC', prkKey, intermediate));
-const cek = await hkdfExpand(prk, enc.encode('Content-Encoding: aes128gcm\0'), 16);
-const nonce = await hkdfExpand(prk, enc.encode('Content-Encoding: nonce\0'), 12);
+  "raw",
+  salt,
+  { name: "HMAC", hash: "SHA-256" },
+  false,
+  ["sign"],
+);
+const prk = new Uint8Array(
+  await crypto.subtle.sign("HMAC", prkKey, intermediate),
+);
+const cek = await hkdfExpand(
+  prk,
+  enc.encode("Content-Encoding: aes128gcm\0"),
+  16,
+);
+const nonce = await hkdfExpand(
+  prk,
+  enc.encode("Content-Encoding: nonce\0"),
+  12,
+);
 ```
 
 - **症状**：APNs 回 `201 Created`，手机**毫无反应**，Edge Function 日志**零报错**
@@ -1082,10 +1284,10 @@ const nonce = await hkdfExpand(prk, enc.encode('Content-Encoding: nonce\0'), 12)
 
 #### 2️⃣ aes128gcm 的 `rs` 必须固定 4096，公钥放 keyid
 
-| | ❌ 之前（错） | ✅ 现在（对） |
-| --- | --- | --- |
-| `rs`（record size） | `ciphertext.length`，随 payload 长度浮动 | **固定 4096**（规范推荐值） |
-| 临时公钥 | 只放 `Crypto-Key: dh=` 头 | **写进 body 的 `keyid` 字段**（65 字节） |
+|                     | ❌ 之前（错）                            | ✅ 现在（对）                            |
+| ------------------- | ---------------------------------------- | ---------------------------------------- |
+| `rs`（record size） | `ciphertext.length`，随 payload 长度浮动 | **固定 4096**（规范推荐值）              |
+| 临时公钥            | 只放 `Crypto-Key: dh=` 头                | **写进 body 的 `keyid` 字段**（65 字节） |
 
 症状跟坑 1 一模一样（APNs 201 + 设备静默），所以单看现象根本分不清是哪一个。
 
@@ -1124,20 +1326,20 @@ node --env-file=.env scripts/push-test.mjs --raw   # 明文（不带 payload，�
 node --env-file=.env scripts/push-test.mjs         # 加密
 ```
 
-| 结果 | 结论 |
-| --- | --- |
-| 明文到、加密不到 | **加密格式有问题**（去查坑 1 / 坑 2） |
-| 两个都到 | 功能正常，之前没收到多半是**手机在前台**（坑 3） |
-| 两个都不到 | **订阅/设备/系统设置**的问题（去查坑 4 / 坑 5） |
+| 结果             | 结论                                             |
+| ---------------- | ------------------------------------------------ |
+| 明文到、加密不到 | **加密格式有问题**（去查坑 1 / 坑 2）            |
+| 两个都到         | 功能正常，之前没收到多半是**手机在前台**（坑 3） |
+| 两个都不到       | **订阅/设备/系统设置**的问题（去查坑 4 / 坑 5）  |
 
 **第二步：本地脚本 vs Edge Function 同时发** —— 判断**哪份代码在跑**
 
 同一个 endpoint、同一台设备，两条几乎同时打出去，看哪条到哪条不到：
 
-| 结果 | 结论 |
-| --- | --- |
+| 结果             | 结论                                                       |
+| ---------------- | ---------------------------------------------------------- |
 | 本地到、云端不到 | **线上那份代码和本地不一致**（最常是改了本地忘了同步部署） |
-| 两条都到 | 链路通了 |
+| 两条都到         | 链路通了                                                   |
 
 > 这一步是这次真正定位到根因的关键。之前一直在怀疑订阅、怀疑 iOS 26、怀疑 SW 生命周期，
 > 全靠这条对照把范围一下子缩到了「到底哪份代码在跑」。

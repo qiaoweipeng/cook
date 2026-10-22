@@ -568,6 +568,7 @@ export default function Ingredients() {
 
           <Table<Ingredient>
             rowKey="id"
+            bordered
             dataSource={filtered}
             pagination={{ pageSize: 10, showSizeChanger: false }}
             rowSelection={

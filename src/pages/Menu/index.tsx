@@ -298,8 +298,13 @@ export default function Menu() {
             setEditorOpen(true);
           }}
           onDelete={async (id) => {
-            await removeDish(id);
-            message.success('已删除');
+            try {
+              await removeDish(id);
+              message.success('已删除');
+            } catch (e) {
+              // 删除失败会回滚本地，菜还在列表里；把原因报给用户
+              message.error(`删除失败：${(e as Error).message ?? '请重试'}`);
+            }
           }}
         />
       ) : filtered.length === 0 ? (
