@@ -78,6 +78,10 @@ export default defineConfig({
       filename: 'sw.ts',
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        // 主 bundle 已超 2MB（antd 全家桶），workbox 默认单文件预缓存上限 2 MiB 会直接让构建失败。
+        // 内网/家用场景首次加载慢一点可接受，先把上限放宽到 4 MiB；
+        // 以后真要优化，应该走代码分割（manualChunks/动态导入）而不是继续放宽这里。
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },
     }),
   ],
