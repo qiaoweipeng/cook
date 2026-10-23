@@ -44,8 +44,8 @@ export default defineConfig({
       injectRegister: null,
       includeAssets: ['icon/192*192.png', 'icon/512*512.png'],
       manifest: {
-        name: '大厨房',
-        short_name: '大厨房',
+        name: '我是大厨',
+        short_name: '我是大厨',
         description: '菜单、每周菜单、食材库、采购清单一站式管理',
         theme_color: '#ffffff',
         background_color: '#FAF7F2',

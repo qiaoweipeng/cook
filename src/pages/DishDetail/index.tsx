@@ -15,6 +15,7 @@ import {
 } from 'antd';
 import { NavBar } from 'antd-mobile';
 import {
+  CalendarOutlined,
   CheckOutlined,
   EditOutlined,
   LeftOutlined,
@@ -26,7 +27,10 @@ import { useState } from 'react';
 import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
+import { useWeeklyStore } from '@/store/useWeeklyStore';
+import { useFamilyStore } from '@/store/useFamilyStore';
 import { useIsAdmin } from '@/store/useAuthStore';
+import { dayKey, today } from '@/utils/week';
 import { calcDishCost, lineCost } from '@/utils/price';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { resolveImageUrl } from '@/lib/supabase';
@@ -89,6 +93,21 @@ export default function DishDetail() {
   const isMobile = useIsMobile();
   const [editorOpen, setEditorOpen] = useState(false);
 
+  /*
+    今日菜单：只认「今天」这一天，不能加到明天/前天，所以 day 一律用 dayKey(today())，
+    不接受任何外部传入的日期。
+    菜单分个人/家庭两份，当前用哪份由菜单页选定的 mode 决定，这里保持一致，
+    否则会出现「详情页说已加入、菜单页却看不到」。
+  */
+  const personalPlans = useWeeklyStore((s) => s.plans);
+  const familyPlans = useWeeklyStore((s) => s.familyPlans);
+  const menuMode = useWeeklyStore((s) => s.mode);
+  const addDishToDay = useWeeklyStore((s) => s.addDishToDay);
+  const removeDishFromDay = useWeeklyStore((s) => s.removeDishFromDay);
+  const family = useFamilyStore((s) => s.family);
+  const myRole = useFamilyStore((s) => s.myRole);
+  const myPermission = useFamilyStore((s) => s.myPermission);
+
   if (!dish) {
     return (
       <Result
@@ -109,6 +128,34 @@ export default function DishDetail() {
     (di) => !ingredients.some((i) => i.id === di.ingredientId)
   );
 
+  /** 家庭模式（且真的有家庭）下，菜单看的是共享那份 */
+  const familyMenuMode = menuMode === 'family' && Boolean(family?.id);
+  const activePlans = familyMenuMode ? familyPlans : personalPlans;
+  /** 「今天」的 key —— 只加今天这一天，永远不取明天/前天 */
+  const todayMenuKey = dayKey(today());
+  const inTodayMenu = (activePlans[todayMenuKey] ?? []).includes(dish.id);
+  /** 家庭菜单里的只读成员：能看不能改，按钮点了也白点，直接禁用 */
+  const todayMenuReadOnly =
+    familyMenuMode && myRole !== 'admin' && myPermission !== 'edit';
+
+  const toggleTodayMenu = async () => {
+    if (todayMenuReadOnly) {
+      message.warning('你在家庭菜单里是只读权限，不能修改菜单');
+      return;
+    }
+    try {
+      if (inTodayMenu) {
+        await removeDishFromDay(todayMenuKey, dish.id);
+        message.success('已从今日菜单移除');
+      } else {
+        await addDishToDay(todayMenuKey, dish.id);
+        message.success('已加入今日菜单');
+      }
+    } catch {
+      message.error('操作失败，请稍后再试');
+    }
+  };
+
   return (
     <div>
       {/*
@@ -125,7 +172,7 @@ export default function DishDetail() {
             </span>
           }
           right={
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span
                 className="icon-btn"
                 role="button"
@@ -137,6 +184,23 @@ export default function DishDetail() {
                 style={{ ...iconCircle, ...(inShopping ? iconCircleActive : null) }}
               >
                 {inShopping ? <CheckOutlined /> : <ShoppingCartOutlined />}
+              </span>
+              {/* 今日菜单：只加今天这一天，已在今天菜单里再点就是移除 */}
+              <span
+                className="icon-btn"
+                role="button"
+                aria-label={inTodayMenu ? '从今日菜单移除' : '加入今日菜单'}
+                onClick={() => {
+                  if (todayMenuReadOnly) return; // 只读成员点了没意义，交给 toggle 里的 warning
+                  void toggleTodayMenu();
+                }}
+                style={{
+                  ...iconCircle,
+                  ...(inTodayMenu ? iconCircleActive : null),
+                  ...(todayMenuReadOnly ? { opacity: 0.4, cursor: 'not-allowed' } : null),
+                }}
+              >
+                {inTodayMenu ? <CheckOutlined /> : <CalendarOutlined />}
               </span>
               <span
                 className="icon-btn"
@@ -308,6 +372,16 @@ export default function DishDetail() {
               style={{ minWidth: 180 }}
             >
               {inShopping ? '已加入采购清单' : '加入采购清单'}
+            </Button>
+            <Button
+              size="large"
+              icon={inTodayMenu ? <CheckOutlined /> : <CalendarOutlined />}
+              onClick={() => void toggleTodayMenu()}
+              disabled={todayMenuReadOnly}
+              title={todayMenuReadOnly ? '你在家庭菜单里是只读权限' : undefined}
+              style={{ minWidth: 180 }}
+            >
+              {inTodayMenu ? '已加入今日菜单' : '加入今日菜单'}
             </Button>
             <Button
               size="large"

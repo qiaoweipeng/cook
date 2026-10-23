@@ -14,13 +14,12 @@ import {
   Typography,
   Row,
   Col,
-  Statistic,
-  Card,
   Radio,
   Alert,
   Tooltip,
   Empty,
   Upload,
+  Image,
 } from 'antd';
 import { SideBar } from 'antd-mobile';
 import {
@@ -31,6 +30,7 @@ import {
   FileExcelOutlined,
   DeleteOutlined,
   PictureOutlined,
+  SearchOutlined,
 } from '@ant-design/icons';
 import { pickImage, formatSize, IMAGE_ACCEPT } from '@/lib/imageUpload';
 import { resolveImageUrl } from '@/lib/supabase';
@@ -45,7 +45,7 @@ import {
   parseIngredientsExcel,
 } from '@/utils/excel';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 const categories: IngredientCategory[] = [
   '蔬菜',
@@ -99,6 +99,10 @@ export default function Ingredients() {
   const [keyword, setKeyword] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<IngredientCategory | undefined>();
   const [selectedRowKey, setSelectedRowKey] = useState<string | undefined>(undefined);
+  // 当前正在预览大图的食材图片地址；null = 没在预览
+  // 预览弹层挂在表格「外面」手动控制，不放在单元格里 —— 避免预览的 portal 事件
+  // 冒泡回表格行，造成「点图片反而选中行」的冲突
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
   const [imgProcessing, setImgProcessing] = useState(false);
   /** 本次上传的结果：体积 + 走的是对象存储还是本地压缩，用于在编辑区常驻显示 */
@@ -208,8 +212,6 @@ export default function Ingredients() {
       }),
     [items, keyword, categoryFilter]
   );
-
-  const total = items.reduce((sum, i) => sum + i.pricePerUnit, 0);
 
   // —— 导出 ——
   const handleExport = () => {
@@ -406,33 +408,33 @@ export default function Ingredients() {
                               </span>
                             </span>
                           </div>
-                      {(it.spec || it.unitGrams || it.unitMl) && (
-                        <div
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            gap: 8,
-                            marginTop: 2,
-                          }}
-                        >
-                          <span
-                            style={{
-                              color: '#999',
-                              fontSize: 12,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {it.spec}
-                          </span>
-                          {(it.unitGrams || it.unitMl) && (
-                            <span style={{ color: '#bbb', fontSize: 12, flexShrink: 0 }}>
-                              1 {it.unit} ≈ {it.unitGrams ? `${it.unitGrams} g` : `${it.unitMl} ml`}
-                            </span>
+                          {(it.spec || it.unitGrams || it.unitMl) && (
+                            <div
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                gap: 8,
+                                marginTop: 2,
+                              }}
+                            >
+                              <span
+                                style={{
+                                  color: '#999',
+                                  fontSize: 12,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {it.spec}
+                              </span>
+                              {(it.unitGrams || it.unitMl) && (
+                                <span style={{ color: '#bbb', fontSize: 12, flexShrink: 0 }}>
+                                  1 {it.unit} ≈ {it.unitGrams ? `${it.unitGrams} g` : `${it.unitMl} ml`}
+                                </span>
+                              )}
+                            </div>
                           )}
-                          </div>
-                        )}
                         </div>
                       </div>
                     </div>
@@ -444,67 +446,29 @@ export default function Ingredients() {
         </>
       ) : (
         <>
-          <Title level={3} style={{ marginTop: 0 }}>
-            食材库
-            <Text type="secondary" style={{ fontSize: 14, marginLeft: 12, fontWeight: 400 }}>
-              维护价格，单位换算会自动生效
-            </Text>
-          </Title>
-
-          <Row gutter={16} style={{ marginBottom: 16 }}>
-            <Col xs={24} sm={8}>
-              <Card>
-                <Statistic title="食材总数" value={items.length} suffix="种" />
-              </Card>
-            </Col>
-            <Col xs={24} sm={8}>
-              <Card>
-                <Statistic
-                  title="分类"
-                  value={categories.filter((c) => items.some((i) => i.category === c)).length}
-                  suffix="类"
-                />
-              </Card>
-            </Col>
-            <Col xs={24} sm={8}>
-              <Card>
-                <Statistic
-                  title="单价合计（无统计意义）"
-                  value={total}
-                  precision={2}
-                  prefix="¥"
-                  valueStyle={{ color: '#aaa' }}
-                />
-              </Card>
-            </Col>
-          </Row>
-
           <div
             style={{
-              marginBottom: 12,
+              marginTop: 12,
+              marginBottom: 16,
               display: 'flex',
-              justifyContent: 'space-between',
+              alignItems: 'center',
               flexWrap: 'wrap',
               gap: 12,
             }}
           >
-            <Space wrap>
-              <Input.Search
-                placeholder="搜食材名"
-                allowClear
-                onSearch={setKeyword}
-                onChange={(e) => !e.target.value && setKeyword('')}
-                style={{ width: 220 }}
-              />
-              <Select
-                placeholder="按分类筛选"
-                allowClear
-                style={{ width: 160 }}
-                options={categories.map((c) => ({ value: c, label: c }))}
-                value={categoryFilter}
-                onChange={setCategoryFilter}
-              />
-            </Space>
+            <Input
+              allowClear
+              prefix={<SearchOutlined style={{ color: '#bbb' }} />}
+              placeholder="搜索食材名 / 分类"
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              style={{ width: 280 }}
+            />
+            <span style={{ color: '#999', fontSize: 13 }}>
+              共 {items.length} 种食材
+              {keyword ? `，匹配 ${filtered.length} 种` : ''}
+            </span>
+            <div style={{ flex: 1 }} />
             {isAdmin ? (
               <Space wrap>
                 <Tooltip title="下载一份带示例的空白 Excel，方便照着填">
@@ -553,6 +517,8 @@ export default function Ingredients() {
             <Alert
               type="info"
               showIcon
+              closable
+              onClose={() => setSelectedRowKey(undefined)}
               style={{ marginBottom: 12 }}
               message={
                 <span>
@@ -560,7 +526,7 @@ export default function Ingredients() {
                   <Text strong>
                     {items.find((i) => i.id === selectedRowKey)?.name}
                   </Text>
-                  ，点右上角「编辑食材」可修改或删除它
+                  ，点右上角「编辑食材」可修改或删除它，点右侧 × 或再次点击该行可取消选中
                 </span>
               }
             />
@@ -568,9 +534,24 @@ export default function Ingredients() {
 
           <Table<Ingredient>
             rowKey="id"
+            size="small"
             bordered
             dataSource={filtered}
-            pagination={{ pageSize: 10, showSizeChanger: false }}
+            scroll={{ x: 900 }}
+            pagination={{
+              defaultPageSize: 20,
+              showSizeChanger: true,
+              pageSizeOptions: [20, 50, 100],
+              showTotal: (t) => `共 ${t} 种食材`,
+            }}
+            onRow={(record) => ({
+              onClick: () => {
+                if (!isAdmin) return;
+                // 单选模式下无法直接取消选中：再次点击已选中的行就取消选中
+                setSelectedRowKey((prev) => (prev === record.id ? undefined : record.id));
+              },
+              style: { cursor: isAdmin ? 'pointer' : 'default' },
+            })}
             rowSelection={
               isAdmin
                 ? {
@@ -589,37 +570,69 @@ export default function Ingredients() {
                 width: 64,
                 render: (v: string | undefined) =>
                   v ? (
+                    // 缩略图就是普通 img：stopPropagation 保证点它不会触发行选中；
+                    // 点击后把地址交给表格「外面」的受控预览弹层放大
                     <img
                       src={v}
                       alt=""
                       loading="lazy"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPreviewSrc(v);
+                      }}
                       style={{
                         width: 40,
                         height: 40,
                         objectFit: 'cover',
                         borderRadius: 6,
                         display: 'block',
+                        cursor: 'zoom-in',
                       }}
                     />
                   ) : (
                     <Text type="secondary">-</Text>
                   ),
               },
-              { title: '名称', dataIndex: 'name', render: (v: string) => <Text strong>{v}</Text> },
+              {
+                title: '名称',
+                dataIndex: 'name',
+                width: 180,
+                render: (v: string) => <Text strong>{v}</Text>,
+              },
               {
                 title: '分类',
                 dataIndex: 'category',
+                width: 110,
+                // 列头自带筛选下拉，跟菜单管理表格一致
+                filters: [...new Set(items.map((i) => i.category))].map((c) => ({
+                  text: c,
+                  value: c,
+                })),
+                onFilter: (value, r) => r.category === value,
                 render: (v: IngredientCategory) => <Tag color="orange">{v}</Tag>,
               },
               {
                 title: '单价',
                 dataIndex: 'pricePerUnit',
+                width: 100,
+                sorter: (a, b) => a.pricePerUnit - b.pricePerUnit,
                 render: (v: number) => <PriceTag value={v} size="small" />,
               },
-              { title: '单位', dataIndex: 'unit' },
-              { title: '规格', dataIndex: 'spec', ellipsis: true },
+              {
+                title: '单位',
+                dataIndex: 'unit',
+                width: 80,
+                // 单位种类不多，给个列头筛选方便只看「克/个/袋」这类
+                filters: [...new Set(items.map((i) => i.unit))].map((u) => ({
+                  text: u,
+                  value: u,
+                })),
+                onFilter: (value, r) => r.unit === value,
+              },
+              { title: '规格', dataIndex: 'spec', width: 140, ellipsis: true },
               {
                 title: '单件换算',
+                width: 140,
                 render: (_, r) => {
                   if (r.unitGrams)
                     return (
@@ -637,6 +650,22 @@ export default function Ingredients() {
                 },
               },
             ]}
+          />
+
+          {/*
+            图片大图预览：故意放在 Table 外面、自身隐藏，只靠 previewSrc 手动开合。
+            这样预览弹层的点击事件跟表格行完全不在一条事件链上，
+            点缩略图 = 只开预览，点行其他地方 = 只切换选中，互不干扰。
+          */}
+          <Image
+            style={{ display: 'none' }}
+            preview={{
+              visible: previewSrc !== null,
+              src: previewSrc ?? undefined,
+              onVisibleChange: (open) => {
+                if (!open) setPreviewSrc(null);
+              },
+            }}
           />
         </>
       )}

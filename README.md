@@ -376,6 +376,33 @@ pnpm seed -- --only=dishes   # 只补菜单（--only=ingredients 同理）
 2. `seedDishes.ts` 给对应菜加 `coverImage: '/seeds/<id>.webp'`
 3. 完事 —— 播种时图地址随种子一起写入，图文件躺在桶里谁也不依赖
 
+#### ⏳ 待办：存量完整 URL 迁移成相对路径（还没做，不急）
+
+数据库里现在是两种格式混存：以前上传的 60+ 道菜存的是**完整 URL**
+（`https://ixixmxoeugzkbtljxubx.supabase.co/storage/v1/...`），种子菜存的是相对路径。
+两种 `resolveImageUrl()` 都兼容，**显示上没有问题**。
+
+隐患在于完整 URL 绑死当前服务器：换 Supabase 项目 / 迁服务器时，
+这些菜要逐条改 URL，而相对路径的菜一个字都不用动。统一方案（两步）：
+
+1. **改上传逻辑**：DishEditor 上传成功后，把返回的完整 URL 剥掉前缀再存
+   （参照 `storageUpload` 的返回值 + `resolveImageUrl` 的前缀拼接规则），
+   以后新上传的菜自动存相对路径；
+2. **一次性迁移**（Supabase SQL Editor 执行，跑之前先 `pnpm backup`）：
+
+   ```sql
+   UPDATE dishes
+   SET cover_image = regexp_replace(
+     cover_image,
+     '^https://[^/]+/storage/v1/object/public/dish-images/',
+     ''
+   )
+   WHERE cover_image LIKE 'https://%';
+   ```
+
+跑完所有菜的图地址都是相对路径，彻底和载体解耦。
+`ingredients` 表的 `image` 列如果有同样问题，照此办理。
+
 ### 💾 备份与恢复
 
 ```bash

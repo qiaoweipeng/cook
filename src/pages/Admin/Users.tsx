@@ -3,12 +3,12 @@
 
 import { useEffect, useState } from 'react';
 import { Table, Switch, Avatar, Tag, Typography, Space, App as AntApp, Card, Statistic, Row, Col, Tooltip } from 'antd';
-import { UserOutlined, CrownOutlined, MobileOutlined, DesktopOutlined } from '@ant-design/icons';
+import { UserOutlined, MobileOutlined, DesktopOutlined } from '@ant-design/icons';
 import { ADMIN_UID, ensureAdminRow, listUsers, setUserDisabled, type UserRow } from '@/lib/userAdmin';
 import { latestLoginMap, type LoginLogRow } from '@/lib/clientInfo';
 import { logOp } from '@/lib/opLog';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 export default function AdminUsers() {
   const { message, modal } = AntApp.useApp();
@@ -93,17 +93,7 @@ export default function AdminUsers() {
   const adminPresent = users.some((u) => u.id === ADMIN_UID);
 
   return (
-    <div>
-      <div style={{ marginBottom: 16 }}>
-        <Title level={3} style={{ margin: 0 }}>
-          <CrownOutlined style={{ color: '#E8743C', marginRight: 8 }} />
-          用户管理
-        </Title>
-        <Text type="secondary" style={{ fontSize: 13 }}>
-          只有超级管理员能看到此页。普通账号可被启用/停用，管理员账号不可操作。
-        </Text>
-      </div>
-
+    <div style={{ paddingTop: 12 }}>
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col xs={24} sm={8}>
           <Card>

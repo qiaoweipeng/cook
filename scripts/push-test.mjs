@@ -272,7 +272,7 @@ async function main() {
   }
 
   const payload = JSON.stringify({
-    title: '大厨房',
+    title: '我是大厨',
     body: raw ? '' : '本地脚本的测试推送',
     url: '/',
   });
@@ -303,7 +303,7 @@ async function main() {
       const text = await resp.text();
       console.log(
         `${resp.ok ? '✅' : '❌'} ${s.uid} → ${resp.status} ${resp.statusText}` +
-          (text ? `  ${text.slice(0, 200)}` : '')
+        (text ? `  ${text.slice(0, 200)}` : '')
       );
     } catch (e) {
       console.error(`❌ ${s.uid} → ${String(e)}`);
