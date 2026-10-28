@@ -2,6 +2,13 @@
 // 超级管理员账号是硬编码的（不依赖 users 表就能登录），但会在 users 表里留一行用来存头像
 
 import { isCloudEnabled, pgSelect, pgInsert, pgUpdateById, PgError } from './supabase';
+import { compressDataUrl } from './imageUpload';
+
+/** 头像统一压缩到这个最长边（192px WebP ≈ 10KB，显示尺寸最大不到 100px，够用） */
+export const AVATAR_MAX_W = 192;
+
+/** 存量头像自愈阈值：base64 超过 60KB 的就是没压缩过的旧数据，需要重压写回 */
+const AVATAR_HEAL_THRESHOLD = 60_000;
 
 export const ADMIN_UID = '0000';
 export const ADMIN_PASSWORD = '000000';
@@ -59,9 +66,26 @@ export async function getUser(uid: string): Promise<UserRow | null> {
 
 export async function listUsers(): Promise<UserRow[]> {
   if (!isCloudEnabled()) return [];
-  return pgSelect<UserRow>('users', {
+  const rows = await pgSelect<UserRow>('users', {
     select: 'id,nick,display_name,avatar,disabled,created_at',
   });
+  // 存量头像自愈：旧逻辑上传不压缩，base64 一张能上 MB，列表每次全量拉会被拖慢
+  // 好几秒（实测 3 个用户 1.4MB / 9s）。拉到超大头像就本地压缩 + 写回云端，
+  // 一次性自动迁移，之后每次加载只剩几十 KB。
+  await Promise.all(
+    rows.map(async (r) => {
+      if (!r.avatar?.startsWith('data:') || r.avatar.length <= AVATAR_HEAL_THRESHOLD) return;
+      try {
+        const small = await compressDataUrl(r.avatar, AVATAR_MAX_W);
+        r.avatar = small;
+        // 写回失败不阻塞列表展示，下次加载还会再试
+        setUserAvatar(r.id, small).catch(() => { });
+      } catch {
+        // 压不动就先用原图
+      }
+    })
+  );
+  return rows;
 }
 
 export async function setUserDisabled(uid: string, disabled: boolean): Promise<void> {

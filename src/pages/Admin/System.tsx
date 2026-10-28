@@ -76,13 +76,8 @@ export default function AdminSystem() {
 
   const loadStatus = async () => {
     setCountsLoading(true);
-    // 云端连通性探测：数一下 users 表
-    try {
-      await pgCount("users");
-      setCloudOk(true);
-    } catch {
-      setCloudOk(false);
-    }
+    // 连通性探测并入 12 表并发统计：users 表数得出来 = 云端正常，
+    // 不再先单独跑一轮探测（省掉一个串行的跨境往返）
     // 各表行数（单表失败不影响其他表）
     const entries = await Promise.all(
       TABLES.map(async (t) => {
@@ -93,7 +88,9 @@ export default function AdminSystem() {
         }
       }),
     );
-    setCounts(Object.fromEntries(entries));
+    const map = Object.fromEntries(entries);
+    setCounts(map);
+    setCloudOk(map["users"] !== "err");
     setCountsLoading(false);
     // 浏览器本地缓存占用（IndexedDB）
     try {

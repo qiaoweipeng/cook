@@ -27,7 +27,8 @@ import { useAuthStore, useIsAdmin } from '@/store/useAuthStore';
 import { useFamilyStore } from '@/store/useFamilyStore';
 import { resetUserScopedStores } from '@/store/userScope';
 import { isCloudEnabled } from '@/lib/supabase';
-import { ADMIN_UID, setUserAvatar } from '@/lib/userAdmin';
+import { compressToDataUrl } from '@/lib/imageUpload';
+import { ADMIN_UID, setUserAvatar, AVATAR_MAX_W } from '@/lib/userAdmin';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import ShoppingListPanel from '@/components/ShoppingListPanel';
 import FamilyModal from '@/components/FamilyModal';
@@ -98,21 +99,14 @@ export default function AppLayout() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    if (file.size > 1.5 * 1024 * 1024) {
-      message.error('头像文件不能超过 1.5MB');
-      return;
-    }
     if (!file.type.startsWith('image/')) {
       message.error('请选择图片文件');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const dataUrl = String(reader.result || '');
-      if (!dataUrl) {
-        message.error('读取图片失败');
-        return;
-      }
+    // 压缩成 192px WebP 再存库（头像存的是数据库 text 列，原图一张能上 MB，
+    // 会把用户列表的加载拖慢好几秒）
+    try {
+      const dataUrl = await compressToDataUrl(file, AVATAR_MAX_W);
       setAvatar(dataUrl);
       if (cloud && user) {
         try {
@@ -124,8 +118,9 @@ export default function AppLayout() {
       } else {
         message.success('头像已更新');
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      message.error('图片处理失败：' + (err as Error).message);
+    }
   };
 
   // —— 用户菜单项 ——

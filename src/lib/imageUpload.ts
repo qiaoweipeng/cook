@@ -141,8 +141,8 @@ export async function compressImage(
 /**
  * 压缩后转 dataURL。
  *
- * 已经没有任何地方调用了（上传失败不再降级成 Base64），留着只是为了
- * 「万一以后要在本地预览大图时用」。要用记得自己 import。
+ * 目前用在头像上传：头像是存数据库 text 列的（不走 Storage），必须先把体积
+ * 压小再存，否则用户列表每次加载都要把所有人的大头像跨境拉一遍。
  */
 export async function compressToDataUrl(
   file: File,
@@ -150,6 +150,39 @@ export async function compressToDataUrl(
   quality = QUALITY
 ): Promise<string> {
   const { blob } = await compressImage(file, maxW, quality);
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result as string);
+    fr.onerror = () => reject(new Error('图片读取失败'));
+    fr.readAsDataURL(blob);
+  });
+}
+
+/**
+ * 把已经存成 base64 的图（历史遗留数据）重新压缩成小尺寸 WebP dataURL。
+ * 用途是「自愈」旧数据：旧头像上传时不压缩（一张能上 MB），拉到超大 base64
+ * 就本地压一遍写回云端，下次起传输量回到几十 KB 级。
+ */
+export async function compressDataUrl(
+  dataUrl: string,
+  maxW: number,
+  quality = QUALITY
+): Promise<string> {
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = () => reject(new Error('图片解码失败'));
+    el.src = dataUrl;
+  });
+  const scale = Math.min(1, maxW / Math.max(img.naturalWidth, img.naturalHeight));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('浏览器不支持 canvas 压缩');
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  const blob = await toBlob(canvas, quality);
+  if (!blob) throw new Error('图片压缩失败');
   return new Promise((resolve, reject) => {
     const fr = new FileReader();
     fr.onload = () => resolve(fr.result as string);

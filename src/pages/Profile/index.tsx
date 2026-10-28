@@ -19,8 +19,8 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useFamilyStore } from '@/store/useFamilyStore';
 import { resetUserScopedStores } from '@/store/userScope';
 import { isCloudEnabled } from '@/lib/supabase';
-import { setUserAvatar, ADMIN_UID } from '@/lib/userAdmin';
-import { validateImageFile, IMAGE_ACCEPT } from '@/lib/imageUpload';
+import { setUserAvatar, ADMIN_UID, AVATAR_MAX_W } from '@/lib/userAdmin';
+import { validateImageFile, IMAGE_ACCEPT, compressToDataUrl } from '@/lib/imageUpload';
 import {
   pushSupported,
   pushEnvReady,
@@ -122,24 +122,16 @@ export default function Profile() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    if (file.size > 1.5 * 1024 * 1024) {
-      message.error('头像文件不能超过 1.5MB');
-      return;
-    }
-    // 跟菜品 / 食材用同一套规则：只收静态图。
-    // 头像是原样存成 dataURL 的，动图几 MB 直接塞进数据库，体积扛不住。
+    // 不限制原图大小：反正要压缩成 192px WebP（约 10KB）再存库。
+    // 头像是存数据库 text 列的（不走 Storage），原图直接存的话一张能上 MB，
+    // 用户列表每次加载把所有人的头像全拉一遍，会被拖慢好几秒。
     const invalid = await validateImageFile(file);
     if (invalid) {
       message.error(invalid);
       return;
     }
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const dataUrl = String(reader.result || '');
-      if (!dataUrl) {
-        message.error('读取图片失败');
-        return;
-      }
+    try {
+      const dataUrl = await compressToDataUrl(file, AVATAR_MAX_W);
       setAvatar(dataUrl);
       if (cloud && user) {
         try {
@@ -151,8 +143,9 @@ export default function Profile() {
       } else {
         message.success('头像已更新');
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      message.error('图片处理失败：' + (err as Error).message);
+    }
   };
 
   if (!user) {

@@ -19,21 +19,27 @@ export default function AdminUsers() {
 
   const load = async () => {
     setLoading(true);
+    // 三个请求互不依赖，并行发出：原来串行要等 3 个跨境往返的时间相加
+    const adminPromise = ensureAdminRow().catch((e) => {
+      // 只是确保管理员行存在，失败不该挡住用户列表
+      console.warn('[users] ensureAdminRow 失败：', e);
+    });
+    const usersPromise = listUsers();
+    // 登录日志单独加载：login_logs 表没建也不影响用户列表
+    const loginsPromise = latestLoginMap();
     try {
-      await ensureAdminRow();
-      const list = await listUsers();
-      setUsers(list);
+      setUsers(await usersPromise);
     } catch (e) {
       message.error('加载用户失败：' + (e as Error).message);
     } finally {
       setLoading(false);
     }
-    // 登录日志单独加载：login_logs 表没建也不影响用户列表
     try {
-      setLogins(await latestLoginMap());
+      setLogins(await loginsPromise);
     } catch {
       // 忽略
     }
+    await adminPromise;
   };
 
   useEffect(() => {
