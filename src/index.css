@@ -242,8 +242,7 @@ html {
    设了 black-translucent 之后状态栏是透明的，那一小块区域透出来的就是页面最顶部。
    首页有吸顶栏自己盖住它（吸顶栏 z-index 20，在这层之上），
    其他页面没有吸顶栏，这里统一铺一层，让每个页面的状态栏都是同一个颜色：
-   · 色值 #F7E2D5 是首页渐变左上角的实际合成色（0.16 透明度的橙叠在 #FAF7F2 上算出来的），
-     所以状态栏和首页顶部完全同色，看不出接缝
+   · 底色取移动端页面背景 #FAF7F2，和页面本身同色，看不出接缝
    · 不能画在 body / html 的背景上：#root 自带不透明的米白底，会把它们整个盖住
    · 也不能用 background-attachment: fixed：iOS Safari 对这个属性支持得很不稳，
      这里老老实实用 position: fixed
@@ -260,9 +259,9 @@ html {
     height: calc(env(safe-area-inset-top) + 14px);
     background: linear-gradient(
       180deg,
-      #ffffff 0%,
-      rgba(255, 255, 255, 0.85) 55%,
-      rgba(255, 255, 255, 0) 100%
+      #faf7f2 0%,
+      rgba(250, 247, 242, 0.85) 55%,
+      rgba(250, 247, 242, 0) 100%
     );
     pointer-events: none;
     z-index: 1;

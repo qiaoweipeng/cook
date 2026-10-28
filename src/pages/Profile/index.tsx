@@ -242,7 +242,7 @@ export default function Profile() {
         </List.Item>
       </List>
 
-      <List style={{ marginTop: 12 }}>
+      <List mode="card" style={{ marginTop: 12 }}>
         <List.Item
           prefix={<InformationCircleOutline fontSize={20} style={{ color: '#8C857E' }} />}
           extra={<span style={{ color: '#999', fontSize: 13 }}>{versionLabel()}</span>}

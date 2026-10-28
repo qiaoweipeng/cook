@@ -30,7 +30,7 @@ export default function Login() {
     return <Navigate to="/menu" replace />;
   }
   if (user) {
-    return <Navigate to="/menu" replace />;
+    return <Navigate to="/" replace />;
   }
 
   const validNick = nickname.trim().length >= 2 && nickname.trim().length <= 20;
@@ -53,7 +53,8 @@ export default function Login() {
       useIngredientStore.getState().load(),
       reloadUserScopedStores(),
     ]);
-    navigate('/menu', { replace: true });
+    // 走 "/"，由 App 里的 IndexRedirect 按角色分流：管理员进起始页，普通用户进菜单
+    navigate('/', { replace: true });
   };
 
   const onFinish = async () => {

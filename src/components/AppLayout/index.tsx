@@ -187,7 +187,15 @@ export default function AppLayout() {
     ];
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout
+      style={{
+        minHeight: '100vh',
+        // 背景按端区分（见 README「视觉与交互基调」）：
+        // PC 纯白——后台表格多，表格原生白底，米白要逐个组件适配；
+        // 移动端燕麦米白——用户端全是卡片流，白卡片浮在米白上层次更好。
+        background: showMobileNav ? '#FAF7F2' : '#ffffff',
+      }}
+    >
       {/* 移动端：完全隐藏顶部导航栏（logo + 菜单 + 操作区） */}
       {!showMobileNav && (
         <Header
@@ -304,7 +312,7 @@ export default function AppLayout() {
       {!showMobileNav && (
         <Footer style={{ textAlign: 'center', background: 'transparent', color: '#aaa', padding: '24px' }}>
           <span style={{ fontSize: 13 }}>
-            做饭这件小事，从今天开始认真一点
+            每个人都可以是大厨
             {cloud ? ' · 数据云端同步' : ' · 数据存储在浏览器本地'}
           </span>
         </Footer>

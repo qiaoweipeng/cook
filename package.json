@@ -14,6 +14,7 @@
     "backup": "node scripts/backup.mjs"
   },
   "dependencies": {
+    "@ant-design/pro-components": "^2.8.10",
     "@cloudbase/js-sdk": "^3.10.2",
     "antd": "^5.20.0",
     "antd-mobile": "^5.43.0",
