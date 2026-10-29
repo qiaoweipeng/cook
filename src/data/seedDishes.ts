@@ -13,13 +13,11 @@ export const seedDishes: Dish[] = [
     id: 'dish_garlic_green',
     name: '蒜蓉炒青菜',
     coverImage: '/seeds/dish_garlic_green.webp',
-    emoji: '🥬',
     category: '快手',
     tags: ['快手', '素食'],
     difficulty: 1,
     cookTimeMin: 5,
     servings: 2,
-    coverColor: '#DCEDD8',
     favorite: false,
     createdAt: baseTime + 86400000,
     ingredients: [
@@ -40,13 +38,11 @@ export const seedDishes: Dish[] = [
     id: 'dish_sour_potato',
     name: '酸辣土豆丝',
     coverImage: '/seeds/dish_sour_potato.webp',
-    emoji: '🥔',
     category: '家常',
     tags: ['下饭', '开胃'],
     difficulty: 2,
     cookTimeMin: 15,
     servings: 2,
-    coverColor: '#FFE9B0',
     favorite: false,
     createdAt: baseTime + 86400000 * 2,
     ingredients: [
@@ -71,13 +67,11 @@ export const seedDishes: Dish[] = [
     id: 'dish_sweet_sour_pork',
     name: '糖醋里脊',
     coverImage: '/seeds/dish_sweet_sour_pork.webp',
-    emoji: '🍖',
     category: '家常',
     tags: ['宴客', '经典'],
     difficulty: 3,
     cookTimeMin: 25,
     servings: 2,
-    coverColor: '#FFD4D4',
     favorite: true,
     createdAt: baseTime + 86400000 * 3,
     ingredients: [
@@ -102,13 +96,11 @@ export const seedDishes: Dish[] = [
     id: 'dish_braised_ribs',
     name: '红烧排骨',
     coverImage: '/seeds/dish_braised_ribs.webp',
-    emoji: '🍖',
     category: '家常',
     tags: ['硬菜', '下饭'],
     difficulty: 2,
     cookTimeMin: 40,
     servings: 3,
-    coverColor: '#F5D0A0',
     favorite: false,
     createdAt: baseTime + 86400000 * 4,
     ingredients: [
@@ -136,13 +128,11 @@ export const seedDishes: Dish[] = [
     id: 'dish_mapo_tofu',
     name: '麻婆豆腐',
     coverImage: '/seeds/dish_mapo_tofu.webp',
-    emoji: '🌶️',
     category: '川菜',
     tags: ['川菜', '下饭', '经典'],
     difficulty: 2,
     cookTimeMin: 15,
     servings: 2,
-    coverColor: '#FFCCCC',
     favorite: false,
     createdAt: baseTime + 86400000 * 5,
     ingredients: [
@@ -171,13 +161,11 @@ export const seedDishes: Dish[] = [
     id: 'dish_garlic_shrimp',
     name: '蒜蓉蒸虾',
     coverImage: '/seeds/dish_garlic_shrimp.webp',
-    emoji: '🦐',
     category: '粤菜',
     tags: ['宴客', '海鲜'],
     difficulty: 2,
     cookTimeMin: 15,
     servings: 2,
-    coverColor: '#FFCBC1',
     favorite: true,
     createdAt: baseTime + 86400000 * 6,
     ingredients: [
@@ -201,13 +189,11 @@ export const seedDishes: Dish[] = [
     id: 'dish_steamed_bass',
     name: '清蒸鲈鱼',
     coverImage: '/seeds/dish_steamed_bass.webp',
-    emoji: '🐟',
     category: '粤菜',
     tags: ['粤菜', '清淡', '宴客'],
     difficulty: 2,
     cookTimeMin: 20,
     servings: 2,
-    coverColor: '#D6E9F8',
     favorite: false,
     createdAt: baseTime + 86400000 * 7,
     ingredients: [
@@ -231,13 +217,11 @@ export const seedDishes: Dish[] = [
     id: 'dish_pepper_pork',
     name: '青椒炒肉',
     coverImage: '/seeds/dish_pepper_pork.webp',
-    emoji: '🌶️',
     category: '家常',
     tags: ['下饭', '快手'],
     difficulty: 1,
     cookTimeMin: 15,
     servings: 2,
-    coverColor: '#E5F5DC',
     favorite: false,
     createdAt: baseTime + 86400000 * 8,
     ingredients: [
@@ -261,13 +245,11 @@ export const seedDishes: Dish[] = [
     id: 'dish_tomato_beef_noodle',
     name: '番茄牛肉面',
     coverImage: '/seeds/dish_tomato_beef_noodle.webp',
-    emoji: '🍜',
     category: '家常',
     tags: ['主食', '暖胃'],
     difficulty: 2,
     cookTimeMin: 30,
     servings: 2,
-    coverColor: '#FFE0CC',
     favorite: true,
     createdAt: baseTime + 86400000 * 9,
     ingredients: [
@@ -301,7 +283,6 @@ export const seedDishes: Dish[] = [
     difficulty: 2,
     cookTimeMin: 25,
     servings: 2,
-    coverColor: '#FFCCCC',
     favorite: false,
     createdAt: baseTime + 86400000 * 10,
     ingredients: [
@@ -331,7 +312,6 @@ export const seedDishes: Dish[] = [
     difficulty: 2,
     cookTimeMin: 40,
     servings: 3,
-    coverColor: '#F5D0A0',
     favorite: false,
     createdAt: baseTime + 86400000 * 11,
     ingredients: [
@@ -366,7 +346,6 @@ export const seedDishes: Dish[] = [
     difficulty: 2,
     cookTimeMin: 35,
     servings: 3,
-    coverColor: '#F5D0A0',
     favorite: false,
     createdAt: baseTime + 86400000 * 12,
     ingredients: [
@@ -400,7 +379,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 10,
     servings: 2,
-    coverColor: '#E5F5DC',
     favorite: false,
     createdAt: baseTime + 86400000 * 13,
     ingredients: [
@@ -429,7 +407,6 @@ export const seedDishes: Dish[] = [
     difficulty: 2,
     cookTimeMin: 20,
     servings: 2,
-    coverColor: '#FFD4D4',
     favorite: true,
     createdAt: baseTime + 86400000 * 14,
     ingredients: [
@@ -463,7 +440,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 10,
     servings: 2,
-    coverColor: '#DCEDD8',
     favorite: false,
     createdAt: baseTime + 86400000 * 15,
     ingredients: [
@@ -489,7 +465,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 10,
     servings: 2,
-    coverColor: '#E5F5DC',
     favorite: false,
     createdAt: baseTime + 86400000 * 16,
     ingredients: [
@@ -520,7 +495,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 10,
     servings: 2,
-    coverColor: '#FFCCCC',
     favorite: false,
     createdAt: baseTime + 86400000 * 17,
     ingredients: [
@@ -546,7 +520,6 @@ export const seedDishes: Dish[] = [
     difficulty: 2,
     cookTimeMin: 15,
     servings: 2,
-    coverColor: '#FFF0CC',
     favorite: false,
     createdAt: baseTime + 86400000 * 18,
     ingredients: [
@@ -577,7 +550,6 @@ export const seedDishes: Dish[] = [
     difficulty: 3,
     cookTimeMin: 70,
     servings: 3,
-    coverColor: '#F5C7A0',
     favorite: true,
     createdAt: baseTime + 86400000 * 19,
     ingredients: [
@@ -610,7 +582,6 @@ export const seedDishes: Dish[] = [
     difficulty: 2,
     cookTimeMin: 20,
     servings: 2,
-    coverColor: '#FFCBC1',
     favorite: false,
     createdAt: baseTime + 86400000 * 20,
     ingredients: [
@@ -643,7 +614,6 @@ export const seedDishes: Dish[] = [
     difficulty: 2,
     cookTimeMin: 25,
     servings: 2,
-    coverColor: '#FFD0B0',
     favorite: true,
     createdAt: baseTime + 86400000 * 21,
     ingredients: [
@@ -675,7 +645,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 15,
     servings: 2,
-    coverColor: '#E5F5DC',
     favorite: false,
     createdAt: baseTime + 86400000 * 22,
     ingredients: [
@@ -708,7 +677,6 @@ export const seedDishes: Dish[] = [
     difficulty: 2,
     cookTimeMin: 50,
     servings: 3,
-    coverColor: '#F5D0A0',
     favorite: false,
     createdAt: baseTime + 86400000 * 23,
     ingredients: [
@@ -742,7 +710,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 25,
     servings: 2,
-    coverColor: '#F5C7A0',
     favorite: true,
     createdAt: baseTime + 86400000 * 24,
     ingredients: [
@@ -773,7 +740,6 @@ export const seedDishes: Dish[] = [
     difficulty: 3,
     cookTimeMin: 30,
     servings: 2,
-    coverColor: '#FFB870',
     favorite: false,
     createdAt: baseTime + 86400000 * 25,
     ingredients: [
@@ -808,7 +774,6 @@ export const seedDishes: Dish[] = [
     difficulty: 2,
     cookTimeMin: 60,
     servings: 3,
-    coverColor: '#F5C7A0',
     favorite: false,
     createdAt: baseTime + 86400000 * 26,
     ingredients: [
@@ -843,7 +808,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 30,
     servings: 3,
-    coverColor: '#FFCCCC',
     favorite: false,
     createdAt: baseTime + 86400000 * 27,
     ingredients: [
@@ -872,7 +836,6 @@ export const seedDishes: Dish[] = [
     difficulty: 3,
     cookTimeMin: 35,
     servings: 3,
-    coverColor: '#FFE9B0',
     favorite: true,
     createdAt: baseTime + 86400000 * 28,
     ingredients: [
@@ -908,7 +871,6 @@ export const seedDishes: Dish[] = [
     difficulty: 3,
     cookTimeMin: 40,
     servings: 3,
-    coverColor: '#FFCCCC',
     favorite: false,
     createdAt: baseTime + 86400000 * 29,
     ingredients: [
@@ -945,7 +907,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 10,
     servings: 2,
-    coverColor: '#FFCBC1',
     favorite: false,
     createdAt: baseTime + 86400000 * 30,
     ingredients: [
@@ -972,7 +933,6 @@ export const seedDishes: Dish[] = [
     difficulty: 2,
     cookTimeMin: 20,
     servings: 2,
-    coverColor: '#FFE5DC',
     favorite: true,
     createdAt: baseTime + 86400000 * 31,
     ingredients: [
@@ -1002,7 +962,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 15,
     servings: 2,
-    coverColor: '#FFD0B0',
     favorite: false,
     createdAt: baseTime + 86400000 * 32,
     ingredients: [
@@ -1033,7 +992,6 @@ export const seedDishes: Dish[] = [
     difficulty: 2,
     cookTimeMin: 20,
     servings: 2,
-    coverColor: '#FFCBC1',
     favorite: false,
     createdAt: baseTime + 86400000 * 33,
     ingredients: [
@@ -1065,7 +1023,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 10,
     servings: 2,
-    coverColor: '#FFE5DC',
     favorite: false,
     createdAt: baseTime + 86400000 * 34,
     ingredients: [
@@ -1093,7 +1050,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 10,
     servings: 2,
-    coverColor: '#DCEDD8',
     favorite: false,
     createdAt: baseTime + 86400000 * 35,
     ingredients: [
@@ -1119,7 +1075,6 @@ export const seedDishes: Dish[] = [
     difficulty: 2,
     cookTimeMin: 20,
     servings: 2,
-    coverColor: '#F5D0A0',
     favorite: false,
     createdAt: baseTime + 86400000 * 36,
     ingredients: [
@@ -1148,7 +1103,6 @@ export const seedDishes: Dish[] = [
     difficulty: 2,
     cookTimeMin: 20,
     servings: 2,
-    coverColor: '#DCEDD8',
     favorite: false,
     createdAt: baseTime + 86400000 * 37,
     ingredients: [
@@ -1181,7 +1135,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 10,
     servings: 2,
-    coverColor: '#DCEDD8',
     favorite: false,
     createdAt: baseTime + 86400000 * 38,
     ingredients: [
@@ -1210,7 +1163,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 10,
     servings: 2,
-    coverColor: '#DCEDD8',
     favorite: false,
     createdAt: baseTime + 86400000 * 39,
     ingredients: [
@@ -1237,7 +1189,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 5,
     servings: 2,
-    coverColor: '#DCEDD8',
     favorite: false,
     createdAt: baseTime + 86400000 * 40,
     ingredients: [
@@ -1264,7 +1215,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 5,
     servings: 2,
-    coverColor: '#DCEDD8',
     favorite: false,
     createdAt: baseTime + 86400000 * 41,
     ingredients: [
@@ -1289,7 +1239,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 15,
     servings: 2,
-    coverColor: '#FFF0CC',
     favorite: false,
     createdAt: baseTime + 86400000 * 42,
     ingredients: [
@@ -1323,7 +1272,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 5,
     servings: 2,
-    coverColor: '#DCEDD8',
     favorite: false,
     createdAt: baseTime + 86400000 * 43,
     ingredients: [
@@ -1350,7 +1298,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 10,
     servings: 2,
-    coverColor: '#DCEDD8',
     favorite: true,
     createdAt: baseTime + 86400000 * 44,
     ingredients: [
@@ -1379,7 +1326,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 10,
     servings: 2,
-    coverColor: '#FFE9B0',
     favorite: false,
     createdAt: baseTime + 86400000 * 45,
     ingredients: [
@@ -1410,7 +1356,6 @@ export const seedDishes: Dish[] = [
     difficulty: 2,
     cookTimeMin: 20,
     servings: 2,
-    coverColor: '#E5D5FF',
     favorite: false,
     createdAt: baseTime + 86400000 * 46,
     ingredients: [
@@ -1442,7 +1387,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 20,
     servings: 2,
-    coverColor: '#E5D5FF',
     favorite: false,
     createdAt: baseTime + 86400000 * 47,
     ingredients: [
@@ -1473,7 +1417,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 5,
     servings: 2,
-    coverColor: '#DCEDD8',
     favorite: false,
     createdAt: baseTime + 86400000 * 48,
     ingredients: [
@@ -1497,7 +1440,6 @@ export const seedDishes: Dish[] = [
     difficulty: 2,
     cookTimeMin: 20,
     servings: 2,
-    coverColor: '#FFE9B0',
     favorite: false,
     createdAt: baseTime + 86400000 * 49,
     ingredients: [
@@ -1530,7 +1472,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 15,
     servings: 2,
-    coverColor: '#DCEDD8',
     favorite: false,
     createdAt: baseTime + 86400000 * 50,
     ingredients: [
@@ -1558,7 +1499,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 5,
     servings: 2,
-    coverColor: '#DCEDD8',
     favorite: false,
     createdAt: baseTime + 86400000 * 51,
     ingredients: [
@@ -1582,7 +1522,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 8,
     servings: 2,
-    coverColor: '#FFE9B0',
     favorite: false,
     createdAt: baseTime + 86400000 * 52,
     ingredients: [
@@ -1607,7 +1546,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 15,
     servings: 2,
-    coverColor: '#E5F5DC',
     favorite: false,
     createdAt: baseTime + 86400000 * 53,
     ingredients: [
@@ -1639,7 +1577,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 25,
     servings: 3,
-    coverColor: '#D8EFD0',
     favorite: false,
     createdAt: baseTime + 86400000 * 54,
     ingredients: [
@@ -1667,7 +1604,6 @@ export const seedDishes: Dish[] = [
     difficulty: 2,
     cookTimeMin: 30,
     servings: 2,
-    coverColor: '#FFD0B0',
     favorite: true,
     createdAt: baseTime + 86400000 * 55,
     ingredients: [
@@ -1703,7 +1639,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 10,
     servings: 2,
-    coverColor: '#E5F5DC',
     favorite: false,
     createdAt: baseTime + 86400000 * 56,
     ingredients: [
@@ -1732,7 +1667,6 @@ export const seedDishes: Dish[] = [
     difficulty: 1,
     cookTimeMin: 10,
     servings: 2,
-    coverColor: '#FFE5DC',
     favorite: false,
     createdAt: baseTime + 86400000 * 57,
     ingredients: [
@@ -1759,13 +1693,11 @@ export const seedDishes: Dish[] = [
   {
     id: 'diet_steamed_fish',
     name: '清蒸鱼',
-    emoji: '🐟',
     category: '减脂',
     tags: ['减脂', '高蛋白'],
     difficulty: 2,
     cookTimeMin: 15,
     servings: 2,
-    coverColor: '#DCE9F2',
     favorite: false,
     createdAt: baseTime + 86400000 * 60,
     ingredients: [
@@ -1789,13 +1721,11 @@ export const seedDishes: Dish[] = [
     id: 'diet_boiled_chicken_breast',
     name: '水煮鸡胸肉',
     coverImage: '/seeds/diet_boiled_chicken_breast.webp',
-    emoji: '🍗',
     category: '减脂',
     tags: ['减脂', '高蛋白'],
     difficulty: 1,
     cookTimeMin: 20,
     servings: 2,
-    coverColor: '#F0EDE4',
     favorite: false,
     createdAt: baseTime + 86400000 * 61,
     ingredients: [
@@ -1817,13 +1747,11 @@ export const seedDishes: Dish[] = [
     id: 'diet_stirfry_broccoli',
     name: '清炒西兰花',
     coverImage: '/seeds/diet_stirfry_broccoli.webp',
-    emoji: '🥦',
     category: '减脂',
     tags: ['减脂', '高纤维'],
     difficulty: 1,
     cookTimeMin: 10,
     servings: 2,
-    coverColor: '#DCEDE0',
     favorite: false,
     createdAt: baseTime + 86400000 * 62,
     ingredients: [
@@ -1843,13 +1771,11 @@ export const seedDishes: Dish[] = [
   {
     id: 'diet_tomato_enoki_tofu_soup',
     name: '番茄金针菇豆腐汤',
-    emoji: '🍲',
     category: '减脂',
     tags: ['减脂', '高纤维'],
     difficulty: 1,
     cookTimeMin: 15,
     servings: 2,
-    coverColor: '#FBE3DC',
     favorite: false,
     createdAt: baseTime + 86400000 * 63,
     ingredients: [
@@ -1870,13 +1796,11 @@ export const seedDishes: Dish[] = [
   {
     id: 'diet_steamed_egg',
     name: '蒸蛋羹',
-    emoji: '🥚',
     category: '减脂',
     tags: ['减脂', '高蛋白'],
     difficulty: 2,
     cookTimeMin: 15,
     servings: 2,
-    coverColor: '#FFF3D6',
     favorite: false,
     createdAt: baseTime + 86400000 * 64,
     ingredients: [
@@ -1897,13 +1821,11 @@ export const seedDishes: Dish[] = [
   {
     id: 'diet_cold_chicken_salad',
     name: '凉拌鸡丝',
-    emoji: '🥗',
     category: '减脂',
     tags: ['减脂', '高蛋白'],
     difficulty: 2,
     cookTimeMin: 25,
     servings: 2,
-    coverColor: '#E8F0E4',
     favorite: false,
     createdAt: baseTime + 86400000 * 65,
     ingredients: [
@@ -1925,13 +1847,11 @@ export const seedDishes: Dish[] = [
   {
     id: 'diet_winter_melon_shrimp',
     name: '少油版冬瓜虾仁',
-    emoji: '🍤',
     category: '减脂',
     tags: ['减脂', '高蛋白'],
     difficulty: 2,
     cookTimeMin: 20,
     servings: 2,
-    coverColor: '#E4EDE8',
     favorite: false,
     createdAt: baseTime + 86400000 * 66,
     ingredients: [
@@ -1955,13 +1875,11 @@ export const seedDishes: Dish[] = [
   {
     id: 'diet_brown_rice_chicken',
     name: '糙米饭配煎鸡胸',
-    emoji: '🍱',
     category: '减脂',
     tags: ['减脂', '高蛋白'],
     difficulty: 2,
     cookTimeMin: 35,
     servings: 2,
-    coverColor: '#F2EADD',
     favorite: false,
     createdAt: baseTime + 86400000 * 67,
     ingredients: [

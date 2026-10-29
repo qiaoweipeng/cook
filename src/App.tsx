@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-
 import { App as AntApp, Spin } from 'antd';
 import AppLayout from './components/AppLayout';
 import PwaUpdate from './components/PwaUpdate';
+import LandscapeGuard from './components/LandscapeGuard';
 import Menu from './pages/Menu';
 import DishDetail from './pages/DishDetail';
 import Ingredients from './pages/Ingredients';
@@ -24,18 +25,18 @@ import { ensureAdminRow, getUser, ADMIN_UID } from './lib/userAdmin';
 import { isCloudEnabled } from './lib/supabase';
 import { loadSession } from './lib/userAuth';
 import { logLogin } from './lib/clientInfo';
-import { useIsMobile } from './hooks/useIsMobile';
+import { isPcDevice } from './utils/device';
 
 // 管理后台布局用 ProLayout（@ant-design/pro-components），体积不小。
 // 动态导入让普通用户永远不下载这部分代码，只有管理员进入后台时才加载。
 const AdminLayout = lazy(() => import('./components/AdminLayout'));
 
 /**
- * 管理员 + 移动端：强制拦截，不渲染任何后台界面。
+ * 管理员 + 手机/Pad：强制拦截，不渲染任何后台界面。
  * 弹一个不能关掉的提示（点遮罩、按 ESC、点右上角 × 都不行），
  * 确认后退出登录并回到登录页 —— 只有 PC 端才能进管理后台。
  */
-function AdminMobileBlocked() {
+function AdminNonPcBlocked() {
   const { modal } = AntApp.useApp();
   const signOut = useAuthStore((s) => s.signOut);
   const navigate = useNavigate();
@@ -63,15 +64,14 @@ function AdminMobileBlocked() {
 
 /**
  * 按角色分流 PC 端布局：
- * - 管理员 + 移动端 → 直接拦截（后台只适配 PC）
- * - 管理员 + PC     → AdminLayout（ProLayout，左侧菜单的后台形态）
- * - 普通用户        → AppLayout（顶部横菜单 + 移动端 TabBar，完全不变）
+ * - 管理员 + 手机/Pad → 直接拦截（后台只适配 PC，按设备 UA 判定，不看宽度）
+ * - 管理员 + PC       → AdminLayout（ProLayout，左侧菜单的后台形态）
+ * - 普通用户          → AppLayout（顶部横菜单 + 移动端 TabBar，完全不变）
  * 两者共用同一批路由，页面组件不需要知道自己在哪个布局里。
  */
 function RoleLayout() {
   const isAdmin = useIsAdmin();
-  const isMobile = useIsMobile();
-  if (isAdmin && isMobile) return <AdminMobileBlocked />;
+  if (isAdmin && !isPcDevice()) return <AdminNonPcBlocked />;
   if (!isAdmin) return <AppLayout />;
   return (
     <Suspense fallback={<div style={{ padding: 96, textAlign: 'center' }}><Spin /></div>}>
@@ -211,6 +211,8 @@ export default function App() {
     <>
       {/* 检测到新版本时顶部弹提示（PWA） */}
       <PwaUpdate />
+      {/* 手机横屏时盖全屏遮罩提示转回竖屏（PWA 锁竖屏之外的浏览器场景兜底） */}
+      <LandscapeGuard />
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route

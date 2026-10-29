@@ -12,14 +12,12 @@ export function dishToRow(d: Dish) {
   return {
     id: d.id,
     name: d.name,
-    emoji: d.emoji ?? null,
     category: d.category,
     difficulty: d.difficulty,
     cook_time_min: d.cookTimeMin,
     servings: d.servings,
     // '' 归一化为 null：编辑器把「清空图片」传成空串，落库统一存 null
     cover_image: d.coverImage || null,
-    cover_color: d.coverColor ?? null,
     favorite: d.favorite ? 1 : 0,
     created_at: new Date(d.createdAt).toISOString(),
     tips: d.tips ?? null,
@@ -31,13 +29,11 @@ export function rowToDish(r: any): Dish {
   return {
     id: r.id,
     name: r.name,
-    emoji: r.emoji ?? '',
     category: r.category,
     difficulty: r.difficulty,
     cookTimeMin: r.cook_time_min,
     servings: r.servings,
     coverImage: r.cover_image ?? undefined,
-    coverColor: r.cover_color ?? '#FFE5DC',
     favorite: !!r.favorite,
     createdAt: new Date(r.created_at).getTime(),
     tips: r.tips ?? '',

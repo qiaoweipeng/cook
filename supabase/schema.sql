@@ -29,17 +29,19 @@ create table if not exists public.users (
 create table if not exists public.dishes (
   id             text primary key,
   name           text not null,
-  emoji          text,
   category       text,
   difficulty     integer,
   cook_time_min  integer,
   servings       integer,
   cover_image    text,
-  cover_color    text,
   favorite       integer not null default 0,
   created_at     timestamptz default now(),
   tips           text
 );
+
+-- 老库升级：emoji / cover_color 已废弃（菜品全部改用 cover_image 真实封面），删除遗留列
+alter table public.dishes drop column if exists emoji;
+alter table public.dishes drop column if exists cover_color;
 
 create table if not exists public.dish_tags (
   dish_id  text not null,

@@ -220,6 +220,22 @@ a {
   }
 }
 
+/* 横屏遮罩里的手机图标：从横着转到竖着，示意用户把手机转回来（LandscapeGuard） */
+.landscape-hint-ico {
+  animation: landscape-hint-rotate 1.8s ease-in-out infinite;
+}
+
+@keyframes landscape-hint-rotate {
+  0%,
+  15% {
+    transform: rotate(90deg);
+  }
+  45%,
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
 .tab-txt {
   font-size: 11px;
   color: #9a938c;

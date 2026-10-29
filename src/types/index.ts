@@ -36,11 +36,7 @@ export interface Step {
 export interface Dish {
   id: string;
   name: string;
-  /** 兼容旧数据：之前用 emoji 充当缩略图，现在忽略这个字段 */
-  emoji?: string;
-  /** 兼容旧数据：之前用纯色作封面背景，现在忽略这个字段 */
-  coverColor?: string;
-  /** 真实封面图地址（待图片接入后用） */
+  /** 封面图地址（对象存储路径） */
   coverImage?: string;
   category: DishCategory;
   tags: string[];

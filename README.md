@@ -210,6 +210,31 @@ antd 图标覆盖不全时（例如「锅」「厨师帽」「家庭关系」这
 - 交互上采用**底部 TabBar 常驻**（首页 / 今日菜单 / 食材库 / 采购清单 / 个人，带徽标提示），搜索框与标签栏**吸顶**，单列卡片流式展示，减少层级跳转。
 - 页面内图标统一用 `@ant-design/icons`（见第四节），底部 Tab 用自绘多色 SVG。
 
+### 九、分端适配规则（PC / Pad / 手机）
+
+**设备判定**：`useIsMobile`（宽度 <768）只分「手机 / 非手机」；Pad 方向细分用 `useIsPadPortrait`（竖屏 + ≥768）；管理员后台的「是不是 PC」用 `isPcDevice()`（UA 级，含 iPadOS 桌面 UA 的触摸点数拆穿），不看宽度——宽度在 Pad 上会漏判。
+
+**菜单卡片墙列数**：
+
+| 场景               | 列数                                       |
+| ------------------ | ------------------------------------------ |
+| 手机竖屏（<768）   | 2                                          |
+| Pad 竖屏           | 3                                          |
+| Pad 横屏           | 4                                          |
+| PC 全屏 / 窗口缩放 | 4 起，随宽度收窄变 3 / 2                   |
+| PC 竖屏            | 3（不做专门适配，命中 Pad 竖屏同一条规则） |
+
+实现要点：iPad Pro 12.9 竖屏和 iPad 9.7 横屏宽度同为 1024，纯宽度断点区分不了「竖 3 横 4」，必须方向 + 宽度联合判定（`Menu/index.tsx` 里 Pad 竖屏时 Col 强制 `span={8}`，不能改 `lg` 断点——iPad 横屏也落在 lg 区间）。
+
+**手机端不支持横屏**（和微信一样）：
+
+- PWA 层面：`manifest.orientation = 'portrait'`，安卓加到主屏幕后系统级锁竖屏；
+- 浏览器层面（锁不住的兜底）：`LandscapeGuard` 在「手机 + 横屏」时盖全屏毛玻璃遮罩，转回竖屏自动消失；
+- 手机判定用 UA，不能用宽度——横过来宽度超 768 会被误判成 PC，遮罩刚出来就消失；
+- iPad / 安卓平板放行，横屏正常用。
+
+**Pad 端 UI 方向（已定，待做）**：Pad 目前暂用 PC 端 UI，**后续专门做一套 Pad 专属 UI**——侧边栏导航 + 内容区（类似管理后台 ProLayout 骨架），控件按触摸尺寸设计；PC UI 的 hover 交互和小控件不适合触屏，移动 UI 的底部 TabBar 又不适合宽屏。动工前维持现状，不再对 Pad 做零碎调整。
+
 ### 用户与 UI 的关系
 
 首先 UI 适配了三种系统：PC 端 pad 端和移动端。其次 用户分两类 一类是普通用户 一类是管理员。UI 跟用户的关系是：
@@ -392,7 +417,7 @@ cook/
 
 | 表名                | 用途                                  | 关键字段                                                                                                                              |
 | ------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `dishes`            | 菜品主表                              | `id` (text PK), `name`, `category`, `difficulty`, `cook_time_min`, `servings`, `cover_image`, `cover_color`, `favorite`, `created_at` |
+| `dishes`            | 菜品主表                              | `id` (text PK), `name`, `category`, `difficulty`, `cook_time_min`, `servings`, `cover_image`, `favorite`, `created_at`, `tips` |
 | `ingredients`       | 食材库                                | `id` (text PK), `name`, `category`, `price_per_unit`, `unit`, `spec`, `note`, `unit_grams`, `unit_ml`                                 |
 | `dish_tags`         | 菜-标签（多对多）                     | `dish_id`, `tag`（联合主键）                                                                                                          |
 | `dish_ingredients`  | 菜-食材（含用量）                     | `id` (bigserial PK), `dish_id`, `ingredient_id`, `amount`, `unit`                                                                     |

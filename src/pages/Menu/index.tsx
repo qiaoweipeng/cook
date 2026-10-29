@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { Input, Segmented, Empty, Row, Col, Switch, Space, Spin, Button, App as AntApp } from 'antd';
+import { Input, Segmented, Empty, Row, Col, Switch, Space, Spin, App as AntApp } from 'antd';
 import { Tabs, PullToRefresh, Toast } from 'antd-mobile';
-import { PlusOutlined, SearchOutlined, StarOutlined, StarFilled } from '@ant-design/icons';
+import { SearchOutlined, StarOutlined, StarFilled } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
@@ -11,6 +11,7 @@ import DishEditor from '@/components/DishEditor';
 import DishManageTable from '@/components/DishManageTable';
 import { useIsAdmin } from '@/store/useAuthStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useIsPadPortrait } from '@/hooks/useIsPadPortrait';
 import type { Dish, DishCategory } from '@/types';
 
 // 顶部标题区（「今天想吃点啥？」+ 收录数量）已整块删除，这里原本解构的 Text 也不再需要。
@@ -45,6 +46,7 @@ export default function Menu() {
   const ingredients = useIngredientStore((s) => s.items);
   const isAdmin = useIsAdmin();
   const isMobile = useIsMobile();
+  const isPadPortrait = useIsPadPortrait();
   const [keyword, setKeyword] = useState('');
   const [category, setCategory] = useState<DishCategory | '全部'>('全部');
   const [favOnly, setFavOnly] = useState(false);
@@ -308,7 +310,9 @@ export default function Menu() {
         <>
           <Row gutter={isMobile ? [10, 10] : [16, 16]}>
             {visible.map((d) => (
-              <Col key={d.id} xs={12} sm={12} md={8} lg={6}>
+              // Pad 竖屏强制 3 列（span 8）。其余走响应式：手机 2 列、md 3 列、lg 起 4 列。
+              // 注意不能写成 lg={8}：iPad 横屏（1024~1194）也落在 lg 区间，那样横屏会变 3 列。
+              <Col key={d.id} {...(isPadPortrait ? { span: 8 } : { xs: 12, sm: 12, md: 8, lg: 6 })}>
                 <DishCard dish={d} cost={calcDishCost(d, ingredients)} />
               </Col>
             ))}
