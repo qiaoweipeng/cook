@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { Input, Segmented, Empty, Row, Col, Switch, Space, Spin, App as AntApp } from 'antd';
-import { Tabs, PullToRefresh, Toast } from 'antd-mobile';
+import { Input, Segmented, Empty, Row, Col, Switch, Space, Spin, Tag, App as AntApp } from 'antd';
+import { Tabs, PullToRefresh, Toast, Tag as MobileTag } from 'antd-mobile';
 import { SearchOutlined, StarOutlined, StarFilled } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useDishStore } from '@/store/useDishStore';
@@ -19,7 +19,9 @@ import type { Dish, DishCategory } from '@/types';
 
 /**
  * 首页 Tab / PC 菜单的分类顺序（两端共用这一份）。
- * 「鲁菜」「减脂」是后来加的；「江浙」挪到倒数第二留着兜底；「其他」照旧垫底。
+ * 这里只放「菜系 / 形态」，一道菜只归一类；
+ * 「减脂」「快手」这类跨菜系属性挪到了下面的 ATTRIBUTE_TAGS（一道菜可挂多个），
+ * 跟菜系 Tab 组合筛选 —— 比如「川菜」Tab + 「减脂」chip = 减脂川菜。
  * 两端都能横向滚动（移动端是 antd-mobile Tabs、PC 是 Segmented 套 overflow-x），多几项不会挤爆。
  */
 const categories: Array<DishCategory | '全部'> = [
@@ -29,14 +31,19 @@ const categories: Array<DishCategory | '全部'> = [
   '粤菜',
   '湘菜',
   '鲁菜',
-  '快手',
   '烘焙',
   '汤羹',
   '凉菜',
-  '减脂',
   '江浙',
   '其他',
 ];
+
+/**
+ * 属性筛选 chips（可多选，之间是「或」的关系，和菜系 Tab 是「且」）。
+ * 清单硬编码在这里：数量少、变化慢，是产品定义不是用户数据，不值得建表。
+ * 加新属性时往这里加一项即可，编辑器里的标签是自由输入的，不受这个清单限制。
+ */
+const ATTRIBUTE_TAGS = ['减脂', '快手', '下饭', '清淡', '素食', '宴客'];
 
 const PAGE_SIZE = 8;
 
@@ -52,6 +59,7 @@ export default function Menu() {
   const isPadPortrait = useIsPadPortrait();
   const [keyword, setKeyword] = useState('');
   const [category, setCategory] = useState<DishCategory | '全部'>('全部');
+  const [activeTags, setActiveTags] = useState<string[]>([]);
   const [favOnly, setFavOnly] = useState(false);
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -69,10 +77,15 @@ export default function Menu() {
   */
   const showManageTable = isAdmin && !isMobile;
 
+  const toggleTag = (t: string) =>
+    setActiveTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+
   const filtered = useMemo(() => {
     const k = keyword.trim().toLowerCase();
     return dishes.filter((d) => {
       if (category !== '全部' && d.category !== category) return false;
+      // 属性 chips：多选时是「或」—— 只要菜挂上任意一个选中的属性就算命中
+      if (activeTags.length > 0 && !d.tags.some((t) => activeTags.includes(t))) return false;
       if (favOnly && !d.favorite) return false;
       if (k) {
         const matchName = d.name.toLowerCase().includes(k);
@@ -81,12 +94,12 @@ export default function Menu() {
       }
       return true;
     });
-  }, [dishes, keyword, category, favOnly]);
+  }, [dishes, keyword, category, activeTags, favOnly]);
 
   // 筛选条件变了 → 把已加载的页数重置回 PAGE_SIZE
   useEffect(() => {
     setDisplayCount(PAGE_SIZE);
-  }, [keyword, category, favOnly]);
+  }, [keyword, category, activeTags, favOnly]);
 
   // 滚到底（sentinel 进入视口）→ 加载下一页
   useEffect(() => {
@@ -286,6 +299,46 @@ export default function Menu() {
                 </Space>
               </div>
             )}
+            {/*
+              属性筛选 chips（减脂/快手/下饭…）：可多选，和上面的菜系 Tab 组合过滤。
+              移动端用 antd-mobile Tag（圆角胶囊，选中实心橙），PC 用 antd CheckableTag。
+            */}
+            <div
+              style={{
+                flex: '0 0 100%',
+                marginTop: 6,
+                display: 'flex',
+                gap: 8,
+                overflowX: 'auto',
+                flexWrap: 'nowrap',
+                paddingBottom: 2,
+              }}
+            >
+              {ATTRIBUTE_TAGS.map((t) => {
+                const on = activeTags.includes(t);
+                return isMobile ? (
+                  <MobileTag
+                    key={t}
+                    round
+                    fill={on ? 'solid' : 'outline'}
+                    color={on ? 'warning' : 'default'}
+                    onClick={() => toggleTag(t)}
+                    style={{ flexShrink: 0, fontSize: 14, padding: '5px 12px' }}
+                  >
+                    {t}
+                  </MobileTag>
+                ) : (
+                  <Tag.CheckableTag
+                    key={t}
+                    checked={on}
+                    onChange={() => toggleTag(t)}
+                    style={{ flexShrink: 0, fontSize: 14, padding: '2px 10px' }}
+                  >
+                    {t}
+                  </Tag.CheckableTag>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}

@@ -13,7 +13,7 @@ export const seedDishes: Dish[] = [
     id: 'dish_garlic_green',
     name: '蒜蓉炒青菜',
     coverImage: '/seeds/dish_garlic_green.webp',
-    category: '快手',
+    category: '家常',
     tags: ['快手', '素食'],
     difficulty: 1,
     cookTimeMin: 5,
@@ -374,8 +374,8 @@ export const seedDishes: Dish[] = [
   {
     id: 'dish_tiger_pepper',
     name: '虎皮青椒',
-    category: '快手',
-    tags: ['素食', '开胃', '新手'],
+    category: '家常',
+    tags: ['快手', '素食', '开胃', '新手'],
     difficulty: 1,
     cookTimeMin: 10,
     servings: 2,
@@ -435,7 +435,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'dish_cucumber_egg',
     name: '黄瓜炒蛋',
-    category: '快手',
+    category: '家常',
     tags: ['快手', '新手', '清淡'],
     difficulty: 1,
     cookTimeMin: 10,
@@ -490,7 +490,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'dish_sausage_egg',
     name: '香肠炒蛋',
-    category: '快手',
+    category: '家常',
     tags: ['快手', '下饭', '新手'],
     difficulty: 1,
     cookTimeMin: 10,
@@ -1517,7 +1517,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'dish_chive_egg',
     name: '韭菜炒鸡蛋',
-    category: '快手',
+    category: '家常',
     tags: ['快手', '下饭', '新手'],
     difficulty: 1,
     cookTimeMin: 8,
@@ -1687,13 +1687,14 @@ export const seedDishes: Dish[] = [
   },
 
   // ==================== 减脂菜单 ====================
+  // 「减脂」是属性标签不是菜系：这批菜 tags 里都带「减脂」，category 归各自菜系。
   // 统一标准：低油（用油压到 5ml 以内）、低糖、低盐、低碳水，高蛋白 + 高纤维。
   // 做法上能蒸就不炒、能拌就不红烧。
   // 注：「白灼虾」「凉拌黄瓜」菜单里本来就有，没有重复添加。
   {
     id: 'diet_steamed_fish',
     name: '清蒸鱼',
-    category: '减脂',
+    category: '粤菜',
     tags: ['减脂', '高蛋白'],
     difficulty: 2,
     cookTimeMin: 15,
@@ -1721,7 +1722,7 @@ export const seedDishes: Dish[] = [
     id: 'diet_boiled_chicken_breast',
     name: '水煮鸡胸肉',
     coverImage: '/seeds/diet_boiled_chicken_breast.webp',
-    category: '减脂',
+    category: '家常',
     tags: ['减脂', '高蛋白'],
     difficulty: 1,
     cookTimeMin: 20,
@@ -1747,7 +1748,7 @@ export const seedDishes: Dish[] = [
     id: 'diet_stirfry_broccoli',
     name: '清炒西兰花',
     coverImage: '/seeds/diet_stirfry_broccoli.webp',
-    category: '减脂',
+    category: '家常',
     tags: ['减脂', '高纤维'],
     difficulty: 1,
     cookTimeMin: 10,
@@ -1771,7 +1772,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'diet_tomato_enoki_tofu_soup',
     name: '番茄金针菇豆腐汤',
-    category: '减脂',
+    category: '汤羹',
     tags: ['减脂', '高纤维'],
     difficulty: 1,
     cookTimeMin: 15,
@@ -1796,7 +1797,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'diet_steamed_egg',
     name: '蒸蛋羹',
-    category: '减脂',
+    category: '家常',
     tags: ['减脂', '高蛋白'],
     difficulty: 2,
     cookTimeMin: 15,
@@ -1821,7 +1822,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'diet_cold_chicken_salad',
     name: '凉拌鸡丝',
-    category: '减脂',
+    category: '凉菜',
     tags: ['减脂', '高蛋白'],
     difficulty: 2,
     cookTimeMin: 25,
@@ -1847,7 +1848,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'diet_winter_melon_shrimp',
     name: '少油版冬瓜虾仁',
-    category: '减脂',
+    category: '家常',
     tags: ['减脂', '高蛋白'],
     difficulty: 2,
     cookTimeMin: 20,
@@ -1875,7 +1876,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'diet_brown_rice_chicken',
     name: '糙米饭配煎鸡胸',
-    category: '减脂',
+    category: '家常',
     tags: ['减脂', '高蛋白'],
     difficulty: 2,
     cookTimeMin: 35,
