@@ -64,6 +64,21 @@ export async function getUser(uid: string): Promise<UserRow | null> {
   return rows[0] ?? null;
 }
 
+/**
+ * 只查停用标记。停用轮询每 20s + 窗口聚焦一次，用全列 getUser 每轮会把
+ * base64 头像（~6.5KB）也拉回来，常开会话一个月能吃掉 ~1GB egress；
+ * 只取 disabled 列后每轮只有几十字节。
+ */
+export async function getUserDisabledFlag(uid: string): Promise<boolean> {
+  if (!isCloudEnabled()) return false;
+  const rows = await pgSelect<Pick<UserRow, 'disabled'>>('users', {
+    select: 'disabled',
+    id: `eq.${uid}`,
+    limit: 1,
+  });
+  return rows[0]?.disabled === true;
+}
+
 export async function listUsers(): Promise<UserRow[]> {
   if (!isCloudEnabled()) return [];
   const rows = await pgSelect<UserRow>('users', {

@@ -21,7 +21,7 @@ import { useShoppingStore } from './store/useShoppingStore';
 import { useWeeklyStore } from './store/useWeeklyStore';
 import { useFamilyStore } from './store/useFamilyStore';
 import { resetUserScopedStores, switchUserScopedStores } from './store/userScope';
-import { ensureAdminRow, getUser, ADMIN_UID } from './lib/userAdmin';
+import { ensureAdminRow, getUserDisabledFlag, ADMIN_UID } from './lib/userAdmin';
 import { isCloudEnabled } from './lib/supabase';
 import { loadSession } from './lib/userAuth';
 import { logLogin } from './lib/clientInfo';
@@ -117,8 +117,9 @@ function useDisabledWatcher() {
 
     const check = async () => {
       try {
-        const row = await getUser(uid);
-        if (stopped || !row?.disabled) return;
+        // 只取 disabled 一列：全列查询每轮会带回 base64 头像，白白烧 egress
+        const disabled = await getUserDisabledFlag(uid);
+        if (stopped || !disabled) return;
         // 清会话 + 清各 store 的用户态
         useAuthStore.getState().setUser(null);
         resetUserScopedStores();

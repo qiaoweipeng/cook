@@ -1346,6 +1346,7 @@ npx netlify-cli deploy --prod --dir=dist                          # 2) 上传到
 | 静态页面 `VM169:1 cls is not defined`        | CloudBase CDN 注入的引导脚本                                         | 配 404 → index.html 兜底后自动消失                                                                                  |
 | `cover_image` / `users.avatar` 列不存在      | PostgREST 报 42703                                                   | 跑增量 SQL 里的 `ALTER TABLE`                                                                                       |
 | 头像 base64 **原图**直存 users 表            | 用户管理每次进都 loading 5~10 秒（列表要跨境拉 1.4MB 头像，实测 9s） | 上传一律压缩成 192px WebP 再存（约 10KB）；`listUsers` 拉到超 60KB 的旧头像会自动压缩写回（存量自愈，无需手动重传） |
+| Supabase 免费 Egress 5GB 一个月跑爆（108%）  | 流量大头**不是数据库**（全库才 271KB）：73 张封面图每次渲染都从 Storage 跨境重拉（≈每天整桶 22 遍）；停用轮询每 20s 全列拉 users 行（含头像 ~6.5KB/次） | `sw.ts` 对 `/storage/v1/object/` 图片做缓存优先（URL 内容寻址、换图换 URL，永不过期）；轮询改用 `getUserDisabledFlag` 只取 `disabled` 一列 |
 | 管理页请求串行 await                         | 几个跨境往返的时间相加，页面 loading 久                              | 互不依赖的请求并行发出；连通性探测并入批量统计，不单独跑一轮                                                        |
 | 全站响应带 `Content-Disposition: attachment` | 站点变成「下载页面」（地址栏出现 `download.html`）                   | 见下面「站点被当成下载」一节                                                                                        |
 

@@ -9,8 +9,9 @@
 //   2. 收到 push 事件 → 弹系统通知（通知中心里那条）
 //   3. 点通知 → 打开 / 聚焦到对应页面
 //
-// 刻意只拦同源请求：跨域的 Supabase API 一律放行。
-// 否则 GET 查询结果会被缓存住，用户看到的永远是旧数据。
+// 跨域的 Supabase API（/rest/v1/）一律放行，否则 GET 查询结果会被缓存住，
+// 用户看到的永远是旧数据。唯一例外：Storage 的图片（封面/食材图）走缓存优先，
+// 因为它们是 egress 大头，且 URL 内容寻址（换图必换 URL）没有一致性问题。
 
 // 没有引 webworker lib —— 它跟项目 tsconfig 里的 DOM lib 会重复声明冲突。
 // 这里只按需声明实际用到的那几个 API。
@@ -36,6 +37,8 @@ const manifest =
   (self as unknown as { __WB_MANIFEST?: { url: string; revision: string | null }[] })
     .__WB_MANIFEST ?? [];
 const PRECACHE = 'cook-precache';
+// Supabase Storage 图片的独立缓存桶：activate 清旧缓存时要保留它
+const IMG_CACHE = 'cook-img';
 
 sw.addEventListener('install', (event) => {
   event.waitUntil(
@@ -69,7 +72,9 @@ sw.addEventListener('activate', (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((k) => k !== PRECACHE).map((k) => caches.delete(k)))
+        Promise.all(
+          keys.filter((k) => k !== PRECACHE && k !== IMG_CACHE).map((k) => caches.delete(k))
+        )
       )
       .then(() => sw.clients.claim())
   );
@@ -79,8 +84,37 @@ sw.addEventListener('fetch', (event: any) => {
   const req: Request = event.request;
   if (req.method !== 'GET') return;
 
-  // 跨域（Supabase / CDN）不拦，只管自己域名下的静态资源
-  if (new URL(req.url).origin !== sw.location.origin) return;
+  const url = new URL(req.url);
+
+  /*
+    Supabase Storage 的图片（菜品封面 / 食材图）：缓存优先，回源后写缓存。
+
+    这是 Supabase egress 的绝对大头 —— 菜单卡片墙 / 详情页 / 管理表格每次渲染
+    都跨境重拉同一批图，一个月能把 5GB 免费流量跑爆。封面 URL 带唯一文件名
+    （内容寻址，换图必然换 URL），所以缓存永远不过期也没有一致性问题。
+    只匹配 /storage/v1/object/ 路径，/rest/v1/ 等 API 依然不拦。
+  */
+  if (url.host.endsWith('.supabase.co') && url.pathname.startsWith('/storage/v1/object/')) {
+    event.respondWith(
+      caches.match(req).then(
+        (hit) =>
+          hit ??
+          // 不用 fetch(req)：img 标签发的是 no-cors 请求，拿回 opaque 响应没法
+          // 判断成败。Storage 对任意源开放 CORS，重新拉一次能拿到干净响应再缓存。
+          fetch(req.url).then((res) => {
+            if (res.ok) {
+              const copy = res.clone();
+              void caches.open(IMG_CACHE).then((c) => c.put(req, copy));
+            }
+            return res;
+          })
+      )
+    );
+    return;
+  }
+
+  // 其余跨域请求（Supabase API 等）不拦，只管自己域名下的静态资源
+  if (url.origin !== sw.location.origin) return;
 
   // 导航请求：网络优先，断网时回退 index.html，这样离线也能进 App
   if (req.mode === 'navigate') {
