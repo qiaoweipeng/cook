@@ -12,6 +12,7 @@ import {
   Input,
   Popconfirm,
   Divider,
+  Segmented,
 } from 'antd';
 import {
   DeleteOutlined,
@@ -20,8 +21,10 @@ import {
 } from '@ant-design/icons';
 import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
+import { usePriceStore } from '@/store/usePriceStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { mergeShoppingList } from '@/utils/merge';
+import { cheapestPlatform } from '@/utils/price';
 import PriceTag from '@/components/PriceTag';
 
 const { Text } = Typography;
@@ -39,6 +42,10 @@ export default function ShoppingListPanel() {
   const { message } = AntApp.useApp();
   const dishes = useDishStore((s) => s.items);
   const ingredients = useIngredientStore((s) => s.items);
+  // 采购时手动切平台：总成本立刻按这个平台的价格重算
+  const platform = usePriceStore((s) => s.platform);
+  const platforms = usePriceStore((s) => s.platforms);
+  const setPlatform = usePriceStore((s) => s.setPlatform);
   const {
     selectedDishIds,
     toggleDish,
@@ -55,8 +62,8 @@ export default function ShoppingListPanel() {
     [dishes, selectedDishIds]
   );
   const merged = useMemo(
-    () => mergeShoppingList(selectedDishes, ingredients),
-    [selectedDishes, ingredients]
+    () => mergeShoppingList(selectedDishes, ingredients, platform),
+    [selectedDishes, ingredients, platform]
   );
   const total = useMemo(
     () => merged.reduce((sum, x) => sum + x.totalCost, 0),
@@ -134,6 +141,12 @@ export default function ShoppingListPanel() {
           valueStyle={{ color: '#7BB661', fontWeight: 700, fontSize: 22 }}
         />
         <div style={{ flex: 1 }} />
+        <Segmented
+          size="small"
+          value={platform}
+          onChange={(v) => setPlatform(String(v))}
+          options={platforms}
+        />
         <Button
           size="small"
           icon={<DeleteOutlined />}
@@ -318,6 +331,9 @@ export default function ShoppingListPanel() {
             {merged.map((item) => {
               const key = `${item.ingredientId}_${item.unit}`;
               const checked = checkedKeys.includes(key);
+              // 这项食材全平台最低价：买的时候一眼知道该去哪个平台
+              const ing = ingredients.find((x) => x.id === item.ingredientId);
+              const cheapest = ing ? cheapestPlatform(ing) : null;
               return (
                 <div
                   key={key}
@@ -346,6 +362,11 @@ export default function ShoppingListPanel() {
                     >
                       {item.ingredientName}
                     </Text>
+                    {cheapest && (
+                      <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>
+                        最低 {cheapest.platform} ¥{Number(cheapest.value.toFixed(2))}/{cheapest.unit}
+                      </div>
+                    )}
                   </div>
                   <Text
                     type={checked ? 'secondary' : undefined}

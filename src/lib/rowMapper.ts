@@ -6,6 +6,7 @@
 // 否则 Node 环境下跑种子脚本会因为没有 IndexedDB、window 而崩掉。
 
 import type { Dish, Ingredient } from '@/types';
+import { DEFAULT_PLATFORM } from '@/utils/platforms';
 
 /** 前端 Dish → dishes 表的一行（snake_case） */
 export function dishToRow(d: Dish) {
@@ -49,29 +50,78 @@ export function ingToRow(i: Ingredient) {
     id: i.id,
     name: i.name,
     category: i.category,
-    price_per_unit: i.pricePerUnit,
     unit: i.unit,
-    spec: i.spec ?? null,
+    // 各平台价格整体放 jsonb：以后加超市不用改表结构
+    prices: i.prices ?? {},
     note: i.note ?? null,
-    unit_grams: i.unitGrams ?? null,
-    unit_ml: i.unitMl ?? null,
     image: i.image ?? null,
+    calories: i.nutrition?.calories ?? null,
+    protein: i.nutrition?.protein ?? null,
+    fat: i.nutrition?.fat ?? null,
+    carbs: i.nutrition?.carbs ?? null,
+    sodium: i.nutrition?.sodium ?? null,
+    fiber: i.nutrition?.fiber ?? null,
   };
 }
 
 /** ingredients 表的一行 → 前端 Ingredient */
 export function rowToIng(r: any): Ingredient {
+  const prices: Ingredient['prices'] =
+    r.prices && typeof r.prices === 'object' ? { ...r.prices } : {};
+
+  /*
+    老数据兼容：以前是单列 price_per_unit + spec / unit_grams / unit_ml。
+    新表还没迁移、或者云端还是旧行时，把旧单价按「份量」折算到默认平台下，
+    页面至少还能显示合理的元/斤、元/L；等新种子写回云端后 legacy 标记会消失。
+  */
+  let unit: Ingredient['unit'] = r.unit;
+  let legacy = false;
+  if (Object.keys(prices).length === 0 && r.price_per_unit != null) {
+    const price = Number(r.price_per_unit);
+    const grams = Number(r.unit_grams ?? 0);
+    const ml = Number(r.unit_ml ?? 0);
+    if (ml > 0) {
+      // 旧「瓶 / 盒」液体 → 折成升
+      unit = 'L';
+      prices[DEFAULT_PLATFORM] = { price, amount: ml / 1000 };
+    } else if (grams > 0) {
+      // 旧「个 / 把 / 袋 / 块」散装 → 折成斤
+      unit = '斤';
+      prices[DEFAULT_PLATFORM] = { price, amount: grams / 500 };
+    } else {
+      prices[DEFAULT_PLATFORM] = { price, amount: 1 };
+    }
+    legacy = true;
+  }
+
+  const hasNutrition =
+    r.calories != null ||
+    r.protein != null ||
+    r.fat != null ||
+    r.carbs != null ||
+    r.sodium != null ||
+    r.fiber != null;
+
   return {
     id: r.id,
     name: r.name,
     category: r.category,
-    pricePerUnit: Number(r.price_per_unit),
-    unit: r.unit,
-    spec: r.spec ?? undefined,
+    unit,
+    prices,
     note: r.note ?? undefined,
-    unitGrams: r.unit_grams ?? undefined,
-    unitMl: r.unit_ml ?? undefined,
+    nutrition: hasNutrition
+      ? {
+        calories: Number(r.calories ?? 0),
+        protein: Number(r.protein ?? 0),
+        fat: Number(r.fat ?? 0),
+        carbs: Number(r.carbs ?? 0),
+        sodium: Number(r.sodium ?? 0),
+        fiber: Number(r.fiber ?? 0),
+      }
+      : undefined,
     // 少了这行的话：图片能存进数据库，读回来时却丢了，页面永远显示不出来
     image: r.image ?? undefined,
+    legacy,
   };
 }
+

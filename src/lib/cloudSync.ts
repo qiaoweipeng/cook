@@ -157,10 +157,18 @@ async function saveIngredient(i: Ingredient): Promise<void> {
   try {
     await write();
   } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e ?? '');
     if (isMissingIngredientImageColumn(e)) {
       throw new Error(
         '数据库的 ingredients 表缺少 image 列，图片无法保存。' +
         '请在 Supabase 控制台执行：ALTER TABLE ingredients ADD COLUMN image text;'
+      );
+    }
+    // 新的多平台价格 / 营养列没建：直接说清该执行哪段 SQL，别让用户对着 PGRST204 猜
+    if (msg.includes('prices') || msg.includes('calories')) {
+      throw new Error(
+        '数据库的 ingredients 表还是旧结构（缺 prices / 营养列）。' +
+        '请先在 Supabase SQL 编辑器执行 supabase/schema.sql 里 ingredients 的 alter table 语句。'
       );
     }
     throw e;

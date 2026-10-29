@@ -30,14 +30,23 @@ interface IngredientState {
   replaceAll: (ings: Ingredient[]) => Promise<void>;
   bulkMerge: (ings: Ingredient[]) => Promise<void>;
   resetToSeed: () => Promise<void>;
+  /** 只把云端缺的种子食材补上（不动已有数据） */
+  seedMissingToCloud: () => Promise<number>;
+  /** 用代码里的种子整体覆盖云端食材（全部重置） */
+  overwriteFromSeed: () => Promise<void>;
 }
 
-async function writeCloud(ing: Ingredient): Promise<void> {
-  await cloudSet('ingredients', ing.id, {
-    data: ing,
-    updated_by: useAuthStore.getState().user?.uid ?? 'anonymous',
-    updated_at: Date.now(),
-  });
+async function writeCloud(ing: Ingredient, throwOnError = false): Promise<void> {
+  await cloudSet(
+    'ingredients',
+    ing.id,
+    {
+      data: ing,
+      updated_by: useAuthStore.getState().user?.uid ?? 'anonymous',
+      updated_at: Date.now(),
+    },
+    throwOnError
+  );
 }
 
 /**
@@ -70,25 +79,31 @@ export const useIngredientStore = create<IngredientState>()(
           return;
         }
         set({ loading: true });
-        const remote = await cloudList<Ingredient>('ingredients');
-        if (remote.length === 0) {
-          for (const ing of seedIngredients) await writeCloud(ing);
-          set({ items: seedIngredients, loaded: true, loading: false, cloudAvailable: true });
-        } else {
-          /*
-            云端已有数据 → 以云端为准，但把种子里**新增**的食材补进去（按 id 判断，只加不删）。
-
-            这个必须补：新菜引用的食材要是云端没有，菜品详情里的食材行会整片空白、
-            成本也算不出来。比如减脂菜单用到的鸡胸肉、糙米，都是后加进种子的。
-
-            dismissed：用户自己删过的食材不补，否则删完一刷新又回来了。
-          */
-          const missing = missingSeedIngredients(new Set(remote.map((r) => r.data.id)));
-          for (const ing of missing) await writeCloud(ing);
-
-          const items = [...remote.map((r) => r.data), ...missing];
-          set({ items, loaded: true, loading: false, cloudAvailable: true });
+        /*
+          拉取失败（网络抖动 / 网关 400）不能当成「云端是空表」：
+          以前吞掉错误返回 []，接下来就会把本地种子全量写上去，
+          等于用旧数据覆盖云端。现在失败就保留本地缓存，一个字节都不写。
+        */
+        let remote: Array<{ id: string; data: Ingredient }> | null = null;
+        try {
+          remote = await cloudList<Ingredient>('ingredients', { throwOnError: true });
+        } catch (e) {
+          console.error('[ingredients] 拉取云端失败，保留本地缓存', e);
         }
+        if (!remote) {
+          set({ loaded: true, loading: false, cloudAvailable: false });
+          return;
+        }
+        /*
+          以云端为准。种子里「云端没有的」食材不再自动补：
+          播种统一改成系统管理页手动触发，避免任何加载路径偷偷写数据。
+        */
+        set({
+          items: remote.map((r) => r.data),
+          loaded: true,
+          loading: false,
+          cloudAvailable: true,
+        });
       },
 
       add: async (ing) => {
@@ -163,11 +178,31 @@ export const useIngredientStore = create<IngredientState>()(
         clearDismissed(DISMISSED_INGREDIENTS_KEY);
         set({ items: seedIngredients });
       },
+
+      seedMissingToCloud: async () => {
+        // 拉取失败必须抛错：否则「拉不到」会被当成「全都缺」，等于全量重写一遍
+        const remote = await cloudList<Ingredient>('ingredients', { throwOnError: true });
+        const have = new Set(remote.map((r) => r.data.id));
+        const missing = seedIngredients.filter((ing) => !have.has(ing.id));
+        for (const ing of missing) await writeCloud(ing, true);
+        if (missing.length) set({ items: [...get().items, ...missing] });
+        logOp('补缺失食材种子', '', `共 ${missing.length} 项`);
+        return missing.length;
+      },
+
+      overwriteFromSeed: async () => {
+        // 整体覆盖：85 条种子逐条 upsert，云端旧单价 / 旧单位一并换成新结构
+        for (const ing of seedIngredients) await writeCloud(ing, true);
+        set({ items: seedIngredients });
+        logOp('用种子覆盖食材', '', `共 ${seedIngredients.length} 项`);
+      },
     }),
     {
       name: 'cook-ingredients',
-      version: 3,
+      version: 4,
       storage: idbStorage,
+      // v3 → v4：价格结构换成多平台 prices，老缓存里的单单价直接丢掉，改用新种子
+      migrate: () => ({ items: seedIngredients }) as IngredientState,
       partialize: (s) => ({ items: s.items }),
     }
   )

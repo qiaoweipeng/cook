@@ -1,4 +1,17 @@
 import type { Dish, Ingredient } from '@/types';
+import { DEFAULT_PLATFORM } from './platforms';
+
+/*
+  当前比价平台：界面上切换平台时由 usePriceStore 同步进来，
+  各页面算成本时不用层层传参，默认就跟着当前选中的平台走。
+*/
+let currentPlatform: string = DEFAULT_PLATFORM;
+export function setCurrentPlatform(platform: string) {
+  currentPlatform = platform;
+}
+export function getCurrentPlatform() {
+  return currentPlatform;
+}
 
 export type UnitKind = 'mass' | 'volume' | 'count';
 
@@ -14,6 +27,7 @@ const massMap: Record<string, number> = {
   公斤: 1000,
   斤: 500,
   两: 50,
+  mg: 0.001,
 };
 
 const volumeMap: Record<string, number> = {
@@ -24,59 +38,131 @@ const volumeMap: Record<string, number> = {
 };
 
 /**
+ * 老数据里残留的「个 / 把 / 头」等计数单位：
+ * 只用于让旧菜谱还能大概算出成本，新数据统一用 斤 / g / kg / ml / L。
+ */
+const legacyCountMap: Record<string, { value: number; kind: 'mass' | 'volume' }> = {
+  个: { value: 100, kind: 'mass' },
+  把: { value: 200, kind: 'mass' },
+  头: { value: 40, kind: 'mass' },
+  块: { value: 10, kind: 'mass' },
+  根: { value: 200, kind: 'mass' },
+  颗: { value: 400, kind: 'mass' },
+  只: { value: 150, kind: 'mass' },
+  袋: { value: 500, kind: 'mass' },
+  盒: { value: 400, kind: 'mass' },
+  包: { value: 150, kind: 'mass' },
+  瓶: { value: 500, kind: 'volume' },
+};
+
+/**
  * 把数量按 unit 标准化为基础单位
  * - mass → 克
  * - volume → 毫升
  * - count → 数量本身
- *
- * 用 unitGrams / unitMl 提示，可以把「个 / 瓶」统一到质量或体积维度
- * 这样不同菜谱写「100 g 五花肉」和食材库的「1 斤 五花肉 ¥22」能正确换算
  */
-export function normalizeToBase(
-  amount: number,
-  unit: string,
-  hint?: { unitGrams?: number; unitMl?: number }
-): BaseValue {
-  const u = unit.trim().toLowerCase();
+export function normalizeToBase(amount: number, unit: string): BaseValue {
+  const u = (unit ?? '').trim().toLowerCase();
   if (massMap[u] !== undefined) return { value: amount * massMap[u], kind: 'mass' };
   if (volumeMap[u] !== undefined) return { value: amount * volumeMap[u], kind: 'volume' };
-  if (hint?.unitMl !== undefined) return { value: amount * hint.unitMl, kind: 'volume' };
-  if (hint?.unitGrams !== undefined) return { value: amount * hint.unitGrams, kind: 'mass' };
+  const legacy = legacyCountMap[(unit ?? '').trim()];
+  if (legacy) return { value: amount * legacy.value, kind: legacy.kind };
   return { value: amount, kind: 'count' };
 }
 
-/** 一道菜里某项食材的小计（按换算后的 cost 计算） */
+/** 归一化后的「元 / 克」或「元 / 毫升」 */
+export function pricePerBase(
+  ing: Ingredient,
+  platform: string
+): BaseValue | null {
+  const p = ing.prices?.[platform];
+  if (!p || !Number.isFinite(p.price) || p.price <= 0) return null;
+  const amount = p.amount && p.amount > 0 ? p.amount : 1;
+  // 这一份的单价（元 / 食材计价单位）
+  const perUnit = p.price / amount;
+  const base = normalizeToBase(1, ing.unit);
+  if (base.value <= 0) return null;
+  return { value: perUnit / base.value, kind: base.kind };
+}
+
+/**
+ * 折算成人看得懂的比价单位：
+ * - 固体 → 元/斤
+ * - 液体 → 元/L
+ * - 老计数单位 → 元/个、元/把…
+ */
+export function displayUnitPrice(
+  ing: Ingredient,
+  platform: string
+): { value: number; unit: string } | null {
+  const base = pricePerBase(ing, platform);
+  if (!base) return null;
+  if (base.kind === 'mass') return { value: base.value * 500, unit: '斤' };
+  if (base.kind === 'volume') return { value: base.value * 1000, unit: 'L' };
+  return { value: base.value, unit: ing.unit };
+}
+
+/** 找这个食材最便宜的平台（没录价的平台跳过） */
+export function cheapestPlatform(
+  ing: Ingredient
+): { platform: string; value: number; unit: string } | null {
+  let best: { platform: string; value: number; unit: string } | null = null;
+  for (const platform of Object.keys(ing.prices ?? {})) {
+    const d = displayUnitPrice(ing, platform);
+    if (!d || d.value <= 0) continue;
+    if (!best || d.value < best.value) best = { platform, ...d };
+  }
+  return best;
+}
+
+/** 选定平台没录价时，退回第一个有价格的平台，避免整道菜成本算成 0 */
+function resolvePricePlatform(ing: Ingredient, platform: string): string | null {
+  if (pricePerBase(ing, platform)) return platform;
+  return Object.keys(ing.prices ?? {}).find((p) => pricePerBase(ing, p)) ?? null;
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/** 一道菜里某项食材的小计（按选定平台的单价折算） */
 export function lineCost(
   dishIngredient: { ingredientId: string; amount: number; unit: string },
-  ingredients: Ingredient[]
+  ingredients: Ingredient[],
+  platform: string = currentPlatform
 ): number {
   const ing = ingredients.find((i) => i.id === dishIngredient.ingredientId);
   if (!ing) return 0;
 
-  const hint = { unitGrams: ing.unitGrams, unitMl: ing.unitMl };
-  const dBase = normalizeToBase(dishIngredient.amount, dishIngredient.unit, hint);
-  const iBase = normalizeToBase(1, ing.unit, hint);
+  const usePlatform = resolvePricePlatform(ing, platform);
+  if (!usePlatform) return 0;
+  const price = pricePerBase(ing, usePlatform);
+  if (!price) return 0;
 
-  // 同维度：可以换算
-  if (dBase.kind === iBase.kind && iBase.value > 0) {
-    const basePrice = ing.pricePerUnit / iBase.value; // 基础单位价格 (元/克 或 元/毫升)
-    return Math.round(basePrice * dBase.value * 100) / 100;
-  }
-  // 跨维度兜底，按 1:1 估算（不精确但有数字）
-  return Math.round(ing.pricePerUnit * dishIngredient.amount * 100) / 100;
+  const dBase = normalizeToBase(dishIngredient.amount, dishIngredient.unit);
+  if (dBase.kind === price.kind) return round2(price.value * dBase.value);
+
+  // 跨维度兜底：按「一份」估算，不至于整道菜没数
+  const p = ing.prices[usePlatform];
+  const amount = p.amount && p.amount > 0 ? p.amount : 1;
+  return round2((p.price / amount) * dishIngredient.amount);
 }
 
 /** 一道菜的总成本 */
-export function calcDishCost(dish: Dish, ingredients: Ingredient[]): number {
-  return Math.round(
-    dish.ingredients.reduce((sum, di) => sum + lineCost(di, ingredients), 0) * 100
-  ) / 100;
+export function calcDishCost(
+  dish: Dish,
+  ingredients: Ingredient[],
+  platform: string = currentPlatform
+): number {
+  return round2(
+    dish.ingredients.reduce((sum, di) => sum + lineCost(di, ingredients, platform), 0)
+  );
 }
 
 /** 把基础单位还原成可读的展示单位 */
 export function formatBaseValue(value: number, kind: UnitKind): { amount: number; unit: string } {
   if (kind === 'mass') {
-    if (value >= 1000) return { amount: Math.round((value / 500) * 100) / 100, unit: '斤' };
+    if (value >= 500) return { amount: Math.round((value / 500) * 100) / 100, unit: '斤' };
     return { amount: Math.round(value), unit: 'g' };
   }
   if (kind === 'volume') {

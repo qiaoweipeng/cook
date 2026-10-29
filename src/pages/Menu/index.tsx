@@ -5,6 +5,7 @@ import { SearchOutlined, StarOutlined, StarFilled } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
+import { usePriceStore } from '@/store/usePriceStore';
 import { calcDishCost } from '@/utils/price';
 import DishCard from '@/components/DishCard';
 import DishEditor from '@/components/DishEditor';
@@ -44,6 +45,8 @@ export default function Menu() {
   const { message } = AntApp.useApp();
   const dishes = useDishStore((s) => s.items);
   const ingredients = useIngredientStore((s) => s.items);
+  // 订阅当前平台：切换平台后卡片成本要立刻跟着变
+  usePriceStore((s) => s.platform);
   const isAdmin = useIsAdmin();
   const isMobile = useIsMobile();
   const isPadPortrait = useIsPadPortrait();

@@ -72,17 +72,37 @@ create table if not exists public.ingredients (
   id             text primary key,
   name           text not null,
   category       text,
-  price_per_unit numeric,
   unit           text,
-  spec           text,
+  -- 各平台价格：{"盒马NB":{"price":3.8,"amount":1}, ...} 加超市不用改表
+  prices         jsonb not null default '{}'::jsonb,
   note           text,
-  unit_grams     numeric,
-  unit_ml        numeric,
-  image          text
+  image          text,
+  -- 每 100g / 100ml 的营养
+  calories       numeric,
+  protein        numeric,
+  fat            numeric,
+  carbs          numeric,
+  sodium         numeric,
+  fiber          numeric
 );
 
 -- 老库升级：食材图片（对象存储的 URL）
 alter table public.ingredients add column if not exists image text;
+-- 老库升级：多平台价格 + 营养
+alter table public.ingredients add column if not exists prices jsonb not null default '{}'::jsonb;
+alter table public.ingredients add column if not exists calories numeric;
+alter table public.ingredients add column if not exists protein numeric;
+alter table public.ingredients add column if not exists fat numeric;
+alter table public.ingredients add column if not exists carbs numeric;
+alter table public.ingredients add column if not exists sodium numeric;
+alter table public.ingredients add column if not exists fiber numeric;
+
+-- 老列 price_per_unit / spec / unit_grams / unit_ml 已废弃：
+-- 必须等新代码部署上线后再手动执行下面几句，否则旧代码写入会报 PGRST204。
+-- alter table public.ingredients drop column if exists price_per_unit;
+-- alter table public.ingredients drop column if exists spec;
+-- alter table public.ingredients drop column if exists unit_grams;
+-- alter table public.ingredients drop column if exists unit_ml;
 
 -- ---------------------------------------------------------------------------
 -- 4. 按用户隔离的数据（id = uid）

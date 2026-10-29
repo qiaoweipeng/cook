@@ -35,10 +35,12 @@ import {
 import { pickImage, formatSize, IMAGE_ACCEPT } from '@/lib/imageUpload';
 import { resolveImageUrl } from '@/lib/supabase';
 import { useIngredientStore } from '@/store/useIngredientStore';
+import { usePriceStore } from '@/store/usePriceStore';
 import { useIsAdmin } from '@/store/useAuthStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import type { Ingredient, IngredientCategory } from '@/types';
+import type { Ingredient, IngredientCategory, IngredientUnit } from '@/types';
 import PriceTag from '@/components/PriceTag';
+import { displayUnitPrice, cheapestPlatform } from '@/utils/price';
 import {
   exportIngredientsToExcel,
   downloadIngredientTemplate,
@@ -58,44 +60,55 @@ const categories: IngredientCategory[] = [
   '其他',
 ];
 
-const unitOptions = [
-  { value: '斤', label: '斤（mass）' },
-  { value: 'g', label: '克（mass）' },
-  { value: 'kg', label: '公斤（mass）' },
-  { value: 'ml', label: '毫升（volume）' },
-  { value: 'L', label: '升（volume）' },
-  { value: '个', label: '个（count）' },
-  { value: '把', label: '把（count）' },
-  { value: '袋', label: '袋（count）' },
-  { value: '瓶', label: '瓶（count）' },
-  { value: '块', label: '块（count）' },
-  { value: '头', label: '头（count）' },
-  { value: '根', label: '根（count）' },
+/** 计价单位只留：固体按斤 / 克 / 公斤，液体按毫升 / 升 */
+const unitOptions: { value: IngredientUnit; label: string }[] = [
+  { value: '斤', label: '斤（500 g，固体默认）' },
+  { value: 'g', label: '克（g）' },
+  { value: 'kg', label: '公斤（kg）' },
+  { value: 'ml', label: '毫升（ml，液体）' },
+  { value: 'L', label: '升（L，液体）' },
 ];
+
+const NUTRI_FIELDS = [
+  { key: 'calories', label: '热量', unit: 'kcal' },
+  { key: 'protein', label: '蛋白质', unit: 'g' },
+  { key: 'fat', label: '脂肪', unit: 'g' },
+  { key: 'carbs', label: '碳水', unit: 'g' },
+  { key: 'sodium', label: '钠', unit: 'mg' },
+  { key: 'fiber', label: '膳食纤维', unit: 'g' },
+] as const;
+
+/** 平台价格在表单里平铺成 price_平台 / amount_平台 两组字段 */
+type PriceField = `price_${string}` | `amount_${string}`;
 
 interface FormValues {
   name: string;
   category: IngredientCategory;
-  pricePerUnit: number;
-  unit: string;
-  spec?: string;
+  unit: IngredientUnit;
   note?: string;
-  unitGrams?: number;
-  unitMl?: number;
   image?: string;
+  calories?: number;
+  protein?: number;
+  fat?: number;
+  carbs?: number;
+  sodium?: number;
+  fiber?: number;
 }
+
+type FormValuesWithPrices = FormValues & Partial<Record<PriceField, number>>;
 
 type ImportMode = 'merge' | 'replace';
 const PREVIEW_COUNT = 100;
 
 export default function Ingredients() {
   const { items, add, update, remove, replaceAll, bulkMerge } = useIngredientStore();
+  const platforms = usePriceStore((s) => s.platforms);
   const isAdmin = useIsAdmin();
   const isMobile = useIsMobile();
   const { message, modal } = AntApp.useApp();
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Ingredient | null>(null);
-  const [form] = Form.useForm<FormValues>();
+  const [form] = Form.useForm<FormValuesWithPrices>();
   const [keyword, setKeyword] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<IngredientCategory | undefined>();
   const [selectedRowKey, setSelectedRowKey] = useState<string | undefined>(undefined);
@@ -143,10 +156,32 @@ export default function Ingredients() {
     setEditorOpen(true);
   };
 
+  /** 把食材对象摊平成表单字段：平台价格 → price_平台 / amount_平台 */
+  const toFormValues = (row: Ingredient): FormValuesWithPrices => {
+    const values: FormValuesWithPrices = {
+      name: row.name,
+      category: row.category,
+      unit: row.unit,
+      note: row.note,
+      image: row.image,
+      calories: row.nutrition?.calories,
+      protein: row.nutrition?.protein,
+      fat: row.nutrition?.fat,
+      carbs: row.nutrition?.carbs,
+      sodium: row.nutrition?.sodium,
+      fiber: row.nutrition?.fiber,
+    };
+    for (const platform of platforms) {
+      values[`price_${platform}`] = row.prices?.[platform]?.price;
+      values[`amount_${platform}`] = row.prices?.[platform]?.amount;
+    }
+    return values;
+  };
+
   const openEditRow = (row: Ingredient) => {
     setEditing(row);
     form.resetFields();
-    form.setFieldsValue(row);
+    form.setFieldsValue(toFormValues(row));
     setEditorOpen(true);
   };
 
@@ -166,15 +201,44 @@ export default function Ingredients() {
   const onSave = async () => {
     try {
       const values = await form.validateFields();
+
+      // 表单 → Ingredient：把 price_平台 / amount_平台 收回成 prices 对象
+      const prices: Ingredient['prices'] = {};
+      for (const platform of platforms) {
+        const price = values[`price_${platform}`];
+        if (price === undefined || price === null) continue;
+        const amount = values[`amount_${platform}`];
+        prices[platform] = { price, amount: amount && amount > 0 ? amount : 1 };
+      }
+      const hasNutrition = NUTRI_FIELDS.some((f) => values[f.key] !== undefined);
+      const payload: Omit<Ingredient, 'id'> = {
+        name: values.name,
+        category: values.category,
+        unit: values.unit,
+        note: values.note,
+        image: values.image,
+        prices,
+        nutrition: hasNutrition
+          ? {
+            calories: values.calories ?? 0,
+            protein: values.protein ?? 0,
+            fat: values.fat ?? 0,
+            carbs: values.carbs ?? 0,
+            sodium: values.sodium ?? 0,
+            fiber: values.fiber ?? 0,
+          }
+          : undefined,
+      };
+
       if (editing) {
-        await update(editing.id, values);
+        await update(editing.id, payload);
         message.success('已更新');
         // 编辑完成后清掉选中态（回到未选中页面）
         setSelectedRowKey(undefined);
       } else {
         const newIng: Ingredient = {
           id: 'ing_' + Date.now().toString(36),
-          ...values,
+          ...payload,
         };
         await add(newIng);
         message.success('已添加');
@@ -326,119 +390,146 @@ export default function Ingredients() {
                 <Empty description="没有符合条件的食材" style={{ marginTop: 40 }} />
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {filtered.map((it) => (
-                    <div
-                      key={it.id}
-                      onClick={() => isAdmin && openEditRow(it)}
-                      style={{
-                        background: '#fff',
-                        borderRadius: 12,
-                        padding: '10px 12px',
-                        // 极淡的暖色描边，跟左侧暖米色侧栏呼应，也把卡片边界勾出来
-                        border: '1px solid #f7f1ea',
-                        cursor: isAdmin ? 'pointer' : 'default',
-                      }}
-                    >
+                  {filtered.map((it) => {
+                    // 最便宜的平台：卡片右上角直接标出来，一眼知道该买哪家
+                    const cheapest = cheapestPlatform(it);
+                    return (
                       <div
+                        key={it.id}
+                        onClick={() => isAdmin && openEditRow(it)}
                         style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 10,
+                          background: '#fff',
+                          borderRadius: 12,
+                          padding: '10px 12px',
+                          // 极淡的暖色描边，跟左侧暖米色侧栏呼应，也把卡片边界勾出来
+                          border: '1px solid #f7f1ea',
+                          cursor: isAdmin ? 'pointer' : 'default',
                         }}
                       >
-                        {it.image ? (
-                          <img
-                            src={resolveImageUrl(it.image)}
-                            alt=""
-                            loading="lazy"
-                            style={{
-                              width: 44,
-                              height: 44,
-                              objectFit: 'cover',
-                              borderRadius: 8,
-                              flexShrink: 0,
-                            }}
-                          />
-                        ) : (
-                          // 没上传图的食材也给一个占位块（取名字首字）：
-                          // 每行左边都有一块，列表才整齐，不会看着像漏了东西
-                          <div
-                            style={{
-                              width: 44,
-                              height: 44,
-                              borderRadius: 8,
-                              flexShrink: 0,
-                              background: 'linear-gradient(135deg, #fff1e8, #ffe3d0)',
-                              color: '#e8743c',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: 17,
-                              fontWeight: 600,
-                            }}
-                          >
-                            {it.name.slice(0, 1)}
-                          </div>
-                        )}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div
-                            style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'baseline',
-                              gap: 8,
-                            }}
-                          >
-                            <span
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 10,
+                          }}
+                        >
+                          {it.image ? (
+                            <img
+                              src={resolveImageUrl(it.image)}
+                              alt=""
+                              loading="lazy"
                               style={{
-                                fontSize: 15,
+                                width: 44,
+                                height: 44,
+                                objectFit: 'cover',
+                                borderRadius: 8,
+                                flexShrink: 0,
+                              }}
+                            />
+                          ) : (
+                            // 没上传图的食材也给一个占位块（取名字首字）：
+                            // 每行左边都有一块，列表才整齐，不会看着像漏了东西
+                            <div
+                              style={{
+                                width: 44,
+                                height: 44,
+                                borderRadius: 8,
+                                flexShrink: 0,
+                                background: 'linear-gradient(135deg, #fff1e8, #ffe3d0)',
+                                color: '#e8743c',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: 17,
                                 fontWeight: 600,
-                                color: '#2D2A26',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
                               }}
                             >
-                              {it.name}
-                            </span>
-                            <span style={{ flexShrink: 0 }}>
-                              <PriceTag value={it.pricePerUnit} size="small" />
-                              <span style={{ color: '#999', fontSize: 12, marginLeft: 2 }}>
-                                /{it.unit}
-                              </span>
-                            </span>
-                          </div>
-                          {(it.spec || it.unitGrams || it.unitMl) && (
+                              {it.name.slice(0, 1)}
+                            </div>
+                          )}
+                          <div style={{ flex: 1, minWidth: 0 }}>
                             <div
                               style={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
+                                alignItems: 'baseline',
                                 gap: 8,
-                                marginTop: 2,
                               }}
                             >
                               <span
                                 style={{
-                                  color: '#999',
-                                  fontSize: 12,
+                                  fontSize: 15,
+                                  fontWeight: 600,
+                                  color: '#2D2A26',
                                   overflow: 'hidden',
                                   textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap',
                                 }}
                               >
-                                {it.spec}
+                                {it.name}
                               </span>
-                              {(it.unitGrams || it.unitMl) && (
-                                <span style={{ color: '#bbb', fontSize: 12, flexShrink: 0 }}>
-                                  1 {it.unit} ≈ {it.unitGrams ? `${it.unitGrams} g` : `${it.unitMl} ml`}
+                              {cheapest ? (
+                                <span style={{ flexShrink: 0 }}>
+                                  <PriceTag value={cheapest.value} size="small" />
+                                  <span style={{ color: '#999', fontSize: 12, marginLeft: 2 }}>
+                                    /{cheapest.unit}
+                                  </span>
                                 </span>
+                              ) : (
+                                <Text type="secondary" style={{ fontSize: 12, flexShrink: 0 }}>
+                                  没录价格
+                                </Text>
                               )}
                             </div>
-                          )}
+                            {/* 比价横排：四个平台一起看，最便宜的那个标橙 */}
+                            <div
+                              style={{
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: '2px 10px',
+                                marginTop: 4,
+                              }}
+                            >
+                              {platforms.map((platform) => {
+                                const d = displayUnitPrice(it, platform);
+                                const isCheapest = cheapest?.platform === platform;
+                                return (
+                                  <span
+                                    key={platform}
+                                    style={{
+                                      fontSize: 12,
+                                      color: d
+                                        ? isCheapest
+                                          ? '#E8743C'
+                                          : '#8a8177'
+                                        : '#ccc',
+                                      fontWeight: isCheapest ? 600 : 400,
+                                    }}
+                                  >
+                                    {platform} {d ? `¥${Number(d.value.toFixed(2))}/${d.unit}` : '—'}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                            {it.note && (
+                              <div
+                                style={{
+                                  color: '#999',
+                                  fontSize: 12,
+                                  marginTop: 2,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {it.note}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -612,43 +703,62 @@ export default function Ingredients() {
                 render: (v: IngredientCategory) => <Tag color="orange">{v}</Tag>,
               },
               {
-                title: '单价',
-                dataIndex: 'pricePerUnit',
-                width: 100,
-                sorter: (a, b) => a.pricePerUnit - b.pricePerUnit,
-                render: (v: number) => <PriceTag value={v} size="small" />,
-              },
-              {
                 title: '单位',
                 dataIndex: 'unit',
                 width: 80,
-                // 单位种类不多，给个列头筛选方便只看「克/个/袋」这类
+                // 单位种类不多，给个列头筛选方便只看「斤 / L」这类
                 filters: [...new Set(items.map((i) => i.unit))].map((u) => ({
                   text: u,
                   value: u,
                 })),
                 onFilter: (value, r) => r.unit === value,
               },
-              { title: '规格', dataIndex: 'spec', width: 140, ellipsis: true },
-              {
-                title: '单件换算',
-                width: 140,
-                render: (_, r) => {
-                  if (r.unitGrams)
-                    return (
-                      <Text type="secondary">
-                        1 {r.unit} ≈ {r.unitGrams} g
-                      </Text>
-                    );
-                  if (r.unitMl)
-                    return (
-                      <Text type="secondary">
-                        1 {r.unit} ≈ {r.unitMl} ml
-                      </Text>
-                    );
-                  return <Text type="secondary">-</Text>;
+              // 每个平台一列：直接显示折算后的「元/斤」或「元/L」，最便宜的标橙
+              ...platforms.map((platform) => ({
+                title: platform,
+                key: `price_${platform}`,
+                width: 118,
+                sorter: (a: Ingredient, b: Ingredient) =>
+                  (displayUnitPrice(a, platform)?.value ?? Infinity) -
+                  (displayUnitPrice(b, platform)?.value ?? Infinity),
+                render: (_: unknown, r: Ingredient) => {
+                  const d = displayUnitPrice(r, platform);
+                  if (!d) return <Text type="secondary">-</Text>;
+                  const isCheapest = cheapestPlatform(r)?.platform === platform;
+                  return (
+                    <span style={{ color: isCheapest ? '#E8743C' : undefined }}>
+                      <PriceTag value={d.value} size="small" />
+                      <span style={{ color: '#999', fontSize: 12 }}>/{d.unit}</span>
+                      {isCheapest && <Tag color="orange" style={{ marginLeft: 4 }}>最低</Tag>}
+                    </span>
+                  );
                 },
+              })),
+              {
+                title: '营养(每100)',
+                width: 130,
+                render: (_: unknown, r: Ingredient) =>
+                  r.nutrition ? (
+                    <Tooltip
+                      title={
+                        <div style={{ fontSize: 12, lineHeight: 1.8 }}>
+                          {NUTRI_FIELDS.map((f) => (
+                            <div key={f.key}>
+                              {f.label} {r.nutrition?.[f.key]} {f.unit}
+                            </div>
+                          ))}
+                        </div>
+                      }
+                    >
+                      <Text type="secondary">
+                        {r.nutrition.calories} kcal · 蛋白 {r.nutrition.protein} g
+                      </Text>
+                    </Tooltip>
+                  ) : (
+                    <Text type="secondary">-</Text>
+                  ),
               },
+              { title: '备注', dataIndex: 'note', width: 180, ellipsis: true },
             ]}
           />
 
@@ -718,41 +828,71 @@ export default function Ingredients() {
             </Col>
             <Col span={isMobile ? 24 : 12}>
               <Form.Item
-                name="pricePerUnit"
-                label="单价（元）"
-                rules={[{ required: true, type: 'number', min: 0 }]}
+                name="unit"
+                label="计价单位"
+                rules={[{ required: true }]}
+                tooltip="固体用斤，液体用 ml / L；填价时按这个单位记「这一份多重」"
               >
-                <InputNumber min={0} step={0.1} style={{ width: '100%' }} />
+                <Select options={unitOptions} />
               </Form.Item>
             </Col>
             <Col span={isMobile ? 24 : 12}>
-              <Form.Item name="unit" label="单位" rules={[{ required: true }]}>
-                <Select options={unitOptions} showSearch />
+              <Form.Item name="note" label="备注（可选）">
+                <Input placeholder="如：这一瓶 1 升 / 约两个中等土豆" />
               </Form.Item>
             </Col>
-            <Col span={isMobile ? 24 : 12}>
-              <Form.Item
-                name="unitGrams"
-                label="换算：1 单位 = ? 克（可选）"
-                tooltip="用于把「个/把/袋」折算成克"
-              >
-                <InputNumber min={0} style={{ width: '100%' }} placeholder="如：番茄 200" />
-              </Form.Item>
-            </Col>
-            <Col span={isMobile ? 24 : 12}>
-              <Form.Item
-                name="unitMl"
-                label="换算：1 单位 = ? 毫升（可选）"
-                tooltip="用于把「瓶/袋」折算成毫升"
-              >
-                <InputNumber min={0} style={{ width: '100%' }} placeholder="如：生抽 500" />
-              </Form.Item>
-            </Col>
-            <Col span={24}>
-              <Form.Item name="spec" label="规格备注（可选）">
-                <Input placeholder="如：土鸡蛋、盒装" />
-              </Form.Item>
-            </Col>
+          </Row>
+
+          {/* 平台价格：只记「这一份多少钱 + 这一份多重/多少容量」，系统自动折算比价 */}
+          <div style={{ marginBottom: 6, fontWeight: 600 }}>
+            各平台价格
+            <Text type="secondary" style={{ fontSize: 12, fontWeight: 400, marginLeft: 8 }}>
+              只填这一份的价钱和份量（份量不填按 1 份算），自动折成元/斤、元/L
+            </Text>
+          </div>
+          <Row gutter={12}>
+            {platforms.map((platform) => (
+              <Col span={isMobile ? 24 : 12} key={platform}>
+                <Form.Item label={`${platform}：这一份多少钱（元）`}>
+                  <Space.Compact style={{ width: '100%' }}>
+                    <Form.Item name={`price_${platform}`} noStyle>
+                      <InputNumber
+                        min={0}
+                        step={0.1}
+                        style={{ width: '55%' }}
+                        placeholder="价格 ¥"
+                      />
+                    </Form.Item>
+                    <Form.Item name={`amount_${platform}`} noStyle>
+                      <InputNumber
+                        min={0}
+                        step={0.1}
+                        style={{ width: '45%' }}
+                        placeholder="份量（默认1）"
+                      />
+                    </Form.Item>
+                  </Space.Compact>
+                </Form.Item>
+              </Col>
+            ))}
+          </Row>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            例：生抽 1 升 10 元 → 单位选「L」，份量填 1，价格 10；土豆一袋 2 斤 3 元 →
+            单位「斤」，份量 2，价格 3
+          </Text>
+
+          {/* 营养：每 100g / 100ml，主料填、调料不填 */}
+          <div style={{ margin: '16px 0 6px', fontWeight: 600 }}>
+            营养成分（每 100 g / 100 ml，调料可不填）
+          </div>
+          <Row gutter={12}>
+            {NUTRI_FIELDS.map((f) => (
+              <Col span={isMobile ? 12 : 8} key={f.key}>
+                <Form.Item name={f.key} label={`${f.label}（${f.unit}）`}>
+                  <InputNumber min={0} step={0.1} style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+            ))}
           </Row>
 
           <Form.Item label="食材图片（可选）">
@@ -882,10 +1022,19 @@ export default function Ingredients() {
               render: (v: IngredientCategory) => <Tag color="orange">{v}</Tag>,
             },
             {
-              title: '单价',
-              dataIndex: 'pricePerUnit',
-              width: 90,
-              render: (v: number) => <PriceTag value={v} size="small" />,
+              title: '最低价',
+              width: 130,
+              render: (_: unknown, r: Ingredient) => {
+                const c = cheapestPlatform(r);
+                return c ? (
+                  <Text>
+                    ¥{Number(c.value.toFixed(2))}/{c.unit}
+                    <Text type="secondary" style={{ fontSize: 12 }}> · {c.platform}</Text>
+                  </Text>
+                ) : (
+                  '-'
+                );
+              },
             },
             { title: '单位', dataIndex: 'unit', width: 80 },
             { title: 'ID', dataIndex: 'id', ellipsis: true },

@@ -5,13 +5,13 @@
 **「我是大厨」是一套前后端协同的做饭管理系统**，围绕「今天吃什么」这件事， 是常做饭的小伙伴首选 APP。
 把 **菜谱 → 食材 → 价格 → 采购清单 → 家庭共享 ** 串成一条线，主要解决以下日常痛点：
 
-| 痛点               | 怎么解决                                                                                                                    |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| **上班族每天吃啥** | 提前把一周的菜排好，到点打开就照着做，不用临时纠结                                                                          |
-| **不会做**         | 每道菜给出完整**用料 + 分步做法**，照着走完一遍就能上桌，不用再去翻视频或搜教程，每道菜还可以根据自己的口味进行微调并记录。 |
-| **食材成本不好控** | 每道菜都自动算出**大概成本**，食材库统一登记单价，成本按最新单价折算，买之前就知道这道菜要花多少钱                          |
-| **不知道买哪些菜** | 根据你想吃的菜，自动生成采购清单，到菜市场/超市买一样勾一样                                                                 |
-| **减肥人群友好**   | 每道菜都有相应的热量、能量的数据 ，不会让你吃胖。                                                                           |
+| 痛点               | 怎么解决                                                                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **上班族每天吃啥** | 提前把一周的菜排好，到点打开就照着做，不用临时纠结                                                                                                |
+| **不会做**         | 每道菜给出完整**用料 + 分步做法**，照着走完一遍就能上桌，不用再去翻视频或搜教程，每道菜还可以根据自己的口味进行微调并记录。                       |
+| **食材成本不好控** | 每道菜都自动算出**大概成本**，食材库按「一份多少钱 + 这一份多重」登记各平台单价，自动折成元/斤、元/L 比价，买之前就知道哪家便宜、这道菜要花多少钱 |
+| **不知道买哪些菜** | 根据你想吃的菜，自动生成采购清单，到菜市场/超市买一样勾一样                                                                                       |
+| **减肥人群友好**   | 每道菜都有相应的热量、能量的数据 ，不会让你吃胖。                                                                                                 |
 
 ## （TODO）APP 功能简介
 
@@ -305,10 +305,10 @@ manifest: {
 
 - [x] **菜单首页**：卡片网格浏览所有菜品，支持分类筛选（家常 / 川菜 / 粤菜 / 快手…）和关键词搜索。
 - [x] **菜品详情**：展示食材清单（含用量 & 单份成本）、分步做法、难度/用时/标签。
-- [x] **食材库 CRUD**：新增 / 编辑 / 删除食材，维护名称、单位、单价、备注。
+- [x] **食材库 CRUD**：新增 / 编辑 / 删除食材，维护名称、分类、计价单位（斤 / g / kg / ml / L）、各平台价格（盒马NB、小象超市、快乐猴、朴朴超市）和营养。
 - [x] **采购清单**：多选菜品 → 自动合并相同食材 → 计算总花费 → 单条勾选已购买。
 - [x] **数据持久化**：从 localStorage 升级到 **Supabase PostgreSQL**（经 CloudBase PG 迁移而来）。
-- [x] **种子数据**：内置 **57 道家常菜** + **83 种常见食材**。
+- [x] **种子数据**：内置 **57 道家常菜** + **85 种常见食材**（食材按斤 / L 计价并带四平台价格、营养）。
 - [x] **多用户系统**：昵称+密码注册登录，会话持久化，采购清单按用户隔离。
 
 ### V2（已实现部分）
@@ -415,22 +415,22 @@ cook/
 
 ### 表（14 张）
 
-| 表名                | 用途                                  | 关键字段                                                                                                                              |
-| ------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `dishes`            | 菜品主表                              | `id` (text PK), `name`, `category`, `difficulty`, `cook_time_min`, `servings`, `cover_image`, `favorite`, `created_at`, `tips` |
-| `ingredients`       | 食材库                                | `id` (text PK), `name`, `category`, `price_per_unit`, `unit`, `spec`, `note`, `unit_grams`, `unit_ml`                                 |
-| `dish_tags`         | 菜-标签（多对多）                     | `dish_id`, `tag`（联合主键）                                                                                                          |
-| `dish_ingredients`  | 菜-食材（含用量）                     | `id` (bigserial PK), `dish_id`, `ingredient_id`, `amount`, `unit`                                                                     |
-| `dish_steps`        | 烹饪步骤                              | `dish_id`, `step_order`, `step_text`（联合主键）                                                                                      |
-| `users`             | 用户账号                              | `id` (text PK, 归一化昵称), `nick`, `display_name`, `salt`, `password_hash`, `avatar`, `disabled`, `created_at`                       |
-| `shopping_lists`    | 采购清单（按用户隔离）                | `id` (text PK, =uid), `data` (jsonb), `updated_at`                                                                                    |
-| `weekly_menus`      | 菜单安排（按日期存，按用户/家庭隔离） | `id` (text PK, =uid 或家庭 id), `data` (jsonb, `{ 日期key: 菜品id[] }`), `updated_at`                                                 |
-| `families`          | 家庭                                  | `id` (text PK, `fam_<创建者uid>`), `admin_uid`, `created_at`                                                                          |
-| `family_members`    | 家庭成员                              | `id` (text PK, `<famId>__<uid>`), `family_id`, `uid`, `name`, `role`, `permission`, `joined_at`                                       |
-| `family_invites`    | 家庭邀请 / 管理员转让                 | `id` (uuid PK), `family_id`, `from_uid`, `to_uid`, `to_name`, `status`, `type`, `created_at`                                          |
-| `family_menu_audit` | 家庭菜单修改历史                      | `id` (uuid PK), `family_id`, `actor_uid`, `actor_name`, `action`, `day`, `detail`, `created_at`                                       |
-| `login_logs`        | 登录日志                              | `id` (text PK), `uid`, `nick`, `login_at`, `ip`, `region`, `device`, `os`, `browser`, `ua`, `screen`, `language`                      |
-| `op_logs`           | 操作日志（审计）                      | `id` (text PK), `actor_uid`, `actor_name`, `action`, `target`, `detail`, `created_at`                                                 |
+| 表名                | 用途                                  | 关键字段                                                                                                                                           |
+| ------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dishes`            | 菜品主表                              | `id` (text PK), `name`, `category`, `difficulty`, `cook_time_min`, `servings`, `cover_image`, `favorite`, `created_at`, `tips`                     |
+| `ingredients`       | 食材库                                | `id` (text PK), `name`, `category`, `unit`, `prices` (jsonb 多平台价格), `note`, `image`, `calories`, `protein`, `fat`, `carbs`, `sodium`, `fiber` |
+| `dish_tags`         | 菜-标签（多对多）                     | `dish_id`, `tag`（联合主键）                                                                                                                       |
+| `dish_ingredients`  | 菜-食材（含用量）                     | `id` (bigserial PK), `dish_id`, `ingredient_id`, `amount`, `unit`                                                                                  |
+| `dish_steps`        | 烹饪步骤                              | `dish_id`, `step_order`, `step_text`（联合主键）                                                                                                   |
+| `users`             | 用户账号                              | `id` (text PK, 归一化昵称), `nick`, `display_name`, `salt`, `password_hash`, `avatar`, `disabled`, `created_at`                                    |
+| `shopping_lists`    | 采购清单（按用户隔离）                | `id` (text PK, =uid), `data` (jsonb), `updated_at`                                                                                                 |
+| `weekly_menus`      | 菜单安排（按日期存，按用户/家庭隔离） | `id` (text PK, =uid 或家庭 id), `data` (jsonb, `{ 日期key: 菜品id[] }`), `updated_at`                                                              |
+| `families`          | 家庭                                  | `id` (text PK, `fam_<创建者uid>`), `admin_uid`, `created_at`                                                                                       |
+| `family_members`    | 家庭成员                              | `id` (text PK, `<famId>__<uid>`), `family_id`, `uid`, `name`, `role`, `permission`, `joined_at`                                                    |
+| `family_invites`    | 家庭邀请 / 管理员转让                 | `id` (uuid PK), `family_id`, `from_uid`, `to_uid`, `to_name`, `status`, `type`, `created_at`                                                       |
+| `family_menu_audit` | 家庭菜单修改历史                      | `id` (uuid PK), `family_id`, `actor_uid`, `actor_name`, `action`, `day`, `detail`, `created_at`                                                    |
+| `login_logs`        | 登录日志                              | `id` (text PK), `uid`, `nick`, `login_at`, `ip`, `region`, `device`, `os`, `browser`, `ua`, `screen`, `language`                                   |
+| `op_logs`           | 操作日志（审计）                      | `id` (text PK), `actor_uid`, `actor_name`, `action`, `target`, `detail`, `created_at`                                                              |
 
 > 建表脚本刻意**没有加外键**：种子数据的写入顺序不受控（菜品可能先于食材写入），加了外键会在初始化阶段冲突。
 
@@ -1330,25 +1330,25 @@ npx netlify-cli deploy --prod --dir=dist                          # 2) 上传到
 
 ### 关键坑（已踩过）
 
-| 坑                                           | 症状                                                                 | 解法                                                                                                                |
-| -------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| 静态托管没在控制台开通                       | 部署"成功"但什么也访问不到                                           | 控制台手动点「开通」                                                                                                |
-| `VITE_TCB_ENV_ID` 没注入                     | 页面打开白屏                                                         | `.env` 填了之后**重新 `pnpm build`**                                                                                |
-| RLS 开了但没建 policy                        | 页面数据是空的但不报错                                               | 跑 `supabase/schema.sql` 末尾 policy 那段                                                                           |
-| key 填成了 Secret / service_role             | 一切正常但数据库裸奔（绕过 RLS）                                     | 前端只能用 Publishable / anon public key                                                                            |
-| 新版 `sb_publishable_` key 报 JWT 无效       | `Invalid JWT` / 401                                                  | 非 JWT 的 key 只能走 `apikey` 头（代码已自动处理）                                                                  |
-| Supabase 单次返回上限                        | 表超过 1000 行时后面读不到                                           | 日志类大表用 `limit` + 分页，别一次性全拉                                                                           |
-| 免费项目 7 天无活动                          | 项目被自动暂停，API 全部不可用                                       | 控制台点 Restore；长期用建议定期访问或升 Pro                                                                        |
-| Exposed schemas 不含 `public`                | 所有请求 404                                                         | Settings → API → 把 `public` 加进 Exposed schemas                                                                   |
-| SPA 刷新 404                                 | F5 报 404                                                            | 控制台 → 静态托管 → 设置 → 错误页面 → 404 用 `/index.html` 兜底                                                     |
-| PostgREST 0 行返回 406                       | `pgSelectOne` 改成 `pgSelect`（数组）                                | 已修                                                                                                                |
-| 默认域名访问偶尔 418                         | 边缘节点风控，**用无痕窗口**打开                                     | 不要带 `?v=xxx` 查询参数                                                                                            |
-| 静态页面 `VM169:1 cls is not defined`        | CloudBase CDN 注入的引导脚本                                         | 配 404 → index.html 兜底后自动消失                                                                                  |
-| `cover_image` / `users.avatar` 列不存在      | PostgREST 报 42703                                                   | 跑增量 SQL 里的 `ALTER TABLE`                                                                                       |
-| 头像 base64 **原图**直存 users 表            | 用户管理每次进都 loading 5~10 秒（列表要跨境拉 1.4MB 头像，实测 9s） | 上传一律压缩成 192px WebP 再存（约 10KB）；`listUsers` 拉到超 60KB 的旧头像会自动压缩写回（存量自愈，无需手动重传） |
+| 坑                                           | 症状                                                                                                                                                    | 解法                                                                                                                                       |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 静态托管没在控制台开通                       | 部署"成功"但什么也访问不到                                                                                                                              | 控制台手动点「开通」                                                                                                                       |
+| `VITE_TCB_ENV_ID` 没注入                     | 页面打开白屏                                                                                                                                            | `.env` 填了之后**重新 `pnpm build`**                                                                                                       |
+| RLS 开了但没建 policy                        | 页面数据是空的但不报错                                                                                                                                  | 跑 `supabase/schema.sql` 末尾 policy 那段                                                                                                  |
+| key 填成了 Secret / service_role             | 一切正常但数据库裸奔（绕过 RLS）                                                                                                                        | 前端只能用 Publishable / anon public key                                                                                                   |
+| 新版 `sb_publishable_` key 报 JWT 无效       | `Invalid JWT` / 401                                                                                                                                     | 非 JWT 的 key 只能走 `apikey` 头（代码已自动处理）                                                                                         |
+| Supabase 单次返回上限                        | 表超过 1000 行时后面读不到                                                                                                                              | 日志类大表用 `limit` + 分页，别一次性全拉                                                                                                  |
+| 免费项目 7 天无活动                          | 项目被自动暂停，API 全部不可用                                                                                                                          | 控制台点 Restore；长期用建议定期访问或升 Pro                                                                                               |
+| Exposed schemas 不含 `public`                | 所有请求 404                                                                                                                                            | Settings → API → 把 `public` 加进 Exposed schemas                                                                                          |
+| SPA 刷新 404                                 | F5 报 404                                                                                                                                               | 控制台 → 静态托管 → 设置 → 错误页面 → 404 用 `/index.html` 兜底                                                                            |
+| PostgREST 0 行返回 406                       | `pgSelectOne` 改成 `pgSelect`（数组）                                                                                                                   | 已修                                                                                                                                       |
+| 默认域名访问偶尔 418                         | 边缘节点风控，**用无痕窗口**打开                                                                                                                        | 不要带 `?v=xxx` 查询参数                                                                                                                   |
+| 静态页面 `VM169:1 cls is not defined`        | CloudBase CDN 注入的引导脚本                                                                                                                            | 配 404 → index.html 兜底后自动消失                                                                                                         |
+| `cover_image` / `users.avatar` 列不存在      | PostgREST 报 42703                                                                                                                                      | 跑增量 SQL 里的 `ALTER TABLE`                                                                                                              |
+| 头像 base64 **原图**直存 users 表            | 用户管理每次进都 loading 5~10 秒（列表要跨境拉 1.4MB 头像，实测 9s）                                                                                    | 上传一律压缩成 192px WebP 再存（约 10KB）；`listUsers` 拉到超 60KB 的旧头像会自动压缩写回（存量自愈，无需手动重传）                        |
 | Supabase 免费 Egress 5GB 一个月跑爆（108%）  | 流量大头**不是数据库**（全库才 271KB）：73 张封面图每次渲染都从 Storage 跨境重拉（≈每天整桶 22 遍）；停用轮询每 20s 全列拉 users 行（含头像 ~6.5KB/次） | `sw.ts` 对 `/storage/v1/object/` 图片做缓存优先（URL 内容寻址、换图换 URL，永不过期）；轮询改用 `getUserDisabledFlag` 只取 `disabled` 一列 |
-| 管理页请求串行 await                         | 几个跨境往返的时间相加，页面 loading 久                              | 互不依赖的请求并行发出；连通性探测并入批量统计，不单独跑一轮                                                        |
-| 全站响应带 `Content-Disposition: attachment` | 站点变成「下载页面」（地址栏出现 `download.html`）                   | 见下面「站点被当成下载」一节                                                                                        |
+| 管理页请求串行 await                         | 几个跨境往返的时间相加，页面 loading 久                                                                                                                 | 互不依赖的请求并行发出；连通性探测并入批量统计，不单独跑一轮                                                                               |
+| 全站响应带 `Content-Disposition: attachment` | 站点变成「下载页面」（地址栏出现 `download.html`）                                                                                                      | 见下面「站点被当成下载」一节                                                                                                               |
 
 ### 😱 站点被当成下载（响应头 `Content-Disposition: attachment`）
 

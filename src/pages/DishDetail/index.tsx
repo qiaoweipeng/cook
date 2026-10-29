@@ -26,6 +26,7 @@ import {
 import { useState } from 'react';
 import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
+import { usePriceStore } from '@/store/usePriceStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useWeeklyStore } from '@/store/useWeeklyStore';
 import { useFamilyStore } from '@/store/useFamilyStore';
@@ -84,6 +85,8 @@ export default function DishDetail() {
 
   const dish = useDishStore((s) => s.items.find((d) => d.id === id));
   const ingredients = useIngredientStore((s) => s.items);
+  // 订阅当前平台：切换平台后食材小计 / 总成本要跟着变
+  usePriceStore((s) => s.platform);
   const toggleFavorite = useDishStore((s) => s.toggleFavorite);
   const toggleDishInShopping = useShoppingStore((s) => s.toggleDish);
   const inShopping = useShoppingStore((s) =>
@@ -305,7 +308,7 @@ export default function DishDetail() {
                 >
                   <Space>
                     <Text strong>{ing.name}</Text>
-                    {ing.spec && <Text type="secondary">（{ing.spec}）</Text>}
+                    {ing.note && <Text type="secondary">（{ing.note}）</Text>}
                   </Space>
                   <Space size={16}>
                     <span>

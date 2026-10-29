@@ -18,6 +18,7 @@ import type { TableColumnsType } from 'antd';
 import { EditOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import type { Dish } from '@/types';
 import { calcDishCost } from '@/utils/price';
+import { usePriceStore } from '@/store/usePriceStore';
 import type { Ingredient } from '@/types';
 import { resolveImageUrl } from '@/lib/supabase';
 
@@ -52,6 +53,8 @@ export default function DishManageTable({
   onEdit,
   onCreate,
 }: Props) {
+  // 订阅当前平台：切换平台后成本列要跟着重算
+  usePriceStore((s) => s.platform);
   // 表格自带搜索框，这里只管高亮匹配的那一行
   const [kw, setKw] = useState('');
   // 正在预览大图的菜品封面地址；null = 没在预览。

@@ -34,6 +34,15 @@ const CATEGORIES: DishCategory[] = [
   '家常', '川菜', '粤菜', '湘菜', '鲁菜', '快手', '烘焙', '汤羹', '凉菜', '减脂', '江浙', '其他',
 ];
 
+/** 配料单位：固体用斤 / g / kg，液体用 ml / L（跟食材库的计价单位保持一致） */
+const UNIT_OPTIONS = [
+  { value: 'g', label: 'g 克' },
+  { value: '斤', label: '斤' },
+  { value: 'kg', label: 'kg 公斤' },
+  { value: 'ml', label: 'ml 毫升' },
+  { value: 'L', label: 'L 升' },
+];
+
 interface Props {
   open: boolean;
   mode: 'create' | 'edit';
@@ -484,10 +493,11 @@ export default function DishEditor({
             onChange={(v) => updateRow(i, { amount: v ?? undefined })}
             style={{ flex: 1, minWidth: 90 }}
           />
-          <Input
+          <Select
             placeholder="单位"
             value={row.unit}
-            onChange={(e) => updateRow(i, { unit: e.target.value })}
+            onChange={(v) => updateRow(i, { unit: v })}
+            options={UNIT_OPTIONS}
             style={{ flex: 1, minWidth: 70 }}
           />
           <Button danger icon={<DeleteOutlined />} onClick={() => removeRow(i)} />

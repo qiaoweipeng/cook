@@ -29,7 +29,9 @@ import { listLoginLogs, type LoginLogRow } from "@/lib/clientInfo";
 import { listOpLogs, type OpLogRow } from "@/lib/opLog";
 import { cloudList } from "@/lib/cloudSync";
 import { seedDishes } from "@/data/seedDishes";
+import { seedIngredients } from "@/data/seedIngredients";
 import { missingSeedDishes, useDishStore } from "@/store/useDishStore";
+import { useIngredientStore } from "@/store/useIngredientStore";
 import type { Dish } from "@/types";
 
 const { Text } = Typography;
@@ -73,6 +75,12 @@ export default function AdminSystem() {
   const [overwriting, setOverwriting] = useState(false);
   const seedMissingToCloud = useDishStore((s) => s.seedMissingToCloud);
   const overwriteDishFromSeed = useDishStore((s) => s.overwriteDishFromSeed);
+
+  /* ===== 食材种子（人工控制） ===== */
+  const [ingSeeding, setIngSeeding] = useState(false);
+  const [ingOverwriteOpen, setIngOverwriteOpen] = useState(false);
+  const seedMissingIngredients = useIngredientStore((s) => s.seedMissingToCloud);
+  const overwriteIngredients = useIngredientStore((s) => s.overwriteFromSeed);
 
   const loadStatus = async () => {
     setCountsLoading(true);
@@ -204,6 +212,35 @@ export default function AdminSystem() {
     setOverwriteOpen(false);
     setOverwriteIds([]);
     loadStatus();
+  };
+
+  /** 食材种子：只补云端缺的（不动已有食材） */
+  const seedMissingIngredient = async () => {
+    setIngSeeding(true);
+    try {
+      const added = await seedMissingIngredients();
+      message.success(added ? `已补入 ${added} 种食材` : "食材种子与云端一致，无缺失");
+      loadStatus();
+    } catch (e) {
+      message.error(`补入失败：${(e as Error).message ?? "请检查网络后重试"}`);
+    } finally {
+      setIngSeeding(false);
+    }
+  };
+
+  /** 食材种子：整体覆盖（把云端旧单价 / 旧单位全部换成新结构） */
+  const doIngredientOverwrite = async () => {
+    setIngSeeding(true);
+    try {
+      await overwriteIngredients();
+      message.success(`已用种子覆盖 ${seedIngredients.length} 种食材`);
+      setIngOverwriteOpen(false);
+      loadStatus();
+    } catch (e) {
+      message.error(`覆盖失败：${(e as Error).message ?? "请检查网络后重试"}`);
+    } finally {
+      setIngSeeding(false);
+    }
   };
 
   useEffect(() => {
@@ -362,6 +399,49 @@ export default function AdminSystem() {
                     )}
                   </div>
                 </Card>
+
+                {/* 食材种子播种（人工控制） */}
+                <Card
+                  title="食材种子（人工控制）"
+                  style={{ marginBottom: 16 }}
+                >
+                  <Text type="secondary">
+                    食材库已改成「斤 / g / kg / ml / L + 多平台价格」的新结构，
+                    旧的单价、规格字段不再使用。用下面的按钮把代码里的新种子同步到云端。
+                  </Text>
+                  <div style={{ marginTop: 12 }}>
+                    <Space wrap>
+                      <Button loading={ingSeeding} onClick={seedMissingIngredient}>
+                        补缺失食材种子
+                      </Button>
+                      <Button
+                        danger
+                        loading={ingSeeding}
+                        onClick={() => setIngOverwriteOpen(true)}
+                      >
+                        用种子覆盖全部食材…
+                      </Button>
+                    </Space>
+                  </div>
+                </Card>
+
+                <Modal
+                  title="用种子版本覆盖全部食材"
+                  open={ingOverwriteOpen}
+                  onCancel={() => !ingSeeding && setIngOverwriteOpen(false)}
+                  onOk={doIngredientOverwrite}
+                  okText={`覆盖 ${seedIngredients.length} 种`}
+                  okButtonProps={{ danger: true }}
+                  confirmLoading={ingSeeding}
+                  width={520}
+                >
+                  <Alert
+                    type="warning"
+                    showIcon
+                    message="危险操作"
+                    description="会把云端全部食材的名称、分类、计价单位、各平台价格、营养全部换成代码里的种子版本，你手动改过的食材数据会丢失。只在你确认要重置时执行。"
+                  />
+                </Modal>
 
                 {/* 种子覆盖弹窗（危险操作） */}
                 <Modal

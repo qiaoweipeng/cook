@@ -41,6 +41,7 @@ import { Link } from 'react-router-dom';
 import { resolveImageUrl } from '@/lib/supabase';
 import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
+import { usePriceStore } from '@/store/usePriceStore';
 import { useWeeklyStore } from '@/store/useWeeklyStore';
 import { useFamilyStore } from '@/store/useFamilyStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -134,6 +135,8 @@ export default function MenuPlan() {
   const isMobile = useIsMobile();
   const dishes = useDishStore((s) => s.items);
   const ingredients = useIngredientStore((s) => s.items);
+  // 订阅当前平台：切换平台后这里的总价要跟着重算
+  usePriceStore((s) => s.platform);
   const personalPlans = useWeeklyStore((s) => s.plans);
   const familyPlans = useWeeklyStore((s) => s.familyPlans);
   const mode = useWeeklyStore((s) => s.mode);

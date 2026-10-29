@@ -1,112 +1,148 @@
-import type { Ingredient } from '@/types';
+import type {
+  Ingredient,
+  IngredientCategory,
+  IngredientNutrition,
+  IngredientUnit,
+  PlatformPrice,
+} from '@/types';
+import { PRICE_PLATFORMS } from '@/utils/platforms';
+
+/**
+ * 四平台价格：参数顺序 = 盒马NB、小象超市、快乐猴、朴朴超市（元 / 计价单位）。
+ * 价格只是按市面常见价随手填的占位，用户之后会自己逐个审核重录。
+ */
+function p(hema: number, xiaoxiang: number, kuailehou: number, pupu: number) {
+  const [a, b, c, d] = PRICE_PLATFORMS;
+  return {
+    [a]: { price: hema, amount: 1 },
+    [b]: { price: xiaoxiang, amount: 1 },
+    [c]: { price: kuailehou, amount: 1 },
+    [d]: { price: pupu, amount: 1 },
+  } as Record<string, PlatformPrice>;
+}
+
+/** 每 100g / 100ml 的营养（调料不填） */
+function n(
+  calories: number,
+  protein: number,
+  fat: number,
+  carbs: number,
+  sodium: number,
+  fiber: number
+): IngredientNutrition {
+  return { calories, protein, fat, carbs, sodium, fiber };
+}
+
+/** 食材条目简写：id / 名称 / 分类 / 计价单位 / 四平台价格 / 营养 / 备注 */
+function ing(
+  id: string,
+  name: string,
+  category: IngredientCategory,
+  unit: IngredientUnit,
+  prices: Record<string, PlatformPrice>,
+  nutrition?: IngredientNutrition,
+  note?: string
+): Ingredient {
+  return { id, name, category, unit, prices, nutrition, note };
+}
 
 export const seedIngredients: Ingredient[] = [
-  // —— 蔬菜 ——
-  { id: 'ing_tomato', name: '番茄', category: '蔬菜', pricePerUnit: 1.0, unit: '个', spec: '粉番茄，单个约 4 两', unitGrams: 200 },
-  { id: 'ing_potato', name: '土豆', category: '蔬菜', pricePerUnit: 0.8, unit: '个', spec: '中等大小', unitGrams: 200 },
-  { id: 'ing_cucumber', name: '黄瓜', category: '蔬菜', pricePerUnit: 1.5, unit: '根', unitGrams: 250 },
-  { id: 'ing_cabbage', name: '白菜', category: '蔬菜', pricePerUnit: 2.0, unit: '斤' },
-  { id: 'ing_green_veg', name: '青菜', category: '蔬菜', pricePerUnit: 1.0, unit: '把', spec: '约 400g / 把', unitGrams: 400 },
-  { id: 'ing_pepper_green', name: '青椒', category: '蔬菜', pricePerUnit: 0.8, unit: '个', unitGrams: 80 },
-  { id: 'ing_pepper_red', name: '红椒', category: '蔬菜', pricePerUnit: 1.0, unit: '个', unitGrams: 80 },
-  { id: 'ing_onion', name: '洋葱', category: '蔬菜', pricePerUnit: 1.5, unit: '个', unitGrams: 200 },
-  { id: 'ing_eggplant', name: '茄子', category: '蔬菜', pricePerUnit: 1.5, unit: '个', unitGrams: 250 },
-  { id: 'ing_mushroom', name: '蘑菇', category: '蔬菜', pricePerUnit: 8.0, unit: '斤' },
-  { id: 'ing_lettuce', name: '生菜', category: '蔬菜', pricePerUnit: 1.5, unit: '个', unitGrams: 350 },
+  // —— 蔬菜（固体统一按斤计价） ——
+  ing('ing_tomato', '番茄', '蔬菜', '斤', p(3.8, 3.2, 3.5, 3.0), n(18, 0.9, 0.2, 3.9, 5, 1.2)),
+  ing('ing_potato', '土豆', '蔬菜', '斤', p(2.6, 2.2, 2.4, 1.9), n(77, 2.0, 0.1, 17.5, 6, 2.2)),
+  ing('ing_cucumber', '黄瓜', '蔬菜', '斤', p(3.5, 3.0, 3.2, 2.8), n(15, 0.7, 0.1, 3.6, 2, 0.5)),
+  ing('ing_cabbage', '白菜', '蔬菜', '斤', p(1.6, 1.3, 1.5, 1.2), n(25, 1.5, 0.2, 4.6, 20, 1.0)),
+  ing('ing_green_veg', '青菜', '蔬菜', '斤', p(3.5, 2.8, 3.2, 2.6), n(15, 1.5, 0.3, 2.7, 90, 1.1)),
+  ing('ing_pepper_green', '青椒', '蔬菜', '斤', p(4.5, 3.8, 4.2, 3.5), n(22, 1.0, 0.2, 5.4, 3, 1.7)),
+  ing('ing_pepper_red', '红椒', '蔬菜', '斤', p(5.8, 4.9, 5.3, 4.5), n(31, 1.0, 0.3, 6.0, 4, 2.1)),
+  ing('ing_onion', '洋葱', '蔬菜', '斤', p(2.8, 2.3, 2.5, 2.1), n(40, 1.1, 0.1, 9.3, 4, 1.7)),
+  ing('ing_eggplant', '茄子', '蔬菜', '斤', p(4.2, 3.6, 3.9, 3.2), n(25, 1.0, 0.2, 5.9, 2, 3.0)),
+  ing('ing_mushroom', '蘑菇', '蔬菜', '斤', p(9.9, 8.5, 9.2, 8.0), n(22, 3.1, 0.3, 3.3, 5, 1.0)),
+  ing('ing_lettuce', '生菜', '蔬菜', '斤', p(4.0, 3.4, 3.7, 3.2), n(15, 1.4, 0.2, 2.9, 28, 1.3)),
 
   // —— 肉类 ——
-  { id: 'ing_pork_belly', name: '五花肉', category: '肉类', pricePerUnit: 22.0, unit: '斤' },
-  { id: 'ing_pork_tenderloin', name: '里脊', category: '肉类', pricePerUnit: 25.0, unit: '斤' },
-  { id: 'ing_pork_ribs', name: '排骨', category: '肉类', pricePerUnit: 28.0, unit: '斤' },
-  { id: 'ing_chicken_leg', name: '鸡腿肉', category: '肉类', pricePerUnit: 15.0, unit: '斤' },
-  { id: 'ing_beef', name: '牛肉', category: '肉类', pricePerUnit: 45.0, unit: '斤' },
+  ing('ing_pork_belly', '五花肉', '肉类', '斤', p(23.9, 21.8, 22.5, 20.5), n(518, 9.0, 53.0, 0, 55, 0)),
+  ing('ing_pork_tenderloin', '里脊', '肉类', '斤', p(26.8, 24.9, 25.5, 23.8), n(143, 20.2, 6.2, 1.5, 48, 0)),
+  ing('ing_pork_ribs', '排骨', '肉类', '斤', p(29.9, 27.5, 28.5, 26.0), n(278, 16.7, 23.1, 0.7, 62, 0)),
+  ing('ing_chicken_leg', '鸡腿肉', '肉类', '斤', p(16.8, 14.9, 15.5, 13.9), n(181, 16.0, 13.0, 0, 64, 0)),
+  ing('ing_beef', '牛肉', '肉类', '斤', p(48.9, 44.9, 46.5, 43.0), n(250, 26.0, 15.0, 0, 60, 0)),
+  ing('ing_chicken_breast', '鸡胸肉', '肉类', '斤', p(13.9, 11.9, 12.5, 10.9), n(133, 24.6, 3.0, 0, 44, 0), '去皮去骨，冷冻常备'),
+  ing('ing_sausage', '腊肠', '肉类', '斤', p(39.9, 35.9, 37.5, 33.9), n(508, 24.0, 44.0, 2.0, 1420, 0), '广式甜口腊肠'),
+  ing('ing_chicken_wing', '鸡翅', '肉类', '斤', p(25.9, 22.9, 24.0, 21.5), n(194, 17.4, 11.8, 4.6, 84, 0)),
+  ing('ing_duck', '鸭肉', '肉类', '斤', p(19.9, 17.9, 18.5, 16.9), n(240, 15.5, 19.7, 0.2, 69, 0)),
+  ing('ing_sausage_fresh', '鲜香肠', '肉类', '斤', p(24.9, 22.0, 23.0, 20.9), n(346, 15.0, 30.0, 2.0, 900, 0), '广式甜口鲜肠'),
+  ing('ing_lamb_meat', '羊肉卷', '肉类', '斤', p(42.9, 38.9, 40.5, 36.9), n(203, 19.0, 14.0, 0, 80, 0), '一盒约 400 g'),
+  ing('ing_pork_meatball', '猪肉丸', '肉类', '斤', p(19.9, 17.5, 18.5, 16.5), n(263, 14.0, 18.0, 9.0, 500, 0), '手打猪肉丸'),
 
   // —— 海鲜 ——
-  { id: 'ing_shrimp', name: '虾', category: '海鲜', pricePerUnit: 35.0, unit: '斤' },
-  { id: 'ing_sea_bass', name: '鲈鱼', category: '海鲜', pricePerUnit: 18.0, unit: '斤' },
+  ing('ing_shrimp', '虾', '海鲜', '斤', p(39.9, 35.9, 37.5, 33.9), n(93, 18.6, 0.8, 2.8, 165, 0)),
+  ing('ing_sea_bass', '鲈鱼', '海鲜', '斤', p(21.9, 19.9, 20.5, 18.5), n(105, 18.6, 3.4, 0, 144, 0)),
+  ing('ing_fish_head', '鱼头', '海鲜', '斤', p(32.9, 29.9, 31.0, 28.0), n(126, 17.0, 5.5, 0, 60, 0), '胖头鱼鱼头'),
+  ing('ing_fish_piece', '草鱼片', '海鲜', '斤', p(19.9, 17.9, 18.5, 16.9), n(113, 16.6, 5.2, 0, 46, 0), '现杀现切鱼片'),
+  ing('ing_clam', '花蛤', '海鲜', '斤', p(13.9, 11.9, 12.5, 10.9), n(62, 10.1, 1.1, 2.8, 425, 0)),
+  ing('ing_crab', '螃蟹', '海鲜', '斤', p(69.9, 59.9, 64.9, 55.9), n(95, 17.5, 2.6, 0, 260, 0), '肉蟹，约 2 只 / 斤'),
+  ing('ing_small_yellow_fish', '小黄鱼', '海鲜', '斤', p(19.9, 17.9, 18.5, 16.9), n(99, 17.7, 3.0, 0.1, 288, 0)),
+  ing('ing_river_shrimp', '河虾', '海鲜', '斤', p(34.9, 30.9, 32.5, 29.0), n(87, 16.4, 2.4, 0, 133, 0)),
+  ing('ing_fan_shell', '扇贝', '海鲜', '斤', p(32.9, 29.9, 31.0, 27.9), n(60, 11.1, 0.6, 2.6, 339, 0), '活鲜扇贝 10 只 / 斤'),
 
   // —— 蛋奶 ——
-  { id: 'ing_egg', name: '鸡蛋', category: '蛋奶', pricePerUnit: 1.2, unit: '个', spec: '红壳普通蛋', unitGrams: 60 },
+  ing('ing_egg', '鸡蛋', '蛋奶', '斤', p(8.9, 7.9, 8.5, 7.2), n(143, 13.3, 8.8, 2.8, 131, 0), '约 8 个 / 斤'),
+  ing('ing_preserved_egg', '皮蛋', '蛋奶', '斤', p(14.9, 12.9, 13.5, 11.9), n(171, 14.2, 10.7, 4.5, 542, 0), '约 8 个 / 斤'),
 
   // —— 主食 ——
-  { id: 'ing_rice', name: '大米', category: '主食', pricePerUnit: 3.0, unit: '斤' },
-  { id: 'ing_noodle', name: '面条', category: '主食', pricePerUnit: 4.0, unit: '把', spec: '500g / 把', unitGrams: 500 },
-  { id: 'ing_tofu', name: '豆腐', category: '主食', pricePerUnit: 3.0, unit: '斤' },
+  ing('ing_rice', '大米', '主食', '斤', p(3.9, 3.3, 3.6, 3.1), n(346, 7.4, 0.8, 77.9, 3, 0.7)),
+  ing('ing_noodle', '面条', '主食', '斤', p(5.0, 4.2, 4.6, 4.0), n(284, 8.3, 1.4, 61.9, 3, 1.2)),
+  ing('ing_tofu', '豆腐', '主食', '斤', p(3.5, 2.9, 3.2, 2.7), n(82, 8.1, 4.2, 3.8, 7, 0.4)),
+  ing('ing_brown_rice', '糙米', '主食', '斤', p(6.9, 5.9, 6.2, 5.5), n(348, 7.7, 2.7, 75.0, 5, 3.4), '煮前泡 2 小时口感才不糙'),
+  ing('ing_tofu_dried', '腐竹', '主食', '斤', p(14.9, 12.9, 13.5, 11.9), n(461, 44.6, 21.7, 22.3, 26, 1.0)),
+  ing('ing_vermicelli', '粉丝', '主食', '斤', p(9.9, 8.5, 9.0, 7.9), n(335, 0.8, 0.1, 83.7, 9, 0.3)),
 
-  // —— 调料 ——
-  { id: 'ing_garlic', name: '大蒜', category: '调料', pricePerUnit: 2.0, unit: '头', unitGrams: 50 },
-  { id: 'ing_ginger', name: '生姜', category: '调料', pricePerUnit: 1.0, unit: '块', unitGrams: 50 },
-  { id: 'ing_scallion', name: '香葱', category: '调料', pricePerUnit: 5.0, unit: '把', unitGrams: 100 },
-  { id: 'ing_soy_sauce', name: '生抽', category: '调料', pricePerUnit: 8.0, unit: '瓶', spec: '500ml / 瓶', unitMl: 500 },
-  { id: 'ing_dark_soy', name: '老抽', category: '调料', pricePerUnit: 9.0, unit: '瓶', spec: '500ml / 瓶', unitMl: 500 },
-  { id: 'ing_oyster_sauce', name: '蚝油', category: '调料', pricePerUnit: 10.0, unit: '瓶', spec: '700g / 瓶', unitGrams: 700 },
-  { id: 'ing_salt', name: '盐', category: '调料', pricePerUnit: 2.0, unit: '袋', spec: '500g / 袋', unitGrams: 500 },
-  { id: 'ing_sugar', name: '糖', category: '调料', pricePerUnit: 5.0, unit: '袋', spec: '500g / 袋', unitGrams: 500 },
-  { id: 'ing_vinegar', name: '醋', category: '调料', pricePerUnit: 6.0, unit: '瓶', spec: '500ml / 瓶', unitMl: 500 },
-  { id: 'ing_cooking_wine', name: '料酒', category: '调料', pricePerUnit: 8.0, unit: '瓶', spec: '500ml / 瓶', unitMl: 500 },
-  { id: 'ing_doubanjiang', name: '豆瓣酱', category: '调料', pricePerUnit: 10.0, unit: '瓶', spec: '500g / 瓶', unitGrams: 500 },
-  { id: 'ing_oil', name: '食用油', category: '调料', pricePerUnit: 15.0, unit: '瓶', spec: '1L / 瓶', unitMl: 1000 },
+  // —— 调料（液体按 L，酱料按斤；营养不填） ——
+  ing('ing_garlic', '大蒜', '调料', '斤', p(7.9, 6.5, 7.0, 6.0), undefined, '约 10 头 / 斤'),
+  ing('ing_ginger', '生姜', '调料', '斤', p(8.5, 7.0, 7.6, 6.5), undefined, '约 10 块 / 斤'),
+  ing('ing_scallion', '香葱', '调料', '斤', p(9.9, 8.5, 9.0, 7.9)),
+  ing('ing_soy_sauce', '生抽', '调料', 'L', p(12.9, 10.9, 11.5, 9.9), undefined, '一瓶约 1 L'),
+  ing('ing_dark_soy', '老抽', '调料', 'L', p(14.9, 12.9, 13.5, 11.9), undefined, '一瓶约 500 ml'),
+  ing('ing_oyster_sauce', '蚝油', '调料', 'L', p(15.9, 13.9, 14.5, 12.9), undefined, '一瓶约 700 g，按 1 L 估'),
+  ing('ing_salt', '盐', '调料', '斤', p(2.5, 2.0, 2.2, 1.8), undefined, '一袋 500 g'),
+  ing('ing_sugar', '糖', '调料', '斤', p(5.5, 4.8, 5.0, 4.5), undefined, '一袋 500 g'),
+  ing('ing_vinegar', '醋', '调料', 'L', p(9.9, 8.5, 9.0, 7.9), undefined, '一瓶约 500 ml'),
+  ing('ing_cooking_wine', '料酒', '调料', 'L', p(12.9, 10.9, 11.5, 9.9), undefined, '一瓶约 500 ml'),
+  ing('ing_doubanjiang', '豆瓣酱', '调料', '斤', p(12.9, 10.9, 11.5, 9.9), undefined, '一罐约 500 g'),
+  ing('ing_oil', '食用油', '调料', 'L', p(16.9, 14.9, 15.5, 13.9), undefined, '一桶 5 L'),
+  ing('ing_chili_diced', '剁椒', '调料', '斤', p(16.9, 14.9, 15.5, 13.9), undefined, '一坛约 500 g'),
+  ing('ing_scallion_white', '大葱', '调料', '斤', p(3.5, 2.9, 3.2, 2.7)),
+  ing('ing_garlic_sprout', '蒜苗', '调料', '斤', p(6.9, 5.9, 6.2, 5.5)),
+  ing('ing_dried_chili', '干辣椒', '调料', '斤', p(27.9, 24.9, 26.0, 23.0)),
+  ing('ing_sichuan_pepper', '花椒', '调料', '斤', p(39.9, 34.9, 36.5, 32.0)),
+  ing('ing_anise', '八角', '调料', '斤', p(45.9, 39.9, 42.0, 37.0)),
+  ing('ing_peanut', '花生', '调料', '斤', p(9.9, 8.5, 9.0, 7.9), n(567, 25.8, 49.2, 16.1, 18, 8.5), '生花生米'),
+  ing('ing_sesame_oil', '香油', '调料', 'L', p(39.9, 34.9, 36.5, 32.0), undefined, '一瓶 450 ml'),
+  ing('ing_chili_oil', '辣椒油', '调料', 'L', p(39.9, 34.9, 36.5, 32.0), undefined, '一瓶 500 ml'),
+  ing('ing_starch', '淀粉', '调料', '斤', p(5.9, 4.9, 5.3, 4.5), undefined, '一袋 250 g'),
+  ing('ing_tomato_sauce', '番茄酱', '调料', '斤', p(14.9, 12.9, 13.5, 11.9), undefined, '一瓶 300 g'),
+  ing('ing_fermented_black_bean', '豆豉', '调料', '斤', p(32.9, 28.9, 30.5, 26.9), undefined, '一袋 200 g'),
+  ing('ing_xiang_cai', '香菜', '调料', '斤', p(14.9, 12.9, 13.5, 11.9)),
+  ing('ing_cola', '可乐', '调料', 'L', p(7.9, 6.9, 7.2, 6.5), undefined, '一罐 500 ml'),
+  ing('ing_beer', '啤酒', '调料', 'L', p(9.9, 8.5, 9.0, 7.9), undefined, '一罐 500 ml'),
+  ing('ing_hotpot_base', '火锅底料', '调料', '斤', p(39.9, 34.9, 36.5, 32.0), undefined, '一包 200 g'),
+  ing('ing_sesame', '白芝麻', '调料', '斤', p(17.9, 15.9, 16.5, 14.9), n(573, 17.7, 49.7, 23.4, 11, 11.8), '生白芝麻'),
+  ing('ing_white_pepper', '白胡椒粉', '调料', '斤', p(45.9, 39.9, 42.0, 37.0), undefined, '一瓶 50 g'),
 
-  // —— 减脂菜单用到的新食材 ——
-  { id: 'ing_chicken_breast', name: '鸡胸肉', category: '肉类', pricePerUnit: 12.0, unit: '斤', spec: '去皮去骨，冷冻常备' },
-  { id: 'ing_brown_rice', name: '糙米', category: '主食', pricePerUnit: 6.0, unit: '斤', spec: '煮前泡 2 小时口感才不糙' },
-
-  // —— 增量补的常用食材 ——
-  { id: 'ing_fish_head', name: '鱼头', category: '海鲜', pricePerUnit: 30.0, unit: '斤', spec: '胖头鱼鱼头' },
-  { id: 'ing_chili_diced', name: '剁椒', category: '调料', pricePerUnit: 15.0, unit: '瓶', spec: '500g / 瓶，坛子剁椒', unitGrams: 500 },
-  { id: 'ing_snow_pea', name: '荷兰豆', category: '蔬菜', pricePerUnit: 6.0, unit: '斤' },
-  { id: 'ing_sausage', name: '腊肠', category: '肉类', pricePerUnit: 35.0, unit: '斤', spec: '广式甜口腊肠' },
-
-  // —— 第三批：扩菜单时补充（41 个） ——
-  // 肉/水产
-  { id: 'ing_chicken_wing', name: '鸡翅', category: '肉类', pricePerUnit: 25.0, unit: '斤' },
-  { id: 'ing_duck', name: '鸭肉', category: '肉类', pricePerUnit: 18.0, unit: '斤', spec: '半只鸭 / 整鸭均可' },
-  { id: 'ing_sausage_fresh', name: '鲜香肠', category: '肉类', pricePerUnit: 22.0, unit: '斤', spec: '广式甜口鲜肠' },
-  { id: 'ing_lamb_meat', name: '羊肉卷', category: '肉类', pricePerUnit: 38.0, unit: '盒', spec: '约 500g / 盒', unitGrams: 500 },
-  { id: 'ing_pork_meatball', name: '猪肉丸', category: '肉类', pricePerUnit: 18.0, unit: '斤', spec: '手打猪肉丸' },
-
-  { id: 'ing_fish_piece', name: '草鱼片', category: '海鲜', pricePerUnit: 18.0, unit: '斤', spec: '现杀现切鱼片' },
-  { id: 'ing_clam', name: '花蛤', category: '海鲜', pricePerUnit: 12.0, unit: '斤' },
-  { id: 'ing_crab', name: '螃蟹', category: '海鲜', pricePerUnit: 60.0, unit: '斤', spec: '肉蟹，约 2 只 / 斤' },
-  { id: 'ing_small_yellow_fish', name: '小黄鱼', category: '海鲜', pricePerUnit: 18.0, unit: '斤' },
-  { id: 'ing_river_shrimp', name: '河虾', category: '海鲜', pricePerUnit: 30.0, unit: '斤' },
-  { id: 'ing_fan_shell', name: '扇贝', category: '海鲜', pricePerUnit: 30.0, unit: '斤', spec: '活鲜扇贝 10 只 / 斤' },
-
-  // 蔬菜/豆制品/主食
-  { id: 'ing_cauliflower', name: '花菜', category: '蔬菜', pricePerUnit: 3.0, unit: '颗', spec: '中等大小', unitGrams: 600 },
-  { id: 'ing_string_bean', name: '四季豆', category: '蔬菜', pricePerUnit: 3.0, unit: '斤' },
-  { id: 'ing_bitter_melon', name: '苦瓜', category: '蔬菜', pricePerUnit: 2.5, unit: '根', unitGrams: 300 },
-  { id: 'ing_winter_melon', name: '冬瓜', category: '蔬菜', pricePerUnit: 1.5, unit: '斤' },
-  { id: 'ing_chive', name: '韭菜', category: '蔬菜', pricePerUnit: 2.0, unit: '把', spec: '约 250g / 把', unitGrams: 250 },
-  { id: 'ing_bean_sprout', name: '绿豆芽', category: '蔬菜', pricePerUnit: 1.5, unit: '斤' },
-  { id: 'ing_broccoli', name: '西兰花', category: '蔬菜', pricePerUnit: 3.0, unit: '颗', spec: '中等大小', unitGrams: 500 },
-  { id: 'ing_water_spinach', name: '空心菜', category: '蔬菜', pricePerUnit: 2.0, unit: '把', spec: '约 400g / 把', unitGrams: 400 },
-  { id: 'ing_oil_mai', name: '油麦菜', category: '蔬菜', pricePerUnit: 2.5, unit: '把', spec: '约 400g / 把', unitGrams: 400 },
-  { id: 'ing_chinese_cabbage', name: '娃娃菜', category: '蔬菜', pricePerUnit: 3.0, unit: '颗', spec: '约 500g / 颗', unitGrams: 500 },
-  { id: 'ing_pickle', name: '酸菜', category: '蔬菜', pricePerUnit: 6.0, unit: '斤', spec: '东北酸菜 / 袋装' },
-  { id: 'ing_fungus', name: '黑木耳', category: '蔬菜', pricePerUnit: 25.0, unit: '斤' },
-  { id: 'ing_tofu_dried', name: '腐竹', category: '主食', pricePerUnit: 12.0, unit: '斤' },
-  { id: 'ing_vermicelli', name: '粉丝', category: '主食', pricePerUnit: 5.0, unit: '把', spec: '200g / 把', unitGrams: 200 },
-
-  // 调料/蛋
-  { id: 'ing_scallion_white', name: '大葱', category: '调料', pricePerUnit: 1.5, unit: '根', unitGrams: 150 },
-  { id: 'ing_garlic_sprout', name: '蒜苗', category: '调料', pricePerUnit: 3.0, unit: '把', spec: '约 200g / 把', unitGrams: 200 },
-  { id: 'ing_dried_chili', name: '干辣椒', category: '调料', pricePerUnit: 25.0, unit: '斤' },
-  { id: 'ing_sichuan_pepper', name: '花椒', category: '调料', pricePerUnit: 35.0, unit: '斤' },
-  { id: 'ing_anise', name: '八角', category: '调料', pricePerUnit: 40.0, unit: '斤' },
-  { id: 'ing_peanut', name: '花生', category: '调料', pricePerUnit: 8.0, unit: '斤', spec: '生花生米' },
-  { id: 'ing_sesame_oil', name: '香油', category: '调料', pricePerUnit: 18.0, unit: '瓶', spec: '450ml / 瓶', unitMl: 450 },
-  { id: 'ing_chili_oil', name: '辣椒油', category: '调料', pricePerUnit: 18.0, unit: '瓶', spec: '500ml / 瓶', unitMl: 500 },
-  { id: 'ing_starch', name: '淀粉', category: '调料', pricePerUnit: 5.0, unit: '袋', spec: '250g / 袋', unitGrams: 250 },
-  { id: 'ing_tomato_sauce', name: '番茄酱', category: '调料', pricePerUnit: 8.0, unit: '瓶', spec: '300g / 瓶', unitGrams: 300 },
-  { id: 'ing_fermented_black_bean', name: '豆豉', category: '调料', pricePerUnit: 12.0, unit: '瓶', spec: '200g / 瓶', unitGrams: 200 },
-  { id: 'ing_xiang_cai', name: '香菜', category: '调料', pricePerUnit: 2.0, unit: '把', spec: '约 50g / 把', unitGrams: 50 },
-  { id: 'ing_cola', name: '可乐', category: '调料', pricePerUnit: 3.5, unit: '瓶', spec: '500ml / 瓶', unitMl: 500 },
-  { id: 'ing_beer', name: '啤酒', category: '调料', pricePerUnit: 4.0, unit: '瓶', spec: '500ml / 瓶', unitMl: 500 },
-  { id: 'ing_hotpot_base', name: '火锅底料', category: '调料', pricePerUnit: 15.0, unit: '包', spec: '200g / 包', unitGrams: 200 },
-  { id: 'ing_preserved_egg', name: '皮蛋', category: '蛋奶', pricePerUnit: 1.5, unit: '个', unitGrams: 60 },
-  { id: 'ing_sesame', name: '白芝麻', category: '调料', pricePerUnit: 15.0, unit: '斤', spec: '生白芝麻' },
-  { id: 'ing_white_pepper', name: '白胡椒粉', category: '调料', pricePerUnit: 25.0, unit: '瓶', spec: '50g / 瓶', unitGrams: 50 },
-  { id: 'ing_xihamigua', name: '西葫芦', category: '蔬菜', pricePerUnit: 2.0, unit: '根', unitGrams: 400 },
-  { id: 'ing_enoki', name: '金针菇', category: '蔬菜', pricePerUnit: 3.0, unit: '把', spec: '约 200g / 把', unitGrams: 200 },
+  // —— 扩菜单时补充的蔬菜 ——
+  ing('ing_snow_pea', '荷兰豆', '蔬菜', '斤', p(9.9, 8.5, 9.0, 7.9), n(42, 2.8, 0.2, 7.5, 4, 2.6)),
+  ing('ing_cauliflower', '花菜', '蔬菜', '斤', p(4.9, 4.2, 4.5, 3.9), n(24, 1.9, 0.3, 5.0, 30, 2.0)),
+  ing('ing_string_bean', '四季豆', '蔬菜', '斤', p(5.9, 4.9, 5.3, 4.5), n(31, 1.8, 0.2, 5.7, 6, 2.7)),
+  ing('ing_bitter_melon', '苦瓜', '蔬菜', '斤', p(4.5, 3.8, 4.2, 3.5), n(19, 1.0, 0.1, 4.3, 5, 1.4)),
+  ing('ing_winter_melon', '冬瓜', '蔬菜', '斤', p(1.8, 1.5, 1.6, 1.3), n(12, 0.4, 0.2, 2.6, 2, 0.7)),
+  ing('ing_chive', '韭菜', '蔬菜', '斤', p(5.9, 4.9, 5.3, 4.5), n(26, 2.4, 0.4, 4.6, 8, 1.4)),
+  ing('ing_bean_sprout', '绿豆芽', '蔬菜', '斤', p(2.4, 1.9, 2.1, 1.7), n(18, 1.8, 0.1, 2.9, 5, 0.8)),
+  ing('ing_broccoli', '西兰花', '蔬菜', '斤', p(6.9, 5.8, 6.2, 5.3), n(34, 2.8, 0.4, 6.6, 33, 2.6)),
+  ing('ing_water_spinach', '空心菜', '蔬菜', '斤', p(5.5, 4.6, 4.9, 4.2), n(20, 2.2, 0.3, 3.1, 94, 1.4)),
+  ing('ing_oil_mai', '油麦菜', '蔬菜', '斤', p(5.5, 4.6, 4.9, 4.2), n(15, 1.4, 0.4, 2.1, 80, 0.6)),
+  ing('ing_chinese_cabbage', '娃娃菜', '蔬菜', '斤', p(5.9, 4.9, 5.3, 4.5), n(13, 1.3, 0.2, 2.0, 30, 0.8)),
+  ing('ing_pickle', '酸菜', '蔬菜', '斤', p(6.9, 5.8, 6.2, 5.3), n(20, 1.0, 0.2, 3.0, 1200, 1.5), '东北酸菜 / 袋装'),
+  ing('ing_fungus', '黑木耳', '蔬菜', '斤', p(28.9, 24.9, 26.5, 23.0), n(265, 12.1, 1.5, 65.6, 48, 29.9), '干木耳'),
+  ing('ing_xihamigua', '西葫芦', '蔬菜', '斤', p(3.5, 2.9, 3.2, 2.7), n(19, 0.8, 0.2, 3.8, 5, 0.6)),
+  ing('ing_enoki', '金针菇', '蔬菜', '斤', p(6.9, 5.9, 6.2, 5.5), n(32, 2.4, 0.4, 6.0, 4, 2.7)),
 ];
