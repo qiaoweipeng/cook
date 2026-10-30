@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { ProLayout } from '@ant-design/pro-components';
-import { App as AntApp, Badge, Dropdown } from 'antd';
+import { App as AntApp, Badge, Dropdown, Avatar } from 'antd';
 import {
   AppstoreOutlined,
   CameraOutlined,
@@ -24,10 +24,11 @@ import FamilyModal from '@/components/FamilyModal';
 
   和 AppLayout 的分工：
   - 普通用户继续走 AppLayout（顶部横菜单 + 移动端 TabBar），完全不受影响；
-  - 管理员走这里，用 Ant Design Pro 的 ProLayout 换成经典后台形态（左侧菜单 + 顶部栏）。
+  - 管理员走这里，用 Ant Design Pro 的 ProLayout 换成经典后台形态：
+    只有左侧一块导航栏，没有顶部栏；头像 / 我的家庭 / 退出登录放在侧栏底部。
 
-  头部元素（头像下拉、上传头像、我的家庭、退出登录）与 AppLayout 保持一致，
-  改其中一处时记得同步另一处 —— 两个布局都是管理员会看到的。
+  侧栏底部的用户区与 AppLayout 头部保持同一批入口，
+  改其中一处时记得同步另一处。
 */
 
 // 管理员菜单。和 AppLayout 里的 adminNavItems 是同一批路由，
@@ -142,27 +143,67 @@ export default function AdminLayout() {
         layout="side"
         siderWidth={208}
         fixSiderbar
-        fixedHeader
-        // 背景保持纯白，和 README 里「PC 端固定纯白」的约定一致
+        // 去掉顶部栏：只保留左侧导航，头像/家庭/退出等原来在顶栏的入口移到侧栏底部
+        headerRender={false}
+        // Ant Design Pro 官方 demo 经典配色：
+        // 侧栏纯白（菜单区）、内容区 F5F5F5（antd 默认 layout 底）
         token={{
-          bgLayout: '#ffffff',
+          bgLayout: '#f5f5f5',
           sider: { colorMenuBackground: '#ffffff' },
         }}
-        contentStyle={{ padding: 24 }}
+        contentStyle={{ padding: 24, background: '#f5f5f5' }}
         location={{ pathname: location.pathname }}
         route={{ path: '/', routes: adminMenuRoutes }}
         menuItemRender={(item, dom) => (
           <div onClick={() => item.path && navigate(item.path)}>{dom}</div>
         )}
-        avatarProps={{
-          src: user?.avatar || undefined,
-          title: user?.nickName || '管理员',
-          render: (_props, dom) => (
-            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-              <span>{dom}</span>
-            </Dropdown>
-          ),
-        }}
+        // 侧栏底部固定用户区（收起时隐藏，避免挤成一团）
+        menuFooterRender={(props) =>
+          props?.collapsed ? null : (
+            <div
+              style={{
+                padding: '10px 12px',
+                borderTop: '1px solid #f0f0f0',
+              }}
+            >
+              <Dropdown menu={{ items: userMenuItems }} placement="topRight">
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '6px 4px',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Avatar
+                    size={32}
+                    src={user?.avatar || undefined}
+                    style={user?.avatar ? undefined : { background: '#E8743C' }}
+                  >
+                    {(user?.nickName || '管').slice(0, 1)}
+                  </Avatar>
+                  <div style={{ minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: '#333',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {user?.nickName || '管理员'}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#999' }}>超级管理员</div>
+                  </div>
+                </div>
+              </Dropdown>
+            </div>
+          )
+        }
         // 去掉 Pro 默认的版权页脚
         footerRender={false}
       >

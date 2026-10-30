@@ -159,6 +159,60 @@ export function calcDishCost(
   );
 }
 
+/** 一道菜的营养总和（按食材库每 100g/100ml 的成分按用量折算后相加） */
+export interface DishNutrition {
+  calories: number;
+  protein: number;
+  fat: number;
+  carbs: number;
+  sodium: number;
+  fiber: number;
+}
+
+/**
+ * 一道菜的营养总和。
+ * 食材库里每项食材的营养口径是「每 100g / 每 100ml」，
+ * 这里把菜谱里的用量换算成 g / ml 后按比例折算再累加；
+ * 没录营养的食材（一般是调料）和无法折算成重量的老计数单位直接跳过。
+ * 一道菜里没有任何可计算的食材时返回 null，让表格显示「—」。
+ */
+export function calcDishNutrition(
+  dish: Dish,
+  ingredients: Ingredient[]
+): DishNutrition | null {
+  let hasData = false;
+  const total: DishNutrition = {
+    calories: 0, protein: 0, fat: 0, carbs: 0, sodium: 0, fiber: 0,
+  };
+
+  for (const di of dish.ingredients) {
+    const ing = ingredients.find((i) => i.id === di.ingredientId);
+    if (!ing?.nutrition) continue;
+    const base = normalizeToBase(di.amount, di.unit);
+    // count 类（个/把/根…）不知道具体克重，没法套每 100g 的成分
+    if (base.kind === 'count' || base.value <= 0) continue;
+
+    const ratio = base.value / 100;
+    total.calories += ing.nutrition.calories * ratio;
+    total.protein += ing.nutrition.protein * ratio;
+    total.fat += ing.nutrition.fat * ratio;
+    total.carbs += ing.nutrition.carbs * ratio;
+    total.sodium += ing.nutrition.sodium * ratio;
+    total.fiber += ing.nutrition.fiber * ratio;
+    hasData = true;
+  }
+
+  if (!hasData) return null;
+  return {
+    calories: Math.round(total.calories),
+    protein: round2(total.protein),
+    fat: round2(total.fat),
+    carbs: round2(total.carbs),
+    sodium: Math.round(total.sodium),
+    fiber: round2(total.fiber),
+  };
+}
+
 /** 把基础单位还原成可读的展示单位 */
 export function formatBaseValue(value: number, kind: UnitKind): { amount: number; unit: string } {
   if (kind === 'mass') {

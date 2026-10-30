@@ -378,3 +378,8 @@ textarea,
     animation: none;
   }
 }
+
+/* 菜单管理：查询区与下方表格的间距（ProTable 默认 16px，这里放宽到 24px） */
+.menu-manage-table .ant-pro-card.ant-pro-table-search {
+  margin-block-end: 24px;
+}

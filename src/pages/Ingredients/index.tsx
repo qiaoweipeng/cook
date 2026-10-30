@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { ProTable, ProCard } from '@ant-design/pro-components';
+import type { ProColumns } from '@ant-design/pro-components';
 import {
   Table,
   Button,
   Space,
   Modal,
+  Drawer,
   Form,
   Input,
   InputNumber,
@@ -59,6 +62,18 @@ const categories: IngredientCategory[] = [
   '水果',
   '其他',
 ];
+
+/** 8 个食材分类各一种颜色，表格里一眼区分 */
+const CATEGORY_COLOR: Record<IngredientCategory, string> = {
+  蔬菜: 'green',
+  肉类: 'red',
+  海鲜: 'cyan',
+  调料: 'orange',
+  主食: 'gold',
+  蛋奶: 'blue',
+  水果: 'magenta',
+  其他: 'purple',
+};
 
 /** 计价单位只留：固体按斤 / 克 / 公斤，液体按毫升 / 升 */
 const unitOptions: { value: IngredientUnit; label: string }[] = [
@@ -116,6 +131,7 @@ export default function Ingredients() {
   // 预览弹层挂在表格「外面」手动控制，不放在单元格里 —— 避免预览的 portal 事件
   // 冒泡回表格行，造成「点图片反而选中行」的冲突
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [detail, setDetail] = useState<Ingredient | null>(null);
   const [removing, setRemoving] = useState(false);
   const [imgProcessing, setImgProcessing] = useState(false);
   /** 本次上传的结果：体积 + 走的是对象存储还是本地压缩，用于在编辑区常驻显示 */
@@ -536,192 +552,65 @@ export default function Ingredients() {
           </div>
         </>
       ) : (
-        <>
-          <div
-            style={{
-              marginTop: 12,
-              marginBottom: 16,
-              display: 'flex',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: 12,
-            }}
-          >
-            <Input
-              allowClear
-              prefix={<SearchOutlined style={{ color: '#bbb' }} />}
-              placeholder="搜索食材名 / 分类"
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              style={{ width: 280 }}
-            />
-            <span style={{ color: '#999', fontSize: 13 }}>
-              共 {items.length} 种食材
-              {keyword ? `，匹配 ${filtered.length} 种` : ''}
-            </span>
-            <div style={{ flex: 1 }} />
-            {isAdmin ? (
-              <Space wrap>
-                <Tooltip title="下载一份带示例的空白 Excel，方便照着填">
-                  <Button icon={<FileExcelOutlined />} onClick={handleDownloadTemplate}>
-                    下载模板
-                  </Button>
-                </Tooltip>
-                <Button.Group>
-                  <Tooltip title="把当前食材库导出为 Excel 文件">
-                    <Button icon={<DownloadOutlined />} onClick={handleExport}>
-                      导出 Excel
-                    </Button>
-                  </Tooltip>
-                  <Tooltip title="从 Excel 文件导入，可选合并或替换现有数据">
-                    <Button icon={<UploadOutlined />} onClick={handleImportClick}>
-                      导入 Excel
-                    </Button>
-                  </Tooltip>
-                </Button.Group>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".xlsx,.xls"
-                  style={{ display: 'none' }}
-                  onChange={handleFileChange}
-                />
-                <Button
-                  icon={<EditOutlined />}
-                  onClick={openEdit}
-                  disabled={!selectedRowKey}
-                >
-                  编辑食材
-                </Button>
-                <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>
-                  新增食材
-                </Button>
-              </Space>
-            ) : (
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                食材库由超级管理员维护
-              </Text>
-            )}
-          </div>
-
-          {isAdmin && selectedRowKey && (
-            <Alert
-              type="info"
-              showIcon
-              closable
-              onClose={() => setSelectedRowKey(undefined)}
-              style={{ marginBottom: 12 }}
-              message={
-                <span>
-                  已选中：
-                  <Text strong>
-                    {items.find((i) => i.id === selectedRowKey)?.name}
-                  </Text>
-                  ，点右上角「编辑食材」可修改或删除它，点右侧 × 或再次点击该行可取消选中
-                </span>
-              }
-            />
-          )}
-
-          <Table<Ingredient>
-            rowKey="id"
-            size="small"
-            bordered
-            dataSource={filtered}
-            scroll={{ x: 900 }}
-            pagination={{
-              defaultPageSize: 20,
-              showSizeChanger: true,
-              pageSizeOptions: [20, 50, 100],
-              showTotal: (t) => `共 ${t} 种食材`,
-            }}
-            onRow={(record) => ({
-              onClick: () => {
-                if (!isAdmin) return;
-                // 单选模式下无法直接取消选中：再次点击已选中的行就取消选中
-                setSelectedRowKey((prev) => (prev === record.id ? undefined : record.id));
-              },
-              style: { cursor: isAdmin ? 'pointer' : 'default' },
-            })}
-            rowSelection={
-              isAdmin
-                ? {
-                  type: 'radio',
-                  selectedRowKeys: selectedRowKey ? [selectedRowKey] : [],
-                  onChange: (keys) => setSelectedRowKey(keys[0] as string | undefined),
-                  preserveSelectedRowKeys: true,
-                  columnWidth: 48,
-                }
-                : undefined
-            }
-            columns={[
-              {
-                title: '图片',
-                dataIndex: 'image',
-                width: 64,
-                render: (v: string | undefined) =>
-                  v ? (
-                    // 缩略图就是普通 img：stopPropagation 保证点它不会触发行选中；
-                    // 点击后把地址交给表格「外面」的受控预览弹层放大
+        <ProTable<Ingredient>
+          rowKey="id"
+          bordered
+          size="small"
+          search={{ labelWidth: 'auto', defaultCollapsed: false, span: 6 }}
+          columns={[
+            {
+              // 图片 + 名称合成一列：有图显示「小图 + 名称」，没图只显示名称
+              title: '食材名',
+              dataIndex: 'name',
+              width: 220,
+              fixed: 'left',
+              fieldProps: { style: { width: 225 } },
+              render: (_, r: Ingredient) => (
+                <Space size={10}>
+                  {r.image && (
                     <img
-                      src={v}
+                      src={r.image}
                       alt=""
                       loading="lazy"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setPreviewSrc(v);
-                      }}
-                      style={{
-                        width: 40,
-                        height: 40,
-                        objectFit: 'cover',
-                        borderRadius: 6,
-                        display: 'block',
-                        cursor: 'zoom-in',
-                      }}
+                      onClick={(e) => { e.stopPropagation(); setPreviewSrc(r.image!); }}
+                      style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, display: 'block', cursor: 'zoom-in', flexShrink: 0 }}
                     />
-                  ) : (
-                    <Text type="secondary">-</Text>
-                  ),
-              },
-              {
-                title: '名称',
-                dataIndex: 'name',
-                width: 180,
-                render: (v: string) => <Text strong>{v}</Text>,
-              },
-              {
-                title: '分类',
-                dataIndex: 'category',
-                width: 110,
-                // 列头自带筛选下拉，跟菜单管理表格一致
-                filters: [...new Set(items.map((i) => i.category))].map((c) => ({
-                  text: c,
-                  value: c,
-                })),
-                onFilter: (value, r) => r.category === value,
-                render: (v: IngredientCategory) => <Tag color="orange">{v}</Tag>,
-              },
-              {
-                title: '单位',
-                dataIndex: 'unit',
-                width: 80,
-                // 单位种类不多，给个列头筛选方便只看「斤 / L」这类
-                filters: [...new Set(items.map((i) => i.unit))].map((u) => ({
-                  text: u,
-                  value: u,
-                })),
-                onFilter: (value, r) => r.unit === value,
-              },
-              // 每个平台一列：直接显示折算后的「元/斤」或「元/L」，最便宜的标橙
-              ...platforms.map((platform) => ({
+                  )}
+                  <Text strong>{r.name}</Text>
+                </Space>
+              ),
+            },
+            {
+              title: '分类',
+              dataIndex: 'category',
+              width: 110,
+              valueType: 'select',
+              fieldProps: { mode: 'multiple', style: { width: 225 } },
+              valueEnum: () => categories.reduce((acc, c) => ({ ...acc, [c]: { text: c } }), {}),
+              render: (_, r) => <Tag color={CATEGORY_COLOR[r.category]}>{r.category}</Tag>,
+            },
+            {
+              title: '单位',
+              dataIndex: 'unit',
+              width: 80,
+              valueType: 'select',
+              fieldProps: { mode: 'multiple', style: { width: 225 } },
+              valueEnum: () => unitOptions.reduce((acc, o) => ({ ...acc, [o.value]: { text: o.value } }), {}),
+            },
+            {
+              // 各平台单价统一挂在一个父表头「食材单价」下
+              title: '食材单价',
+              key: 'unitPrice',
+              search: false,
+              children: platforms.map<ProColumns<Ingredient>>((platform) => ({
                 title: platform,
                 key: `price_${platform}`,
                 width: 118,
-                sorter: (a: Ingredient, b: Ingredient) =>
+                search: false,
+                sorter: (a, b) =>
                   (displayUnitPrice(a, platform)?.value ?? Infinity) -
                   (displayUnitPrice(b, platform)?.value ?? Infinity),
-                render: (_: unknown, r: Ingredient) => {
+                render: (_, r) => {
                   const d = displayUnitPrice(r, platform);
                   if (!d) return <Text type="secondary">-</Text>;
                   const isCheapest = cheapestPlatform(r)?.platform === platform;
@@ -734,59 +623,115 @@ export default function Ingredients() {
                   );
                 },
               })),
-              {
-                title: '营养(每100)',
-                width: 130,
-                render: (_: unknown, r: Ingredient) =>
-                  r.nutrition ? (
-                    <Tooltip
-                      title={
-                        <div style={{ fontSize: 12, lineHeight: 1.8 }}>
-                          {NUTRI_FIELDS.map((f) => (
-                            <div key={f.key}>
-                              {f.label} {r.nutrition?.[f.key]} {f.unit}
-                            </div>
-                          ))}
-                        </div>
-                      }
-                    >
-                      <Text type="secondary">
-                        {r.nutrition.calories} kcal · 蛋白 {r.nutrition.protein} g
-                      </Text>
-                    </Tooltip>
+            },
+            {
+              // 营养也走分组表头，和「菜单管理」里的菜品表格保持一致
+              title: '营养成分(每100g)',
+              key: 'nutrition',
+              search: false,
+              children: NUTRI_FIELDS.map<ProColumns<Ingredient>>((f) => ({
+                title: `${f.label}(${f.unit})`,
+                key: `n_${f.key}`,
+                width: 84,
+                search: false,
+                align: 'right',
+                render: (_, r) => {
+                  const v = r.nutrition?.[f.key];
+                  return v === undefined || v === null ? (
+                    <Text type="secondary">—</Text>
                   ) : (
-                    <Text type="secondary">-</Text>
-                  ),
-              },
-              { title: '备注', dataIndex: 'note', width: 180, ellipsis: true },
-            ]}
-          />
-
-          {/*
-            图片大图预览：故意放在 Table 外面、自身隐藏，只靠 previewSrc 手动开合。
-            这样预览弹层的点击事件跟表格行完全不在一条事件链上，
-            点缩略图 = 只开预览，点行其他地方 = 只切换选中，互不干扰。
-          */}
-          <Image
-            style={{ display: 'none' }}
-            preview={{
-              visible: previewSrc !== null,
-              src: previewSrc ?? undefined,
-              onVisibleChange: (open) => {
-                if (!open) setPreviewSrc(null);
-              },
-            }}
-          />
-        </>
+                    <span style={{ color: '#2D2A26' }}>{v}</span>
+                  );
+                },
+              })),
+            },
+            { title: '备注', dataIndex: 'note', width: 180, ellipsis: true, search: false },
+            {
+              // 和「菜单管理」里的「菜品详情」一致：操作列里放详情超链接
+              title: '操作',
+              key: 'action',
+              width: 100,
+              fixed: 'right',
+              search: false,
+              render: (_, r) => (
+                <Typography.Link onClick={(e) => { e.stopPropagation(); setDetail(r); }}>
+                  食材详情
+                </Typography.Link>
+              ),
+            },
+          ]}
+          params={{ platformCount: platforms.length }}
+          request={async (params) => {
+            const { current = 1, pageSize = 20, name, category, unit } = params;
+            let list = [...items];
+            if (name) list = list.filter((it) => it.name.toLowerCase().includes(String(name).toLowerCase()));
+            if (category?.length) list = list.filter((it) => category.includes(it.category));
+            if (unit?.length) list = list.filter((it) => unit.includes(it.unit));
+            const total = list.length;
+            const paged = list.slice((current - 1) * pageSize, current * pageSize);
+            return { data: paged, total, success: true };
+          }}
+          rowSelection={
+            isAdmin
+              ? {
+                type: 'radio',
+                selectedRowKeys: selectedRowKey ? [selectedRowKey] : [],
+                onChange: (keys) => setSelectedRowKey(keys[0] as string | undefined),
+                preserveSelectedRowKeys: true,
+                columnWidth: 48,
+                fixed: true,
+              }
+              : undefined
+          }
+          onRow={(record) => ({
+            onClick: () => {
+              if (!isAdmin) return;
+              setSelectedRowKey((prev) => (prev === record.id ? undefined : record.id));
+            },
+            style: { cursor: isAdmin ? 'pointer' : 'default' },
+          })}
+          pagination={{
+            defaultPageSize: 20,
+            showSizeChanger: true,
+            pageSizeOptions: [20, 50, 100],
+            showTotal: (t) => `共 ${t} 种食材`,
+          }}
+          scroll={{ x: 1750, y: 'calc(100vh - 290px)' }}
+          tableAlertRender={false}
+          toolBarRender={() =>
+            isAdmin
+              ? [
+                <Tooltip key="tpl" title="下载一份带示例的空白 Excel">
+                  <Button icon={<FileExcelOutlined />} onClick={handleDownloadTemplate}>下载模板</Button>
+                </Tooltip>,
+                <Button key="export" icon={<DownloadOutlined />} onClick={handleExport}>导出 Excel</Button>,
+                <Button key="import" icon={<UploadOutlined />} onClick={handleImportClick}>导入 Excel</Button>,
+                <input
+                  key="file"
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  style={{ display: 'none' }}
+                  onChange={handleFileChange}
+                />,
+                <Button key="edit" icon={<EditOutlined />} disabled={!selectedRowKey} onClick={openEdit}>
+                  编辑食材{selectedRowKey ? `（${items.find((i) => i.id === selectedRowKey)?.name}）` : ''}
+                </Button>,
+                <Button key="add" type="primary" icon={<PlusOutlined />} onClick={openAdd}>新增食材</Button>,
+              ]
+              : []
+          }
+        />
       )}
 
-      {/* 新增 / 编辑弹窗 */}
-      <Modal
+      {/* 新增 / 编辑食材：抽屉形式，和「菜单管理」里的菜品编辑体验一致 */}
+      <Drawer
         title={editing ? `编辑食材：${editing.name}` : '新增食材'}
         open={editorOpen}
-        onCancel={() => setEditorOpen(false)}
-        width={isMobile ? '94%' : 560}
+        onClose={() => setEditorOpen(false)}
+        width={isMobile ? '100%' : 620}
         forceRender
+        styles={{ body: { paddingTop: 12 } }}
         footer={
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             {editing ? (
@@ -815,144 +760,278 @@ export default function Ingredients() {
         }
       >
         <Form form={form} layout="vertical" preserve={false}>
-          <Row gutter={12}>
-            <Col span={isMobile ? 24 : 12}>
-              <Form.Item name="name" label="名称" rules={[{ required: true }]}>
-                <Input placeholder="如：五花肉" />
-              </Form.Item>
-            </Col>
-            <Col span={isMobile ? 24 : 12}>
-              <Form.Item name="category" label="分类" rules={[{ required: true }]}>
-                <Select options={categories.map((c) => ({ value: c, label: c }))} />
-              </Form.Item>
-            </Col>
-            <Col span={isMobile ? 24 : 12}>
-              <Form.Item
-                name="unit"
-                label="计价单位"
-                rules={[{ required: true }]}
-                tooltip="固体用斤，液体用 ml / L；填价时按这个单位记「这一份多重」"
-              >
-                <Select options={unitOptions} />
-              </Form.Item>
-            </Col>
-            <Col span={isMobile ? 24 : 12}>
-              <Form.Item name="note" label="备注（可选）">
-                <Input placeholder="如：这一瓶 1 升 / 约两个中等土豆" />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          {/* 平台价格：只记「这一份多少钱 + 这一份多重/多少容量」，系统自动折算比价 */}
-          <div style={{ marginBottom: 6, fontWeight: 600 }}>
-            各平台价格
-            <Text type="secondary" style={{ fontSize: 12, fontWeight: 400, marginLeft: 8 }}>
-              只填这一份的价钱和份量（份量不填按 1 份算），自动折成元/斤、元/L
-            </Text>
-          </div>
-          <Row gutter={12}>
-            {platforms.map((platform) => (
-              <Col span={isMobile ? 24 : 12} key={platform}>
-                <Form.Item label={`${platform}：这一份多少钱（元）`}>
-                  <Space.Compact style={{ width: '100%' }}>
-                    <Form.Item name={`price_${platform}`} noStyle>
-                      <InputNumber
-                        min={0}
-                        step={0.1}
-                        style={{ width: '55%' }}
-                        placeholder="价格 ¥"
-                      />
-                    </Form.Item>
-                    <Form.Item name={`amount_${platform}`} noStyle>
-                      <InputNumber
-                        min={0}
-                        step={0.1}
-                        style={{ width: '45%' }}
-                        placeholder="份量（默认1）"
-                      />
-                    </Form.Item>
-                  </Space.Compact>
+          <ProCard title="基本信息" headerBordered bordered style={{ marginBottom: 16 }}>
+            <Row gutter={16}>
+              <Col xs={24} md={12}>
+                <Form.Item name="name" label="名称" rules={[{ required: true }]}>
+                  <Input placeholder="如：五花肉" />
                 </Form.Item>
               </Col>
-            ))}
-          </Row>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            例：生抽 1 升 10 元 → 单位选「L」，份量填 1，价格 10；土豆一袋 2 斤 3 元 →
-            单位「斤」，份量 2，价格 3
-          </Text>
-
-          {/* 营养：每 100g / 100ml，主料填、调料不填 */}
-          <div style={{ margin: '16px 0 6px', fontWeight: 600 }}>
-            营养成分（每 100 g / 100 ml，调料可不填）
-          </div>
-          <Row gutter={12}>
-            {NUTRI_FIELDS.map((f) => (
-              <Col span={isMobile ? 12 : 8} key={f.key}>
-                <Form.Item name={f.key} label={`${f.label}（${f.unit}）`}>
-                  <InputNumber min={0} step={0.1} style={{ width: '100%' }} />
+              <Col xs={24} md={12}>
+                <Form.Item name="category" label="分类" rules={[{ required: true }]}>
+                  <Select options={categories.map((c) => ({ value: c, label: c }))} />
                 </Form.Item>
               </Col>
-            ))}
-          </Row>
+            </Row>
 
-          <Form.Item label="食材图片（可选）">
-            <Space direction="vertical" size={8} style={{ width: '100%' }}>
-              <Space wrap>
-                <Upload
-                  accept={IMAGE_ACCEPT}
-                  showUploadList={false}
-                  beforeUpload={(file) => {
-                    void handlePickImage(file);
-                    return false;
+            <Row gutter={16}>
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="unit"
+                  label="计价单位"
+                  rules={[{ required: true }]}
+                  tooltip="固体用斤，液体用 ml / L；填价时按这个单位记「这一份多重」"
+                >
+                  <Select options={unitOptions} />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={12}>
+                <Form.Item name="note" label="备注（可选）">
+                  <Input placeholder="如：这一瓶 1 升 / 约两个中等土豆" />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            {/* 食材图片：左边固定尺寸预览框（没图时是虚线占位），右边操作区 */}
+            <Form.Item label="食材图片（可选）" style={{ marginBottom: 0 }}>
+              <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                <div
+                  style={{
+                    width: 96,
+                    height: 96,
+                    flexShrink: 0,
+                    borderRadius: 10,
+                    overflow: 'hidden',
+                    background: currentImage ? 'transparent' : '#fafafa',
+                    border: currentImage ? '1px solid #eee' : '1px dashed #d9d9d9',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#bfbfbf',
+                    fontSize: 12,
                   }}
                 >
-                  <Button icon={<PictureOutlined />} loading={imgProcessing}>
-                    选择本地图片
-                  </Button>
-                </Upload>
-                {currentImage ? (
-                  <Button
-                    danger
-                    icon={<DeleteOutlined />}
-                    onClick={() => {
-                      form.setFieldsValue({ image: '' });
-                      setImgInfo(null);
-                    }}
-                  >
-                    清除图片
-                  </Button>
-                ) : (
+                  {currentImage ? (
+                    <img
+                      src={resolveImageUrl(currentImage)}
+                      alt="图片预览"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                  ) : (
+                    <div style={{ textAlign: 'center' }}>
+                      <PictureOutlined style={{ fontSize: 22, display: 'block', marginBottom: 4 }} />
+                      暂无图片
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <Space wrap size={8}>
+                    <Upload
+                      accept={IMAGE_ACCEPT}
+                      showUploadList={false}
+                      beforeUpload={(file) => {
+                        void handlePickImage(file);
+                        return false;
+                      }}
+                    >
+                      <Button icon={<PictureOutlined />} loading={imgProcessing}>
+                        选择本地图片
+                      </Button>
+                    </Upload>
+                    {currentImage && (
+                      <Button
+                        danger
+                        icon={<DeleteOutlined />}
+                        onClick={() => {
+                          form.setFieldsValue({ image: '' });
+                          setImgInfo(null);
+                        }}
+                      >
+                        清除图片
+                      </Button>
+                    )}
+                    {imgInfo && (
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {formatSize(imgInfo.size)}
+                        {imgInfo.viaStorage ? ' · 已存云端' : ' · 压缩后存本地'}
+                      </Text>
+                    )}
+                  </Space>
+
+                  <Form.Item name="image" noStyle>
+                    <Input placeholder="或粘贴图片链接" allowClear />
+                  </Form.Item>
+
                   <Text type="secondary" style={{ fontSize: 12 }}>
-                    支持 JPG / PNG / WebP 静态图
+                    支持 JPG / PNG / WebP 静态图，上传前会自动压缩
                   </Text>
-                )}
-                {/* 上传完把大小常驻在这里，不再只是弹窗一闪而过 */}
-                {imgInfo && (
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {formatSize(imgInfo.size)}
-                    {imgInfo.viaStorage ? ' · 已存云端' : ' · 压缩后存本地'}
-                  </Text>
-                )}
-              </Space>
-              <Form.Item name="image" noStyle>
-                <Input placeholder="或粘贴图片链接" allowClear />
-              </Form.Item>
-              {currentImage && (
-                <img
-                  src={resolveImageUrl(currentImage)}
-                  alt="图片预览"
-                  style={{
-                    width: 120,
-                    height: 120,
-                    objectFit: 'cover',
-                    borderRadius: 8,
-                    border: '1px solid #eee',
-                  }}
-                />
-              )}
-            </Space>
-          </Form.Item>
+                </div>
+              </div>
+            </Form.Item>
+          </ProCard>
+
+          {/* 平台价格：只记「这一份多少钱 + 这一份多重/多少容量」，系统自动折算比价 */}
+          <ProCard
+            title="各平台价格"
+            headerBordered
+            bordered
+            style={{ marginBottom: 16 }}
+            extra={
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                只填这一份的价格与份量
+              </Text>
+            }
+          >
+            <div style={{ display: 'flex', gap: 8, color: '#999', fontSize: 12, marginBottom: 6 }}>
+              <span style={{ width: 88 }}>平台</span>
+              <span style={{ flex: 1, minWidth: 0 }}>这一份价格（元）</span>
+              <span style={{ flex: 1, minWidth: 0 }}>这一份份量（默认 1）</span>
+            </div>
+
+            {platforms.map((platform) => (
+              <div
+                key={platform}
+                style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}
+              >
+                <span style={{ width: 88, flexShrink: 0, fontWeight: 500, color: '#2D2A26', fontSize: 13 }}>
+                  {platform}
+                </span>
+                <Form.Item name={`price_${platform}`} noStyle>
+                  <InputNumber
+                    min={0}
+                    step={0.1}
+                    prefix="¥"
+                    placeholder="如 3.5"
+                    style={{ flex: 1, minWidth: 0 }}
+                  />
+                </Form.Item>
+                <Form.Item name={`amount_${platform}`} noStyle>
+                  <InputNumber
+                    min={0}
+                    step={0.1}
+                    placeholder="默认 1"
+                    style={{ flex: 1, minWidth: 0 }}
+                  />
+                </Form.Item>
+              </div>
+            ))}
+
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              例：生抽 1 升 10 元 → 单位选「L」，份量填 1，价格 10；土豆一袋 2 斤 3 元 →
+              单位「斤」，份量 2，价格 3
+            </Text>
+          </ProCard>
+
+          {/* 营养：每 100g / 100ml，主料填、调料不填 */}
+          <ProCard
+            title="营养成分"
+            headerBordered
+            bordered
+            extra={
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                每 100 g / 100 ml，调料可不填
+              </Text>
+            }
+          >
+            <Row gutter={16}>
+              {NUTRI_FIELDS.map((f) => (
+                <Col xs={12} md={8} key={f.key}>
+                  <Form.Item name={f.key} label={`${f.label}（${f.unit}）`}>
+                    <InputNumber min={0} step={0.1} style={{ width: '100%' }} />
+                  </Form.Item>
+                </Col>
+              ))}
+            </Row>
+          </ProCard>
         </Form>
+      </Drawer>
+
+      {/* 食材详情弹窗：表格「操作」列的「食材详情」打开 */}
+      <Modal
+        title="食材详情"
+        open={!!detail}
+        onCancel={() => setDetail(null)}
+        footer={null}
+        width={560}
+      >
+        {detail && (
+          <>
+            <Space align="start" size={16} style={{ width: '100%', marginBottom: 4 }}>
+              {detail.image ? (
+                <img
+                  src={detail.image}
+                  alt={detail.name}
+                  style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: 96, height: 96, borderRadius: 8, flexShrink: 0,
+                    background: '#fafafa', color: '#bbb',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12,
+                  }}
+                >
+                  暂无图片
+                </div>
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 18, fontWeight: 600, color: '#2D2A26' }}>{detail.name}</div>
+                <Space size={6} wrap style={{ marginTop: 8 }}>
+                  <Tag color={CATEGORY_COLOR[detail.category]}>{detail.category}</Tag>
+                  <Tag>按{detail.unit}计价</Tag>
+                  {cheapestPlatform(detail) && (
+                    <Tag color="orange">最低价 · {cheapestPlatform(detail)!.platform}</Tag>
+                  )}
+                </Space>
+                {detail.note && (
+                  <div style={{ marginTop: 8, fontSize: 12, color: '#999' }}>{detail.note}</div>
+                )}
+              </div>
+            </Space>
+
+            <div style={{ fontSize: 13, fontWeight: 600, margin: '20px 0 8px' }}>各平台单价</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {platforms.map((p) => {
+                const d = displayUnitPrice(detail, p);
+                const isCheapest = cheapestPlatform(detail)?.platform === p;
+                return (
+                  <div key={p} style={{ border: '1px solid #f0f0f0', borderRadius: 8, padding: '8px 10px' }}>
+                    <div style={{ fontSize: 12, color: '#999' }}>{p}</div>
+                    {d ? (
+                      <div style={{ marginTop: 2 }}>
+                        <PriceTag value={d.value} size="small" />
+                        <span style={{ color: '#999', fontSize: 12 }}>/{d.unit}</span>
+                        {isCheapest && <Tag color="orange" style={{ marginLeft: 4 }}>最低</Tag>}
+                      </div>
+                    ) : (
+                      <Text type="secondary">未录入</Text>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ fontSize: 13, fontWeight: 600, margin: '20px 0 8px' }}>
+              营养成分（每 100g / 100ml）
+            </div>
+            {detail.nutrition ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                {NUTRI_FIELDS.map((f) => (
+                  <div key={f.key} style={{ background: '#fafafa', borderRadius: 6, padding: '8px 10px' }}>
+                    <div style={{ fontSize: 12, color: '#999' }}>{f.label}</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: '#2D2A26' }}>
+                      {detail.nutrition?.[f.key] ?? '—'}
+                      <span style={{ fontSize: 12, fontWeight: 400, color: '#999' }}> {f.unit}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <Text type="secondary">未填写营养成分</Text>
+            )}
+          </>
+        )}
       </Modal>
 
       {/* 导入预览弹窗 */}

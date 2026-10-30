@@ -340,7 +340,7 @@ export default function Menu() {
       )}
 
       {showManageTable ? (
-        <div style={{ paddingTop: 12 }}>
+        <div className="menu-manage-table">
           <DishManageTable
             dishes={filtered}
             ingredients={ingredients}
