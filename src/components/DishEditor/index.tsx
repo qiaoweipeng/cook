@@ -30,9 +30,9 @@ import type { Dish, DishCategory, DishIngredient, Step } from '@/types';
 const { Text } = Typography;
 
 // 顺序跟首页 Tab / PC 菜单完全一致（见 Menu/index.tsx 的 categories）
-// 「减脂」「快手」是属性不是菜系，在下面的 tags 字段里选，不放这里
+// 只按地域流派分 7 类，汤羹/凉菜/烘焙/减脂/快手都是形态/属性，走 tags 不放这里
 const CATEGORIES: DishCategory[] = [
-  '家常', '川菜', '粤菜', '湘菜', '鲁菜', '烘焙', '汤羹', '凉菜', '江浙', '其他',
+  '家常', '川菜', '粤菜', '湘菜', '鲁菜', '江浙', '其他',
 ];
 
 /** 配料单位：固体用斤 / g / kg，液体用 ml / L（跟食材库的计价单位保持一致） */

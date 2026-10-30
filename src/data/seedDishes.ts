@@ -1293,7 +1293,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'dish_cool_cucumber',
     name: '凉拌黄瓜',
-    category: '凉菜',
+    category: '家常',
     tags: ['凉菜', '开胃', '新手'],
     difficulty: 1,
     cookTimeMin: 10,
@@ -1382,7 +1382,7 @@ export const seedDishes: Dish[] = [
   {
     id: 'dish_garlic_eggplant',
     name: '蒜泥茄子',
-    category: '凉菜',
+    category: '家常',
     tags: ['凉菜', '素食', '开胃'],
     difficulty: 1,
     cookTimeMin: 20,
@@ -1572,7 +1572,7 @@ export const seedDishes: Dish[] = [
     id: 'dish_winter_melon_meatball_soup',
     name: '冬瓜肉丸汤',
     coverImage: '/seeds/dish_winter_melon_meatball_soup.webp',
-    category: '汤羹',
+    category: '家常',
     tags: ['汤羹', '清淡', '暖胃'],
     difficulty: 1,
     cookTimeMin: 25,
@@ -1772,8 +1772,8 @@ export const seedDishes: Dish[] = [
   {
     id: 'diet_tomato_enoki_tofu_soup',
     name: '番茄金针菇豆腐汤',
-    category: '汤羹',
-    tags: ['减脂', '高纤维'],
+    category: '家常',
+    tags: ['汤羹', '减脂', '高纤维'],
     difficulty: 1,
     cookTimeMin: 15,
     servings: 2,
@@ -1822,8 +1822,8 @@ export const seedDishes: Dish[] = [
   {
     id: 'diet_cold_chicken_salad',
     name: '凉拌鸡丝',
-    category: '凉菜',
-    tags: ['减脂', '高蛋白'],
+    category: '家常',
+    tags: ['凉菜', '减脂', '高蛋白'],
     difficulty: 2,
     cookTimeMin: 25,
     servings: 2,
