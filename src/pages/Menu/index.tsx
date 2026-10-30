@@ -14,6 +14,7 @@ import { useIsAdmin } from '@/store/useAuthStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useIsPadPortrait } from '@/hooks/useIsPadPortrait';
 import type { Dish, DishCategory } from '@/types';
+import { ATTRIBUTE_FILTER_TAGS } from '@/types';
 
 // 顶部标题区（「今天想吃点啥？」+ 收录数量）已整块删除，这里原本解构的 Text 也不再需要。
 
@@ -34,12 +35,11 @@ const categories: Array<DishCategory | '全部'> = [
 ];
 
 /**
- * 属性筛选 chips（可多选，之间是「或」的关系，和菜系 Tab 是「且」）。
- * 这里放形态 / 做法 / 属性维度的标签：汤羹、凉菜、烘焙都是形态，不属于菜系。
- * 清单硬编码在这里：数量少、变化慢，是产品定义不是用户数据，不值得建表。
- * 加新属性时往这里加一项即可，编辑器里的 tags 是自由输入的，不受这个清单限制。
+ * 属性筛选 chips —— 引用 types/index.ts 的 ATTRIBUTE_FILTER_TAGS。
+ * 一道菜必须且只能归一个菜系（category），但可以挂 1~5 个属性标签（tags）。
+ * chips 多选时是「或」的关系，和菜系 Tab 是「且」。
  */
-const ATTRIBUTE_TAGS = ['减脂', '快手', '下饭', '清淡', '素食', '宴客', '汤羹', '凉菜', '烘焙'];
+const ATTRIBUTE_TAGS: readonly string[] = ATTRIBUTE_FILTER_TAGS;
 
 const PAGE_SIZE = 8;
 

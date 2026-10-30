@@ -26,6 +26,7 @@ import { useIngredientStore } from '@/store/useIngredientStore';
 import { pickImage, formatSize, IMAGE_ACCEPT } from '@/lib/imageUpload';
 import { resolveImageUrl, storageDelete } from '@/lib/supabase';
 import type { Dish, DishCategory, DishIngredient, Step } from '@/types';
+import { BUILTIN_TAGS } from '@/types';
 
 const { Text } = Typography;
 
@@ -394,8 +395,28 @@ export default function DishEditor({
         </Form.Item>
       </Space>
 
-      <Form.Item name="tags" label="标签（回车添加）">
-        <Select mode="tags" placeholder="如：减脂、下饭、快手" />
+      <Form.Item
+        name="tags"
+        label="标签"
+        rules={[
+          { required: true, message: '至少选 1 个标签' },
+          {
+            validator: (_, v: string[]) => {
+              if (!v || v.length === 0) return Promise.resolve(); // 上面 required 已经拦
+              if (v.length > 5) return Promise.reject(new Error('最多 5 个标签'));
+              return Promise.resolve();
+            },
+          },
+        ]}
+        extra="从下方选或回车自定义，1~5 个"
+      >
+        <Select
+          mode="tags"
+          placeholder="选一些能描述这道菜的标签，如：汤羹、减脂、下饭"
+          maxTagCount={5}
+          style={{ width: '100%' }}
+          options={BUILTIN_TAGS.map((t) => ({ value: t, label: t }))}
+        />
       </Form.Item>
 
       <Form.Item label="封面图（可选）">
