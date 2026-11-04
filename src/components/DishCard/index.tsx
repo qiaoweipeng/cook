@@ -3,7 +3,7 @@ import { Card, Tag, Space } from 'antd';
 import { Link } from 'react-router-dom';
 import type { Dish } from '@/types';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { resolveImageUrl } from '@/lib/supabase';
+import { resolveImageUrl } from '@/lib/imageStorage';
 import PriceTag from '../PriceTag';
 
 interface Props {

@@ -26,7 +26,7 @@ import { DeleteOutlined, PictureOutlined, PlusOutlined } from '@ant-design/icons
 import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
 import { pickImage, formatSize, IMAGE_ACCEPT } from '@/lib/imageUpload';
-import { resolveImageUrl, storageDelete } from '@/lib/supabase';
+import { resolveImageUrl, deleteImage } from '@/lib/imageStorage';
 import type { Dish, DishCategory, DishIngredient, Step } from '@/types';
 import { BUILTIN_TAGS } from '@/types';
 
@@ -125,7 +125,7 @@ export default function DishEditor({
     用 ref 而不是 state：它只在保存/回滚时读写，不参与渲染。
     null = 当前没有「待提交」的新图。
   */
-  const pendingUploadRef = useRef<{ url: string; path: string } | null>(null);
+  const pendingUploadRef = useRef<{ key: string } | null>(null);
   // 编辑器打开那一刻 dish 的图地址。用来区分「用户主动清空」和
   // 「打开太早、数据还没从云端就位所以表单本来就是空的」——后者绝不能当清空处理
   const openedCoverRef = useRef<string | undefined>(undefined);
@@ -170,9 +170,9 @@ export default function DishEditor({
   const handlePickImage = async (file: File) => {
     setImgProcessing(true);
     try {
-      // 压缩成 WebP → 上传对象存储 → 只把 URL 填进表单（上传失败会直接抛错）
+      // 压缩成 WebP → 上传对象存储 → 只把相对 key 填进表单（上传失败会直接抛错）
       const picked = await pickImage(file, 'dishes');
-      form.setFieldsValue({ coverImage: picked.url });
+      form.setFieldsValue({ coverImage: picked.key });
       /*
         记下「本次新传的这张图」。
 
@@ -183,7 +183,7 @@ export default function DishEditor({
 
         记下路径，onSave 失败时用它把图删掉，让两边回到一致。
       */
-      pendingUploadRef.current = { url: picked.url, path: picked.storagePath };
+      pendingUploadRef.current = { key: picked.key };
       // 体积存下来常驻显示，不再只靠弹窗（弹窗一闪而过，回头就查不到了）
       setImgInfo({ size: picked.size, viaStorage: picked.viaStorage });
     } catch (e) {
@@ -200,11 +200,11 @@ export default function DishEditor({
     if (!pending) return;
     pendingUploadRef.current = null;
     try {
-      await storageDelete(pending.path);
-      console.warn('[image] 数据库没存住，已回滚删除桶里的图：', pending.path);
+      await deleteImage(pending.key);
+      console.warn('[image] 数据库没存住，已回滚删除桶里的图：', pending.key);
     } catch (e) {
       // 删不掉不算保存失败，但必须留下痕迹，否则又是一张查不到来源的孤儿图
-      console.error('[image] 回滚删除失败，桶里可能留下一张孤儿图：', pending.path, e);
+      console.error('[image] 回滚删除失败，桶里可能留下一张孤儿图：', pending.key, e);
     }
   };
 

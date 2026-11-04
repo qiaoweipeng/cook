@@ -10,8 +10,12 @@
 //   3. 点通知 → 打开 / 聚焦到对应页面
 //
 // 跨域的 Supabase API（/rest/v1/）一律放行，否则 GET 查询结果会被缓存住，
-// 用户看到的永远是旧数据。唯一例外：Storage 的图片（封面/食材图）走缓存优先，
+// 用户看到的永远是旧数据。唯一例外：对象存储里的图片（封面/食材图）走缓存优先，
 // 因为它们是 egress 大头，且 URL 内容寻址（换图必换 URL）没有一致性问题。
+// 哪些域名算「对象存储图片」统一在 lib/imageStorage/domains.ts 里维护，
+// 换腾讯 COS / 阿里 OSS 时只改那一个文件。
+
+import { isStorageImageRequest } from './lib/imageStorage/domains';
 
 // 没有引 webworker lib —— 它跟项目 tsconfig 里的 DOM lib 会重复声明冲突。
 // 这里只按需声明实际用到的那几个 API。
@@ -37,7 +41,7 @@ const manifest =
   (self as unknown as { __WB_MANIFEST?: { url: string; revision: string | null }[] })
     .__WB_MANIFEST ?? [];
 const PRECACHE = 'cook-precache';
-// Supabase Storage 图片的独立缓存桶：activate 清旧缓存时要保留它
+// 对象存储图片的独立缓存桶：activate 清旧缓存时要保留它
 const IMG_CACHE = 'cook-img';
 
 sw.addEventListener('install', (event) => {
@@ -87,20 +91,21 @@ sw.addEventListener('fetch', (event: any) => {
   const url = new URL(req.url);
 
   /*
-    Supabase Storage 的图片（菜品封面 / 食材图）：缓存优先，回源后写缓存。
+    对象存储里的图片（菜品封面 / 食材图）：缓存优先，回源后写缓存。
 
-    这是 Supabase egress 的绝对大头 —— 菜单卡片墙 / 详情页 / 管理表格每次渲染
-    都跨境重拉同一批图，一个月能把 5GB 免费流量跑爆。封面 URL 带唯一文件名
+    这是 egress 的绝对大头 —— 菜单卡片墙 / 详情页 / 管理表格每次渲染
+    都重拉同一批图，一个月能把 Supabase 免费流量跑爆。封面 URL 带唯一文件名
     （内容寻址，换图必然换 URL），所以缓存永远不过期也没有一致性问题。
-    只匹配 /storage/v1/object/ 路径，/rest/v1/ 等 API 依然不拦。
+    只匹配 domains.ts 里登记的图片域名，/rest/v1/ 等 API 依然不拦。
   */
-  if (url.host.endsWith('.supabase.co') && url.pathname.startsWith('/storage/v1/object/')) {
+  if (isStorageImageRequest(url)) {
     event.respondWith(
       caches.match(req).then(
         (hit) =>
           hit ??
           // 不用 fetch(req)：img 标签发的是 no-cors 请求，拿回 opaque 响应没法
-          // 判断成败。Storage 对任意源开放 CORS，重新拉一次能拿到干净响应再缓存。
+          // 判断成败。对象存储需要配好 CORS（换平台清单里有这一步），
+          // 重新拉一次能拿到干净响应再缓存。
           fetch(req.url).then((res) => {
             if (res.ok) {
               const copy = res.clone();

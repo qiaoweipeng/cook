@@ -34,7 +34,7 @@ import { useIsAdmin } from '@/store/useAuthStore';
 import { dayKey, today } from '@/utils/week';
 import { calcDishCost, lineCost } from '@/utils/price';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { resolveImageUrl } from '@/lib/supabase';
+import { resolveImageUrl } from '@/lib/imageStorage';
 import PriceTag from '@/components/PriceTag';
 import DishEditor from '@/components/DishEditor';
 

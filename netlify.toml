@@ -7,6 +7,10 @@
   command = "pnpm build"
   publish = "dist"
 
+# 服务端函数（cos-upload 等：COS 密钥只存在这里，不进前端）
+[functions]
+  directory = "netlify/functions"
+
 [build.environment]
   NODE_VERSION = "20"
 

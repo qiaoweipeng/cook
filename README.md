@@ -344,9 +344,9 @@ manifest: {
 - [ ] 食材营养成分（卡路里 / 三大营养素）—— 给减脂/控糖场景配菜建议
 - [ ] 食材价格自动更新（对接外部行情或后台定时任务），让成本始终贴近市场价
 - [ ] 食材价格随时间变化（历史曲线 / 涨跌提示）
-- [ ] 菜品封面改存 Supabase Storage（免费 1 GB），数据库只留 URL
+- [x] 菜品封面走对象存储（Supabase Storage），数据库只留相对 key
 - [ ] 列表查询剔除大字段，避免每次同步都把全部封面图拉下来
-- [ ] 步骤图 / 食材图（**前提：先完成上面的对象存储迁移**，否则 Base64 会撑爆免费额度）
+- [ ] 步骤图 / 食材图扩展（对象存储与上传链路已就位）
 - [ ] 超级管理员账号改造：去掉硬编码，入库管理 + 强哈希存储
 - [ ] 注册 / 登录加验证码与失败次数限制，密码哈希升级到 bcrypt
 - [ ] RLS 改用 `authenticated` 角色 + JWT 携带 uid 做行级隔离
@@ -507,8 +507,8 @@ pnpm seed -- --only=dishes   # 只补菜单（--only=ingredients 同理）
 数据库里存的是相对路径，URL 前缀由运行环境拼接：
 
 - `seedDishes.ts` 里写：`coverImage: '/seeds/dish_mapo_tofu.webp'`
-- 渲染时 `resolveImageUrl()`（`src/lib/supabase.ts`）自动拼成
-  `<当前环境 SUPABASE_URL>/storage/v1/object/public/dish-images/seeds/dish_mapo_tofu.webp`
+- 渲染时 `resolveImageUrl()`（`src/lib/imageStorage/index.ts`）自动拼成
+  `<当前存储平台>/dishes/...` 的完整地址（现在是 Supabase Storage）
 
 这样图片文件只存在 Storage 的 `seeds/` 目录里；换服务器 / 换 Supabase 项目时，
 把文件传到新桶、改一行环境变量即可，代码和数据库记录一个字都不用动 —— **图片独立于载体**。
@@ -519,32 +519,38 @@ pnpm seed -- --only=dishes   # 只补菜单（--only=ingredients 同理）
 2. `seedDishes.ts` 给对应菜加 `coverImage: '/seeds/<id>.webp'`
 3. 完事 —— 播种时图地址随种子一起写入，图文件躺在桶里谁也不依赖
 
-#### ⏳ 待办：存量完整 URL 迁移成相对路径（还没做，不急）
+#### ⏳ 存量数据：新图已只存 key，老图还差一条 SQL
 
-数据库里现在是两种格式混存：以前上传的 60+ 道菜存的是**完整 URL**
-（`https://ixixmxoeugzkbtljxubx.supabase.co/storage/v1/...`），种子菜存的是相对路径。
-两种 `resolveImageUrl()` 都兼容，**显示上没有问题**。
+**代码侧已完成**：新上传的图只把相对 key（`dishes/xxx.webp`）写进数据库，
+不再存完整 URL；`resolveImageUrl()` 对两种格式都兼容，显示不受影响。
 
-隐患在于完整 URL 绑死当前服务器：换 Supabase 项目 / 迁服务器时，
-这些菜要逐条改 URL，而相对路径的菜一个字都不用动。统一方案（两步）：
+**存量侧还没做**（不急，但换平台前必须做）：以前上传的 60+ 道菜存的是完整 URL
+（`https://xxx.supabase.co/storage/v1/...`）。这些记录虽然能被自动解析回 key，
+但换平台时依赖新桶里已有同名文件。一次性迁移（先 `pnpm backup`）：
 
-1. **改上传逻辑**：DishEditor 上传成功后，把返回的完整 URL 剥掉前缀再存
-   （参照 `storageUpload` 的返回值 + `resolveImageUrl` 的前缀拼接规则），
-   以后新上传的菜自动存相对路径；
-2. **一次性迁移**（Supabase SQL Editor 执行，跑之前先 `pnpm backup`）：
+```sql
+-- 先看清楚有多少条（不要把种子菜的相对路径误伤，WHERE 只看 https）
+SELECT count(*) FROM dishes WHERE cover_image LIKE 'https://%';
 
-   ```sql
-   UPDATE dishes
-   SET cover_image = regexp_replace(
-     cover_image,
-     '^https://[^/]+/storage/v1/object/public/dish-images/',
-     ''
-   )
-   WHERE cover_image LIKE 'https://%';
-   ```
+UPDATE dishes
+SET cover_image = regexp_replace(
+  cover_image,
+  '^https://[^/]+/storage/v1/object/public/dish-images/',
+  ''
+)
+WHERE cover_image LIKE 'https://%';
 
-跑完所有菜的图地址都是相对路径，彻底和载体解耦。
-`ingredients` 表的 `image` 列如果有同样问题，照此办理。
+-- 食材图同理（表/列名：ingredients.image）
+UPDATE ingredients
+SET image = regexp_replace(
+  image,
+  '^https://[^/]+/storage/v1/object/public/dish-images/',
+  ''
+)
+WHERE image LIKE 'https://%';
+```
+
+跑完后所有图片地址都是相对 key，彻底和存储载体解耦。
 
 ### 💾 备份与恢复
 
@@ -571,7 +577,7 @@ pnpm backup -- --restore=backups/xxx.json --force # 从备份恢复（会先清�
 | 表数量            | **无硬性限制**               | 现在 14 张；再翻倍到 30 张也没问题                        |
 | API 请求          | 不限次数，但有公平使用软阈值 | 前端每次刷新约拉 5~10 个请求，家用远达不到                |
 | 每月出口流量      | 5 GB                         | 首包（含 image/JPEG 封面）约 2 MB，够几千次首屏           |
-| 文件存储          | 1 GB                         | 本项目没用到（封面图走 dataURL 存库，没走 Storage）       |
+| 文件存储          | 1 GB                         | 菜品/食材图走 Storage（约 30~60 MB），远没到上限          |
 | 空闲 7 天自动暂停 | 连续 7 天无任何请求会暂停    | 控制台点 Restore 即可恢复；长期用建议每周访问一次或升 Pro |
 
 **换算成实际能加多少**：
@@ -691,19 +697,19 @@ select pg_size_pretty(pg_database_size(current_database()));
 一旦想给**步骤**加图（图片数量直接翻 3~5 倍），或者数据库超过 300 MB / 月流量超过 3 GB，
 就必须换成对象存储——优先用 Supabase 自带的 1 GB Storage，免费，不必付费。
 
-#### ✅ 已实现：WebP 压缩 + 上传 Storage
+#### ✅ 已实现：WebP 压缩 + 上传对象存储
 
 链路在 `src/lib/imageUpload.ts`，统一入口是 `pickImage(file, folder)`：
 
 ```
 选择本地图片 → 等比缩到最长边 1000px → 转 WebP(0.82，不支持则退回 JPEG)
-            → POST 到 Supabase Storage → 数据库只存返回的 URL
+            → 上传当前对象存储 → 数据库只存相对 key（如 dishes/xxx.webp）
 ```
 
 - 上传时带 `cache-control: public, max-age=31536000, immutable`，**浏览器第二次起不再下载**
-- **降级**：bucket 没建、没权限或网络失败时，自动退回「压缩后存 Base64」并提示用户，
-  保证任何时候都能传图，只是没享受到对象存储的好处
-- 数据库列类型**没变**（还是 text），所以老数据（Base64 / `/dishes/xxx.jpg`）照常显示，换图不影响
+- **没有 Base64 降级**：上传失败会明确报错，绝不偷偷把图塞进数据库假装成功
+  （历史上正是这个降级造成了「以为存住了、换设备图全没了」，详见下方排查实录）
+- 数据库列类型**没变**（还是 text），老数据（完整 URL / `/dishes/xxx.jpg` / Base64）照常显示
 
 **启用前要先执行两条 SQL**（Supabase 控制台 → SQL Editor）：
 
@@ -715,8 +721,63 @@ select pg_size_pretty(pg_database_size(current_database()));
 alter table public.ingredients add column if not exists image text;
 ```
 
-> 没跑第 1 条的话，图片会**上传失败并明确报错**（Base64 降级已按决策移除，
-> 详见下方「图片『传了却显示不出来』完整排查实录」）。想要图片功能就必须先建桶。
+> 没跑第 1 条的话，图片会**上传失败并明确报错**。想要图片功能就必须先建桶。
+
+#### 🔁 换存储不改业务代码（Provider 抽象）
+
+**目标：从 Supabase 换到腾讯 COS、阿里 OSS 或任何平台，只加一个适配器文件 + 改一个环境变量，业务代码零改动。**
+
+```
+DishEditor / Ingredients / 卡片墙 / 详情页
+        │  uploadImage(key) · deleteImage(key) · resolveImageUrl(value)
+        ▼
+src/lib/imageStorage/index.ts        ← 唯一入口，决定当前用哪个平台
+        ├── supabase.ts              ← Supabase Storage（默认）
+        ├── cos.ts                   ← 腾讯 COS（已实现，上传走 Netlify Function）
+        └── oss.ts                   ← 以后：阿里 OSS（新增）
+        ▲
+src/lib/imageStorage/domains.ts      ← SW 缓存哪些域名（换平台必须同步）
+netlify/functions/cos-upload.ts      ← COS 上传/删除中转（密钥只在服务端）
+```
+
+| 文件                       | 职责                                    | 换平台要改吗         |
+| -------------------------- | --------------------------------------- | -------------------- |
+| `imageStorage/types.ts`    | 适配器接口定义                          | 不改                 |
+| `imageStorage/index.ts`    | 选平台、拼 URL、统一上传/删除           | 只加一行注册         |
+| `imageStorage/supabase.ts` | Supabase 的上传/删除/URL 规则           | 不改                 |
+| `imageStorage/paths.ts`    | key 归一化、URL 拼/解（纯函数，带单测） | 不改                 |
+| `imageStorage/domains.ts`  | SW 缓存域名白名单                       | **必须加新平台域名** |
+| `imageUpload.ts`           | 压缩 + 生成 key                         | 不改                 |
+
+**四条铁律**（review 时优先检查）：
+
+1. **数据库只存 key**（`dishes/xxx.webp`），绝不存完整 URL —— URL 只在 `resolveImageUrl()` 里拼。
+2. **密钥绝不进前端**：云厂商 SecretId/SecretKey 不能带 `VITE_` 前缀（会被打进 bundle），
+   必须放在 Netlify Function / 服务端，前端只拿临时签名或走中转上传。
+3. **上传和删除用同一个 key**，否则会留下没人引用的孤儿图。
+4. **新增平台必须登记 `domains.ts`**，否则 SW 不缓存它的图片，egress 会重新爆。
+
+**切腾讯 COS 的操作步骤**（代码已就绪，只剩配置和搬数据）：
+
+1. ✅ 腾讯云建桶：标准存储、单 AZ、公有读私有写；CORS 放行站点域名 + `http://localhost:5173`；
+   代码侧 `imageStorage/cos.ts`、`netlify/functions/cos-upload.ts`、`domains.ts` 白名单均已就绪；
+2. **搬数据**：用 coscli / rclone / 控制台把旧桶对象**按相同 key** 全量复制到新桶（key 不变 = 数据库不用动）；
+3. **Netlify 服务端变量**（Site settings → Environment variables）：
+   `COS_SECRET_ID` / `COS_SECRET_KEY`（CAM 子账号，编程访问 + QcloudCOSDataFullControl）、
+   `COS_BUCKET`（带 APPID 后缀）、`COS_REGION`、`UPLOAD_TOKEN`（随机长字符串）；
+4. **前端变量**（Netlify 同页面 + 本地 .env）：`VITE_IMAGE_PROVIDER=cos`、
+   `VITE_COS_PUBLIC_BASE=https://<桶>.cos.<region>.myqcloud.com`、`VITE_UPLOAD_TOKEN`（与 3 同值）；
+5. 部署 → 用户确认 PWA 更新 → 验证上传、显示、删除、缓存；回滚只需把 `VITE_IMAGE_PROVIDER` 改回 `supabase`。
+
+> 为什么切换后老数据能自动指向新桶：`resolveImageUrl()` 会先把历史 URL 解析成 key，
+> 再按**当前**平台拼 URL。前提是新桶里已经有同名 key 的文件 —— 所以第 2 步不能漏。
+
+> 本地联调 COS 上传：`pnpm dev` 不带 Netlify Functions，要用 `npx netlify dev` 启动
+> （会同时拉起 vite 和函数）。只调界面不调上传时 `pnpm dev` 仍然够用。
+>
+> 安全边界：`UPLOAD_TOKEN` 随前端 bundle 发布，是「防路过脚本」级别，不是真认证。
+> 函数另有三道硬限制：类型白名单（webp/jpeg/png）、单文件 ≤5MB、key 前缀白名单
+> （`dishes/ ingredients/ seeds/ avatars/`，禁路径穿越）。以后加登录体系时换成登录态校验。
 
 #### 还可以继续做的优化
 
@@ -841,6 +902,10 @@ try {
 | Base64       | `data:image/webp;base64,...`                    | ✅ 正常（但见根因 2）                           |
 
 **修复**：渲染前一律过 `resolveImageUrl()`。
+
+> 下面是最初版本的实现（当时还叫 `storagePublicUrl`）。现在逻辑已搬到
+> `src/lib/imageStorage/index.ts`，并额外支持「识别其他平台的历史 URL → 换成当前平台的地址」，
+> 见上文「🔁 换存储不改业务代码」。
 
 ```ts
 export function resolveImageUrl(value?: string | null): string {
@@ -987,7 +1052,8 @@ T+10s   点「保存」     → 写数据库   ← 这一步完全可能失败
 #### 修法：记住「待提交」的图，失败就撤销
 
 ```tsx
-// 1) 上传成功 → 记下桶内路径，标记为「待提交」
+// 1) 上传成功 → 记下桶内 key，标记为「待提交」
+//    （当时字段叫 url/path；现在 PickedImage 只有 key，key 既存库也用于回滚）
 pendingUploadRef.current = { url: picked.url, path: picked.storagePath };
 
 // 2) 保存成功 → 图正式「有主」，清标记
@@ -1016,6 +1082,9 @@ onClick={() => { form.setFieldsValue({ coverImage: '' }); void rollbackUpload();
 **「桶里有图、库里没记录」这个状态从此不再存在。**
 
 #### 撤销要认准目标，不能乱删
+
+> 当时的 `storageDelete` / `storagePathFromUrl` 已分别归入适配器的
+> `remove()` / `parseKey()`（见 `src/lib/imageStorage/`），下面保留原始排查记录。
 
 `storageDelete` 需要桶内的**对象路径**，但表单里存的是**完整 URL**，
 所以需要反推。`storagePathFromUrl` 覆盖五种输入（已实测）：
@@ -1280,6 +1349,7 @@ Netlify → **Add new site → Import an existing project** → 选这个 Git �
 > ⚠️ **环境变量必须在 Netlify 里再配一次**：
 > Site configuration → **Environment variables** → 添加
 > `VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`
+> （可选 `VITE_IMAGE_PROVIDER`，不填默认 supabase）。
 > （取值和本地 `.env` 一样。**Vite 的变量在 build 时就被内联进 bundle**，没有这步网站能打开但连不上库，数据全空）
 > 加完/改完环境变量后要 **Clear cache and deploy site**，否则不生效。
 

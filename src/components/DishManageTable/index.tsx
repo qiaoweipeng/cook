@@ -18,7 +18,7 @@ import { BUILTIN_TAGS } from '@/types';
 import { calcDishCost, calcDishNutrition, type DishNutrition } from '@/utils/price';
 import { usePriceStore } from '@/store/usePriceStore';
 import type { Ingredient } from '@/types';
-import { resolveImageUrl } from '@/lib/supabase';
+import { resolveImageUrl } from '@/lib/imageStorage';
 
 const { Text } = Typography;
 

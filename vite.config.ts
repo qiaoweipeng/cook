@@ -92,6 +92,9 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // 固定只用 5173，被占用就直接报错而不是自动漂移到 5174/5175。
+    // 原因：COS CORS 只允许 localhost:5173，端口一变图片就缓存失败。
+    strictPort: true,
     host: true,
   },
 });

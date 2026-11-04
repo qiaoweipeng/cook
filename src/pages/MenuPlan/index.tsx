@@ -38,7 +38,7 @@ import {
 } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import { Link } from 'react-router-dom';
-import { resolveImageUrl } from '@/lib/supabase';
+import { resolveImageUrl } from '@/lib/imageStorage';
 import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
 import { usePriceStore } from '@/store/usePriceStore';

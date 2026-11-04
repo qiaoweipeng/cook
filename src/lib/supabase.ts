@@ -20,9 +20,9 @@ if (!isCloudEnabled()) {
   ].filter(Boolean);
   console.warn(
     `[supabase] 未配置云端变量：${missing.join('、')}。\n` +
-      '注意 Vite 的环境变量在 **构建时** 就被内联进 bundle，' +
-      '托管平台（Netlify 等）必须在 Site settings → Environment variables 里单独配一份，' +
-      '本地有 .env 没用（.env 已被 git 忽略）。'
+    '注意 Vite 的环境变量在 **构建时** 就被内联进 bundle，' +
+    '托管平台（Netlify 等）必须在 Site settings → Environment variables 里单独配一份，' +
+    '本地有 .env 没用（.env 已被 git 忽略）。'
   );
 }
 
@@ -191,101 +191,16 @@ export async function pingCloud(): Promise<boolean> {
   return true;
 }
 
-// ---- 对象存储（Storage）----
+// ---- 图片存储适配器需要的内部访问器 ----
+// 具体上传/删除/拼 URL 逻辑在 src/lib/imageStorage/，
+// 这里只把「连哪个库、带什么认证头」暴露给适配器，避免它重复读环境变量。
 
-/** 图片统一放在这个 bucket 里（建法见 supabase/storage.sql） */
-export const IMAGE_BUCKET = 'dish-images';
-
-/** 公开 bucket 里某个文件的访问地址 */
-export function storagePublicUrl(path: string): string {
-  return `${SUPABASE_URL}/storage/v1/object/public/${IMAGE_BUCKET}/${path}`;
+export function getSupabaseUrl(): string {
+  return SUPABASE_URL;
 }
 
-/**
- * 删掉 Storage 里的一个文件 —— 用于「回滚」：数据库没存住地址时，
- * 把刚传上去的图一并删掉，避免桶里留下没人引用的孤儿文件。
- */
-export async function storageDelete(path: string): Promise<void> {
-  await pgFetch(`${IMAGE_BUCKET}/${path}`, { method: 'DELETE' });
-}
-
-/**
- * 从「完整 URL」或「相对路径」反推出桶内的对象路径，失败返回 null。
- * storageDelete 需要它：库里存的是 URL，删的时候要的是 `dishes/xxx.webp`。
- */
-export function storagePathFromUrl(value: string): string | null {
-  if (!value) return null;
-  let p = value.trim();
-  if (p.startsWith('data:') || p.startsWith('blob:')) return null; // 不是桶里的文件
-  // 完整 URL → 截出 /storage/v1/object/public/dish-images/ 后面的部分
-  const marker = `/object/public/${IMAGE_BUCKET}/`;
-  const i = p.indexOf(marker);
-  if (i >= 0) return p.slice(i + marker.length);
-  // 相对路径 /dishes/xxx.webp 或 dishes/xxx.webp
-  if (p.startsWith('/')) return p.replace(/^\/+/, '');
-  if (!/^https?:\/\//i.test(p)) return p;
-  return null;
-}
-
-/**
- * 把数据库里存的图片字段解析成浏览器能直接用的 src。
- *
- * ⚠️ 这个坑踩过：数据库里存的**不一定是完整 URL**，有三种形态混在一起 ——
- *   1. 完整 URL   `https://xxx.supabase.co/storage/v1/object/public/dish-images/dishes/xxx.webp`
- *                 （`storageUpload` 的返回值就是这种）
- *   2. 相对路径   `/dishes/xxx.jpg`（手动粘贴、或历史数据）
- *   3. Base64     `data:image/webp;base64,...`（Storage 挂了时的降级方案）
- *
- * 之前所有渲染处都是 `src={dish.coverImage}` 直接用，第 2 种就会去请求
- * **你自己网站域名下的 /dishes/xxx.jpg**，那个路径当然不存在 → 404 → 白图。
- * 桶里的文件其实好好的，只是没人把它拼成完整地址。
- *
- * 所以渲染前**一律**过这个函数，别再直接 src={xxx}。
- */
-export function resolveImageUrl(value?: string | null): string {
-  if (!value) return '';
-  const v = value.trim();
-  if (!v) return '';
-  // Base64 / data URI：原样用
-  if (v.startsWith('data:')) return v;
-  // blob: 预览用
-  if (v.startsWith('blob:')) return v;
-  // 已经是完整 http(s) 地址
-  if (/^https?:\/\//i.test(v)) return v;
-  // 站内绝对路径 /xxx → 拼到 bucket 公共地址后面
-  if (v.startsWith('/')) return storagePublicUrl(v.replace(/^\/+/, ''));
-  // 裸路径 dishes/xxx.jpg
-  return storagePublicUrl(v);
-}
-
-/**
- * 上传文件到 Storage（同名自动覆盖）。
- * 返回的 URL 直接存进数据库的 text 字段即可，浏览器会走 CDN 缓存。
- *
- * 头说明：
- *   - `x-upsert: true` 允许覆盖同名文件
- *   - `cache-control` 给一年强缓存：图片内容不变（每次上传都是新文件名），浏览器第二次起不再下载
- */
-export async function storageUpload(
-  path: string,
-  body: Blob,
-  contentType: string
-): Promise<string> {
-  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${IMAGE_BUCKET}/${path}`, {
-    method: 'POST',
-    headers: {
-      ...authHeaders(),
-      'Content-Type': contentType,
-      'x-upsert': 'true',
-      'cache-control': 'public, max-age=31536000, immutable',
-    },
-    body,
-  });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '');
-    throw new Error(`Storage 上传失败（HTTP ${res.status}）：${detail.slice(0, 160)}`);
-  }
-  return storagePublicUrl(path);
+export function getSupabaseAuthHeaders(): Record<string, string> {
+  return authHeaders();
 }
 
 export { PgError };

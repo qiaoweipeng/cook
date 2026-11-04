@@ -36,7 +36,7 @@ import {
   SearchOutlined,
 } from '@ant-design/icons';
 import { pickImage, formatSize, IMAGE_ACCEPT } from '@/lib/imageUpload';
-import { resolveImageUrl } from '@/lib/supabase';
+import { resolveImageUrl } from '@/lib/imageStorage';
 import { useIngredientStore } from '@/store/useIngredientStore';
 import { usePriceStore } from '@/store/usePriceStore';
 import { useIsAdmin } from '@/store/useAuthStore';
@@ -145,9 +145,9 @@ export default function Ingredients() {
   const handlePickImage = async (file: File) => {
     setImgProcessing(true);
     try {
-      // 压缩成 WebP → 上传对象存储 → 只把 URL 存库（上传失败会直接抛错，不再降级）
+      // 压缩成 WebP → 上传对象存储 → 只把相对 key 存库（上传失败会直接抛错，不再降级）
       const picked = await pickImage(file, 'ingredients');
-      form.setFieldsValue({ image: picked.url });
+      form.setFieldsValue({ image: picked.key });
       // 体积存下来常驻显示，不再只靠弹窗（弹窗一闪而过，回头就查不到了）
       setImgInfo({ size: picked.size, viaStorage: picked.viaStorage });
     } catch (e) {
