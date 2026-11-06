@@ -711,7 +711,9 @@ export default function Ingredients() {
                       style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, display: 'block', cursor: 'zoom-in', flexShrink: 0 }}
                     />
                   )}
-                  <Text strong>{r.name}</Text>
+                  <Typography.Link strong onClick={(e) => { e.stopPropagation(); setDetail(r); }}>
+                    {r.name}
+                  </Typography.Link>
                 </Space>
               ),
             },
@@ -728,9 +730,8 @@ export default function Ingredients() {
               title: '单位',
               dataIndex: 'unit',
               width: 80,
-              valueType: 'select',
-              fieldProps: { mode: 'multiple', style: { width: 225 } },
-              valueEnum: () => unitOptions.reduce((acc, o) => ({ ...acc, [o.value]: { text: o.value } }), {}),
+              // 单位只在列里展示，不参与查询
+              search: false,
             },
             {
               // 各平台单价统一挂在一个父表头「食材单价」下
@@ -780,27 +781,13 @@ export default function Ingredients() {
               })),
             },
             { title: '备注', dataIndex: 'note', width: 180, ellipsis: true, search: false },
-            {
-              // 和「菜单管理」里的「菜品详情」一致：操作列里放详情超链接
-              title: '操作',
-              key: 'action',
-              width: 100,
-              fixed: 'right',
-              search: false,
-              render: (_, r) => (
-                <Typography.Link onClick={(e) => { e.stopPropagation(); setDetail(r); }}>
-                  食材详情
-                </Typography.Link>
-              ),
-            },
           ]}
           params={{ platformCount: platforms.length }}
           request={async (params) => {
-            const { current = 1, pageSize = 20, name, category, unit } = params;
+            const { current = 1, pageSize = 20, name, category } = params;
             let list = [...items];
             if (name) list = list.filter((it) => it.name.toLowerCase().includes(String(name).toLowerCase()));
             if (category?.length) list = list.filter((it) => category.includes(it.category));
-            if (unit?.length) list = list.filter((it) => unit.includes(it.unit));
             const total = list.length;
             const paged = list.slice((current - 1) * pageSize, current * pageSize);
             return { data: paged, total, success: true };
@@ -838,8 +825,11 @@ export default function Ingredients() {
                 <Tooltip key="tpl" title="下载一份带示例的空白 Excel">
                   <Button icon={<FileExcelOutlined />} onClick={handleDownloadTemplate}>下载模板</Button>
                 </Tooltip>,
-                <Button key="export" icon={<DownloadOutlined />} onClick={handleExport}>导出 Excel</Button>,
-                <Button key="import" icon={<UploadOutlined />} onClick={handleImportClick}>导入 Excel</Button>,
+                // 导入导出成组放，跟后面的单品操作区分开
+                <Space.Compact key="excel">
+                  <Button icon={<UploadOutlined />} onClick={handleExport}>导出 Excel</Button>
+                  <Button icon={<DownloadOutlined />} onClick={handleImportClick}>导入 Excel</Button>
+                </Space.Compact>,
                 <Button key="bulkimg" icon={<PictureOutlined />} onClick={() => setBulkImageOpen(true)}>
                   批量传图
                 </Button>,
@@ -1418,7 +1408,15 @@ export default function Ingredients() {
           ]}
         />
       </Modal>
-      <BulkImagePairer open={bulkImageOpen} onClose={() => setBulkImageOpen(false)} />
+      <BulkImagePairer
+        open={bulkImageOpen}
+        onClose={() => setBulkImageOpen(false)}
+        onAllSuccess={async () => {
+          // 全部上传完：从云端拉最新数据 + 让 ProTable 重新渲染
+          await load();
+          tableActionRef.current?.reload();
+        }}
+      />
     </div>
   );
 }

@@ -17,13 +17,11 @@ import { NavBar } from 'antd-mobile';
 import {
   CalendarOutlined,
   CheckOutlined,
-  EditOutlined,
   LeftOutlined,
   ShoppingCartOutlined,
   StarFilled,
   StarOutlined,
 } from '@ant-design/icons';
-import { useState } from 'react';
 import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
 import { usePriceStore } from '@/store/usePriceStore';
@@ -36,7 +34,6 @@ import { calcDishCost, lineCost } from '@/utils/price';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { resolveImageUrl } from '@/lib/imageStorage';
 import PriceTag from '@/components/PriceTag';
-import DishEditor from '@/components/DishEditor';
 
 const { Title, Text } = Typography;
 
@@ -94,7 +91,6 @@ export default function DishDetail() {
   );
   const isAdmin = useIsAdmin();
   const isMobile = useIsMobile();
-  const [editorOpen, setEditorOpen] = useState(false);
 
   /*
     今日菜单：只认「今天」这一天，不能加到明天/前天，所以 day 一律用 dayKey(today())，
@@ -224,200 +220,327 @@ export default function DishDetail() {
         </NavBar>
       )}
 
-      {/* 桌面端才需要这个占位的返回按钮（移动端用上面的悬浮箭头） */}
+      {/* 桌面端：整页一张卡片，上半部分是「左图 + 右信息」，下半部分是详细做法，中间用一条分隔线衔接 */}
       {!isMobile && (
-        <Button
-          type="link"
-          onClick={() => navigate('/menu')}
-          style={{ paddingLeft: 0, marginBottom: 8 }}
-        >
-          返回菜单
-        </Button>
-      )}
-      <Card
-        cover={
-          <div style={placeholderStyle}>
-            {dish.coverImage ? (
-              <img
-                src={resolveImageUrl(dish.coverImage)}
-                alt={dish.name}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            ) : (
-              <span>图片占位</span>
-            )}
-          </div>
-        }
-        style={{ borderRadius: 16 }}
-        styles={{ body: { padding: '24px 28px 28px' } }}
-      >
-        <Space wrap size={6} style={{ marginBottom: 8 }}>
-          <Tag color="orange" style={{ margin: 0 }}>{dish.category}</Tag>
-          {dish.tags.map((t) => (
-            <Tag key={t} style={{ margin: 0 }}>{t}</Tag>
-          ))}
-        </Space>
-        <Title level={2} style={{ marginTop: 0, marginBottom: 12 }}>
-          {dish.name}
-          {dish.favorite && (
-            <span style={{ color: '#F0AD4E', marginLeft: 12, fontSize: 18 }}>★</span>
-          )}
-        </Title>
-        <Row gutter={24} style={{ marginBottom: 20 }}>
-          <Col flex="auto">
-            <Descriptions column={{ xs: 2, sm: 4 }} size="small" colon={false}>
-              <Descriptions.Item label="用时">{dish.cookTimeMin} 分钟</Descriptions.Item>
-              <Descriptions.Item label="份量">{dish.servings} 人份</Descriptions.Item>
-              <Descriptions.Item label="难度">
-                <span style={{ color: '#E8743C' }}>
-                  {'★'.repeat(dish.difficulty)}
-                </span>
-                <span style={{ color: '#ddd' }}>{'☆'.repeat(3 - dish.difficulty)}</span>
-              </Descriptions.Item>
-              <Descriptions.Item label="成本估算">
-                <PriceTag value={totalCost} suffix="/ 份" />
-              </Descriptions.Item>
-            </Descriptions>
-          </Col>
-        </Row>
+        <>
+          <Button
+            type="link"
+            onClick={() => navigate('/menu')}
+            style={{ paddingLeft: 0, marginBottom: 12 }}
+          >
+            ← 返回菜单
+          </Button>
 
-        <div className="section-title">食材清单</div>
-        {dish.ingredients.length === 0 ? (
-          <Empty description="还没填食材" />
-        ) : missing.length > 0 ? (
-          <Empty description={`有 ${missing.length} 项食材未在食材库中`} />
-        ) : (
-          <List
-            size="small"
-            dataSource={dish.ingredients}
-            split={false}
-            renderItem={(di) => {
-              const ing = ingredients.find((i) => i.id === di.ingredientId)!;
-              const cost = lineCost(di, ingredients);
-              return (
-                <List.Item
+          <div
+            style={{
+              padding: 28,
+              borderRadius: 16,
+              background: '#FFFFFF',
+              border: '1px solid #F0EEE9',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
+            }}
+          >
+            {/* 上层：左图 + 右信息，信息整体贴着图片底部对齐 */}
+            <div style={{ display: 'flex', gap: 32, alignItems: 'stretch' }}>
+              <div
+                style={{
+                  flexShrink: 0,
+                  width: 250,
+                  height: 330,
+                  borderRadius: 12,
+                  background: '#FAF7F2',
+                  border: '1px solid #F0EEE9',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {dish.coverImage ? (
+                  <img
+                    src={resolveImageUrl(dish.coverImage)}
+                    alt={dish.name}
+                    style={{
+                      maxWidth: '100%',
+                      // maxHeight: '100%',
+                      objectFit: 'contain',
+                    }}
+                  />
+                ) : (
+                  <span style={{ color: '#c8c4be', fontSize: 13 }}>图片占位</span>
+                )}
+              </div>
+
+              <div
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'flex-end',
+                  gap: 14,
+                }}
+              >
+                <Space wrap size={6}>
+                  <Tag color="orange" style={{ margin: 0 }}>{dish.category}</Tag>
+                  {dish.tags.map((t) => (
+                    <Tag key={t} style={{ margin: 0 }}>{t}</Tag>
+                  ))}
+                </Space>
+                <Title level={2} style={{ margin: 0 }}>
+                  {dish.name}
+                  {dish.favorite && (
+                    <span style={{ color: '#F0AD4E', marginLeft: 12, fontSize: 18 }}>★</span>
+                  )}
+                </Title>
+                <Descriptions column={2} size="small" colon={false} style={{ marginBottom: 0 }}>
+                  <Descriptions.Item label="用时">{dish.cookTimeMin} 分钟</Descriptions.Item>
+                  <Descriptions.Item label="份量">{dish.servings} 人份</Descriptions.Item>
+                  <Descriptions.Item label="难度">
+                    <span style={{ color: '#E8743C' }}>
+                      {'★'.repeat(dish.difficulty)}
+                    </span>
+                    <span style={{ color: '#ddd' }}>{'☆'.repeat(3 - dish.difficulty)}</span>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="成本估算">
+                    <PriceTag value={totalCost} suffix="/ 份" />
+                  </Descriptions.Item>
+                </Descriptions>
+
+                {/* 操作区：管理员在菜品详情页不需要编辑入口，这里只给普通用户 */}
+                {!isAdmin && (
+                  <Space size={12} wrap>
+                    <Button
+                      type="primary"
+                      size="large"
+                      icon={inShopping ? <CheckOutlined /> : <ShoppingCartOutlined />}
+                      onClick={() => {
+                        toggleDishInShopping(dish.id);
+                        message.success(inShopping ? '已从采购清单移除' : '已加入采购清单');
+                      }}
+                    >
+                      {inShopping ? '已加入采购清单' : '加入采购清单'}
+                    </Button>
+                    <Button
+                      size="large"
+                      icon={inTodayMenu ? <CheckOutlined /> : <CalendarOutlined />}
+                      onClick={() => void toggleTodayMenu()}
+                      disabled={todayMenuReadOnly}
+                      title={todayMenuReadOnly ? '你在家庭菜单里是只读权限' : undefined}
+                    >
+                      {inTodayMenu ? '已加入今日菜单' : '加入今日菜单'}
+                    </Button>
+                    <Button
+                      size="large"
+                      icon={
+                        dish.favorite ? <StarFilled style={{ color: '#F0AD4E' }} /> : <StarOutlined />
+                      }
+                      onClick={() => {
+                        toggleFavorite(dish.id);
+                        message.success(dish.favorite ? '已取消收藏' : '已收藏');
+                      }}
+                    >
+                      {dish.favorite ? '已收藏' : '收藏'}
+                    </Button>
+                  </Space>
+                )}
+              </div>
+            </div>
+
+            {/* 分隔线：上层菜品概览和下层详细做法在同一张卡里，靠这条线连起来 */}
+            <div style={{ height: 1, background: '#F0EEE9', margin: '28px 0 0' }} />
+
+            {/* 下层：食材清单 / 烹饪步骤 / 小贴士 */}
+            <div className="section-title">食材清单</div>
+            {dish.ingredients.length === 0 ? (
+              <Empty description="还没填食材" />
+            ) : missing.length > 0 ? (
+              <Empty description={`有 ${missing.length} 项食材未在食材库中`} />
+            ) : (
+              <List
+                size="small"
+                dataSource={dish.ingredients}
+                split={false}
+                renderItem={(di) => {
+                  const ing = ingredients.find((i) => i.id === di.ingredientId)!;
+                  const cost = lineCost(di, ingredients);
+                  return (
+                    <List.Item
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '8px 12px',
+                        background: '#FAF7F2',
+                        borderRadius: 8,
+                        marginBottom: 4,
+                      }}
+                    >
+                      <Space>
+                        <Text strong>{ing.name}</Text>
+                        {ing.note && <Text type="secondary">（{ing.note}）</Text>}
+                      </Space>
+                      <Space size={16}>
+                        <span>{di.amount} {di.unit}</span>
+                        <Text type="secondary">≈ {cost.toFixed(2)} 元</Text>
+                      </Space>
+                    </List.Item>
+                  );
+                }}
+              />
+            )}
+
+            <div className="section-title">烹饪步骤</div>
+            <div>
+              {dish.steps.map((s) => (
+                <div className="steps-row" key={s.order}>
+                  <div className="step-num">{s.order}</div>
+                  <div style={{ flex: 1, lineHeight: 1.75, color: '#444' }}>{s.text}</div>
+                </div>
+              ))}
+            </div>
+
+            {dish.tips && (
+              <>
+                <div className="section-title">小贴士</div>
+                <div
                   style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '10px 14px',
-                    background: '#FAF7F2',
-                    borderRadius: 10,
-                    marginBottom: 6,
+                    background: '#FFF6EC',
+                    borderLeft: '3px solid #E8743C',
+                    padding: '12px 16px',
+                    borderRadius: 8,
+                    color: '#5a4a3a',
                   }}
                 >
-                  <Space>
-                    <Text strong>{ing.name}</Text>
-                    {ing.note && <Text type="secondary">（{ing.note}）</Text>}
-                  </Space>
-                  <Space size={16}>
-                    <span>
-                      {di.amount} {di.unit}
-                    </span>
-                    <Text type="secondary">≈ {cost.toFixed(2)} 元</Text>
-                  </Space>
-                </List.Item>
-              );
-            }}
-          />
-        )}
-
-        <div className="section-title">烹饪步骤</div>
-        <div>
-          {dish.steps.map((s) => (
-            <div className="steps-row" key={s.order}>
-              <div className="step-num">{s.order}</div>
-              <div style={{ flex: 1, lineHeight: 1.75, color: '#444' }}>{s.text}</div>
-            </div>
-          ))}
-        </div>
-
-        {dish.tips && (
-          <>
-            <div className="section-title">小贴士</div>
-            <div
-              style={{
-                background: '#FFF6EC',
-                borderLeft: '3px solid #E8743C',
-                padding: '12px 16px',
-                borderRadius: 8,
-                color: '#5a4a3a',
-              }}
-            >
-              {dish.tips}
-            </div>
-          </>
-        )}
-
-        {isMobile ? (
-          // 移动端：采购 / 收藏已经挪到顶部悬浮栏，底部只留管理员的编辑按钮
-          isAdmin && (
-            <Button
-              size="large"
-              block
-              icon={<EditOutlined />}
-              onClick={() => setEditorOpen(true)}
-              style={{ marginTop: 32 }}
-            >
-              编辑
-            </Button>
-          )
-        ) : (
-          <Space style={{ marginTop: 32 }} size={12} wrap>
-            <Button
-              type="primary"
-              size="large"
-              icon={inShopping ? <CheckOutlined /> : <ShoppingCartOutlined />}
-              onClick={() => {
-                toggleDishInShopping(dish.id);
-                message.success(inShopping ? '已从采购清单移除' : '已加入采购清单');
-              }}
-              style={{ minWidth: 180 }}
-            >
-              {inShopping ? '已加入采购清单' : '加入采购清单'}
-            </Button>
-            <Button
-              size="large"
-              icon={inTodayMenu ? <CheckOutlined /> : <CalendarOutlined />}
-              onClick={() => void toggleTodayMenu()}
-              disabled={todayMenuReadOnly}
-              title={todayMenuReadOnly ? '你在家庭菜单里是只读权限' : undefined}
-              style={{ minWidth: 180 }}
-            >
-              {inTodayMenu ? '已加入今日菜单' : '加入今日菜单'}
-            </Button>
-            <Button
-              size="large"
-              icon={
-                dish.favorite ? <StarFilled style={{ color: '#F0AD4E' }} /> : <StarOutlined />
-              }
-              onClick={() => {
-                toggleFavorite(dish.id);
-                message.success(dish.favorite ? '已取消收藏' : '已收藏');
-              }}
-            >
-              {dish.favorite ? '已收藏' : '收藏'}
-            </Button>
-            {isAdmin && (
-              <Button
-                size="large"
-                icon={<EditOutlined />}
-                onClick={() => setEditorOpen(true)}
-              >
-                编辑
-              </Button>
+                  {dish.tips}
+                </div>
+              </>
             )}
-          </Space>
-        )}
-      </Card>
+          </div>
+        </>
+      )}
 
-      <DishEditor
-        mode="edit"
-        open={editorOpen}
-        dish={dish}
-        onClose={() => setEditorOpen(false)}
-        onDeleted={() => navigate('/menu')}
-      />
+      {/* 移动端：保留原设计（NavBar + Card + 封面图） */}
+      {isMobile && (
+        <>
+          <Card
+            cover={
+              <div style={placeholderStyle}>
+                {dish.coverImage ? (
+                  <img
+                    src={resolveImageUrl(dish.coverImage)}
+                    alt={dish.name}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  <span>图片占位</span>
+                )}
+              </div>
+            }
+            style={{ borderRadius: 16 }}
+            styles={{ body: { padding: '24px 20px 28px' } }}
+          >
+            <Space wrap size={6} style={{ marginBottom: 8 }}>
+              <Tag color="orange" style={{ margin: 0 }}>{dish.category}</Tag>
+              {dish.tags.map((t) => (
+                <Tag key={t} style={{ margin: 0 }}>{t}</Tag>
+              ))}
+            </Space>
+            <Title level={2} style={{ marginTop: 0, marginBottom: 12 }}>
+              {dish.name}
+              {dish.favorite && (
+                <span style={{ color: '#F0AD4E', marginLeft: 12, fontSize: 18 }}>★</span>
+              )}
+            </Title>
+            <Row gutter={24} style={{ marginBottom: 20 }}>
+              <Col flex="auto">
+                <Descriptions column={{ xs: 2, sm: 4 }} size="small" colon={false}>
+                  <Descriptions.Item label="用时">{dish.cookTimeMin} 分钟</Descriptions.Item>
+                  <Descriptions.Item label="份量">{dish.servings} 人份</Descriptions.Item>
+                  <Descriptions.Item label="难度">
+                    <span style={{ color: '#E8743C' }}>
+                      {'★'.repeat(dish.difficulty)}
+                    </span>
+                    <span style={{ color: '#ddd' }}>{'☆'.repeat(3 - dish.difficulty)}</span>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="成本估算">
+                    <PriceTag value={totalCost} suffix="/ 份" />
+                  </Descriptions.Item>
+                </Descriptions>
+              </Col>
+            </Row>
+
+            <div className="section-title">食材清单</div>
+            {dish.ingredients.length === 0 ? (
+              <Empty description="还没填食材" />
+            ) : missing.length > 0 ? (
+              <Empty description={`有 ${missing.length} 项食材未在食材库中`} />
+            ) : (
+              <List
+                size="small"
+                dataSource={dish.ingredients}
+                split={false}
+                renderItem={(di) => {
+                  const ing = ingredients.find((i) => i.id === di.ingredientId)!;
+                  const cost = lineCost(di, ingredients);
+                  return (
+                    <List.Item
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '10px 14px',
+                        background: '#FAF7F2',
+                        borderRadius: 10,
+                        marginBottom: 6,
+                      }}
+                    >
+                      <Space>
+                        <Text strong>{ing.name}</Text>
+                        {ing.note && <Text type="secondary">（{ing.note}）</Text>}
+                      </Space>
+                      <Space size={16}>
+                        <span>
+                          {di.amount} {di.unit}
+                        </span>
+                        <Text type="secondary">≈ {cost.toFixed(2)} 元</Text>
+                      </Space>
+                    </List.Item>
+                  );
+                }}
+              />
+            )}
+
+            <div className="section-title">烹饪步骤</div>
+            <div>
+              {dish.steps.map((s) => (
+                <div className="steps-row" key={s.order}>
+                  <div className="step-num">{s.order}</div>
+                  <div style={{ flex: 1, lineHeight: 1.75, color: '#444' }}>{s.text}</div>
+                </div>
+              ))}
+            </div>
+
+            {dish.tips && (
+              <>
+                <div className="section-title">小贴士</div>
+                <div
+                  style={{
+                    background: '#FFF6EC',
+                    borderLeft: '3px solid #E8743C',
+                    padding: '12px 16px',
+                    borderRadius: 8,
+                    color: '#5a4a3a',
+                  }}
+                >
+                  {dish.tips}
+                </div>
+              </>
+            )}
+
+          </Card>
+        </>
+      )}
     </div>
   );
 }

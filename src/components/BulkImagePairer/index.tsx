@@ -53,6 +53,8 @@ interface Pair {
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** 全部上传成功时回调（用来让父组件刷新列表） */
+  onAllSuccess?: () => void;
 }
 
 /** 从 zip 里提取所有静态图片 File */
@@ -91,7 +93,7 @@ function extractImagesFromFiles(files: File[]): LoadedImage[] {
   return out;
 }
 
-export default function BulkImagePairer({ open, onClose }: Props) {
+export default function BulkImagePairer({ open, onClose, onAllSuccess }: Props) {
   const { items, update } = useIngredientStore();
   const { message } = AntApp.useApp();
   const { token } = theme.useToken();
@@ -229,25 +231,24 @@ export default function BulkImagePairer({ open, onClose }: Props) {
     setUploading(false);
     if (failed === 0) {
       message.success(`全部 ${done} 张上传完成`);
-      // 清掉已配对的，剩下的继续配
-      const remaining = pairs.filter((p) => !p.image);
-      setPairs(remaining);
-      setSelectedIngIdx(0);
-    } else {
-      Modal.warning({
-        title: `上传完成，${failed} 张失败`,
-        width: 520,
-        content: (
-          <div style={{ maxHeight: 300, overflow: 'auto', fontSize: 13 }}>
-            {errors.map((e, i) => (
-              <div key={i} style={{ marginBottom: 4, color: token.colorErrorText }}>
-                · {e}
-              </div>
-            ))}
-          </div>
-        ),
-      });
+      // 全部成功：关掉弹窗 + 让父组件刷新列表看到新图
+      onAllSuccess?.();
+      onClose();
+      return;
     }
+    Modal.warning({
+      title: `上传完成，${failed} 张失败`,
+      width: 520,
+      content: (
+        <div style={{ maxHeight: 300, overflow: 'auto', fontSize: 13 }}>
+          {errors.map((e, i) => (
+            <div key={i} style={{ marginBottom: 4, color: token.colorErrorText }}>
+              · {e}
+            </div>
+          ))}
+        </div>
+      ),
+    });
   }
 
   /** 当前选中的那个食材 —— 用来在左边高亮 + 显示它已配对的图片 */

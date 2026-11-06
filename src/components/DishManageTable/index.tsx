@@ -11,8 +11,14 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
-import { Button, Space, Typography, Image, Avatar, Tag } from 'antd';
-import { EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { Button, Space, Typography, Image, Avatar, Tag, App as AntApp } from 'antd';
+import {
+  DownloadOutlined,
+  EditOutlined,
+  PictureOutlined,
+  PlusOutlined,
+  UploadOutlined,
+} from '@ant-design/icons';
 import type { Dish, DishCategory } from '@/types';
 import { BUILTIN_TAGS } from '@/types';
 import { calcDishCost, calcDishNutrition, type DishNutrition } from '@/utils/price';
@@ -67,6 +73,7 @@ export default function DishManageTable({
   // 订阅当前平台：切换平台后成本列要跟着重算 → params 变化触发 ProTable 刷新
   const platform = usePriceStore((s) => s.platform);
   const navigate = useNavigate();
+  const { message } = AntApp.useApp();
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
 
   const selectedDish = dishes.find((d) => d.id === selectedRowKey);
@@ -110,7 +117,15 @@ export default function DishManageTable({
                 {(d.name || '?').slice(0, 1)}
               </Avatar>
             )}
-            <span style={{ fontWeight: 500, color: '#2D2A26' }}>{d.name}</span>
+            <Typography.Link
+              strong
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate('/menu/' + d.id);
+              }}
+            >
+              {d.name}
+            </Typography.Link>
           </Space>
         );
       },
@@ -238,25 +253,6 @@ export default function DishManageTable({
         },
       })),
     },
-    {
-      // 每行一个入口：点击进入这道菜的详情页（和用户在卡片墙上点进去看到的是同一个页面）
-      title: '操作',
-      key: 'actions',
-      width: 100,
-      search: false,
-      fixed: 'right',
-      render: (_, d) => (
-        <Typography.Link
-          onClick={(e) => {
-            // 别让点击冒泡到行上 -- 否则会顺手把这一行选中
-            e.stopPropagation();
-            navigate('/menu/' + d.id);
-          }}
-        >
-          菜品详情
-        </Typography.Link>
-      ),
-    },
   ];
 
   /**
@@ -341,6 +337,28 @@ export default function DishManageTable({
         // 管理台已去掉顶部栏，高度按「视口 - 搜索区/工具栏/分页」预留
         scroll={{ x: 1700, y: 'calc(100vh - 290px)' }}
         toolBarRender={() => [
+          // 导入/导出成组放，跟右侧的单品操作区分开（导出在前，图标与食材库一致）
+          <Space.Compact key="json">
+            <Button
+              icon={<UploadOutlined />}
+              onClick={() => message.info('导出 JSON 功能待接入')}
+            >
+              导出 JSON
+            </Button>
+            <Button
+              icon={<DownloadOutlined />}
+              onClick={() => message.info('导入 JSON 功能待接入')}
+            >
+              导入 JSON
+            </Button>
+          </Space.Compact>,
+          <Button
+            key="bulkImage"
+            icon={<PictureOutlined />}
+            onClick={() => message.info('批量传图功能待接入')}
+          >
+            批量传图
+          </Button>,
           <Button
             key="edit"
             icon={<EditOutlined />}
