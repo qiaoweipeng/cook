@@ -70,6 +70,10 @@ const CORS_HEADERS = {
 };
 
 function ok(message = 'ok', status = 200): Response {
+  // 204 No Content 禁止带 body（undici 的 Response 构造函数会直接抛错）
+  if (status === 204) {
+    return new Response(null, { status, headers: CORS_HEADERS });
+  }
   return new Response(message, { status, headers: CORS_HEADERS });
 }
 
