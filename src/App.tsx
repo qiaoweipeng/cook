@@ -11,6 +11,8 @@ import Login from './pages/Login';
 import MenuPlan from './pages/MenuPlan';
 import Profile from './pages/Profile';
 import Shopping from './pages/Shopping';
+import Search from './pages/Search';
+import Favorites from './pages/Favorites';
 import AdminUsers from './pages/Admin/Users';
 import AdminSystem from './pages/Admin/System';
 import AdminHome from './pages/Admin/Home';
@@ -226,6 +228,8 @@ export default function App() {
           <Route path="/" element={<IndexRedirect />} />
           <Route path="/menu" element={<Menu />} />
           <Route path="/menu/:id" element={<DishDetail />} />
+          <Route path="/search" element={<Search />} />
+          <Route path="/favorites" element={<Favorites />} />
           <Route path="/ingredients" element={<Ingredients />} />
           <Route path="/menu-plan" element={<MenuPlan />} />
           <Route path="/profile" element={<Profile />} />

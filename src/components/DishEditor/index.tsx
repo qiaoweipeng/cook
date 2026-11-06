@@ -28,7 +28,7 @@ import { useIngredientStore } from '@/store/useIngredientStore';
 import { pickImage, formatSize, IMAGE_ACCEPT } from '@/lib/imageUpload';
 import { resolveImageUrl, deleteImage } from '@/lib/imageStorage';
 import type { Dish, DishCategory, DishIngredient, IngredientUnit, Step } from '@/types';
-import { BUILTIN_TAGS } from '@/types';
+import { TAG_GROUPS } from '@/types';
 
 const { Text } = Typography;
 
@@ -442,7 +442,11 @@ export default function DishEditor({
             mode="tags"
             placeholder="选一些能描述这道菜的标签，如：汤羹、减脂、下饭"
             maxTagCount={5}
-            options={BUILTIN_TAGS.map((t) => ({ value: t, label: t }))}
+            options={TAG_GROUPS.map((g) => ({
+              label: g.name,
+              title: g.name,
+              options: g.tags.map((t) => ({ value: t, label: t })),
+            }))}
           />
         </Form.Item>
 

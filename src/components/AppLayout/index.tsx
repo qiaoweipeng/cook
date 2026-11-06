@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Layout,
@@ -79,6 +79,15 @@ export default function AppLayout() {
   const showMobileNav = isMobile && !isAdmin && Boolean(user);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [familyOpen, setFamilyOpen] = useState(false);
+
+  /*
+    路由变化时收起购物车抽屉。
+    抽屉里的「添加」在移动端会跳到 /search，如果不收起来，
+    搜索页会被抽屉盖住，看起来像「点了没反应」。
+  */
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [location.pathname]);
   const cloud = isCloudEnabled();
   const avatarInputRef = useRef<HTMLInputElement>(null);
 

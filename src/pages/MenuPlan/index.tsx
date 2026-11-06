@@ -37,7 +37,7 @@ import {
   WalletOutlined,
 } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { resolveImageUrl } from '@/lib/imageStorage';
 import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
@@ -130,8 +130,16 @@ function monthCellStyle(
   };
 }
 
+/**
+ * 记住上次选中的日期。
+ * 移动端点「添加」会跳到 /search 再返回，MenuPlan 会被卸载重挂；
+ * 不记的话一回来就弹回今天，而用户明明正在看别的日期。
+ */
+let lastSelectedDay: string | null = null;
+
 export default function MenuPlan() {
   const { message } = AntApp.useApp();
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
   const dishes = useDishStore((s) => s.items);
   const ingredients = useIngredientStore((s) => s.items);
@@ -178,10 +186,14 @@ export default function MenuPlan() {
 
   // 默认进「今日」视图，选中今天
   const [view, setView] = useState<ViewMode>('day');
-  const [selectedDay, setSelectedDay] = useState<string>(todayKey);
+  const [selectedDay, setSelectedDay] = useState<string>(lastSelectedDay ?? todayKey);
   const [addOpen, setAddOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [keyword, setKeyword] = useState('');
+
+  useEffect(() => {
+    lastSelectedDay = selectedDay;
+  }, [selectedDay]);
 
   const dishById = useMemo(() => {
     const m = new Map<string, Dish>();
@@ -400,7 +412,12 @@ export default function MenuPlan() {
               size="small"
               type="primary"
               icon={<PlusOutlined />}
-              onClick={() => setAddOpen(true)}
+              onClick={() => {
+                // 移动端统一去独立的搜索页选菜（结果会直接加进当前选中的这一天），
+                // 桌面端继续用原来的弹窗，选择区域更宽松。
+                if (isMobile) navigate(`/search?mode=plan&day=${selectedDay}`);
+                else setAddOpen(true);
+              }}
             >
               添加
             </Button>

@@ -73,14 +73,36 @@ sw.addEventListener('install', (event) => {
 
 sw.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys.filter((k) => k !== PRECACHE && k !== IMG_CACHE).map((k) => caches.delete(k))
-        )
-      )
-      .then(() => sw.clients.claim())
+    (async () => {
+      /*
+        清理旧版本遗留的预缓存条目。
+
+        install 时只是往 cook-precache 里 add 新文件，旧版本那些
+        「assets/index-旧哈希.js」会一直留着；iOS 上的表现就是
+        新版本明明装上了，打开还是旧界面。这里按本次清单做一次对账，
+        只保留当前版本用到的文件。
+      */
+      if (manifest.length > 0) {
+        const keep = new Set(
+          manifest.map((e) => new URL(e.url, sw.location.href).pathname)
+        );
+        const cache = await caches.open(PRECACHE);
+        const entries = await cache.keys();
+        await Promise.all(
+          entries
+            .filter((req) => !keep.has(new URL(req.url).pathname))
+            .map((req) => cache.delete(req))
+        );
+      }
+
+      // 其余非本 SW 的缓存桶全部删掉，图片桶要保留
+      const keys = await caches.keys();
+      await Promise.all(
+        keys.filter((k) => k !== PRECACHE && k !== IMG_CACHE).map((k) => caches.delete(k))
+      );
+
+      await sw.clients.claim();
+    })()
   );
 });
 

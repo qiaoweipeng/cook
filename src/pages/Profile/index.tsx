@@ -10,6 +10,7 @@ import {
   DeleteOutline,
   InformationCircleOutline,
   BellOutline,
+  StarOutline,
 } from 'antd-mobile-icons';
 import { UserOutlined } from '@ant-design/icons';
 import { versionLabel, versionDetail } from '@/lib/appVersion';
@@ -17,6 +18,7 @@ import { clearPwaCache, hasServiceWorker } from '@/lib/pwaCache';
 import { App as AntApp } from 'antd';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFamilyStore } from '@/store/useFamilyStore';
+import { useDishStore } from '@/store/useDishStore';
 import { resetUserScopedStores } from '@/store/userScope';
 import { isCloudEnabled } from '@/lib/supabase';
 import { setUserAvatar, ADMIN_UID, AVATAR_MAX_W } from '@/lib/userAdmin';
@@ -40,6 +42,7 @@ export default function Profile() {
   const signOut = useAuthStore((s) => s.signOut);
   const resetUserScoped = resetUserScopedStores;
   const family = useFamilyStore((s) => s.family);
+  const favoriteCount = useDishStore((s) => s.items.filter((d) => d.favorite).length);
   const familyIncomingCount = useFamilyStore((s) => s.incoming.length + s.incomingTransfers.length);
   const [familyOpen, setFamilyOpen] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -239,6 +242,20 @@ export default function Profile() {
           }}
         >
           我的家庭
+        </List.Item>
+
+        {/* 收藏入口从首页移到了这里，点进去是独立的收藏列表 */}
+        <List.Item
+          prefix={<StarOutline fontSize={20} style={{ color: '#E8743C' }} />}
+          extra={
+            <span style={{ color: '#999', fontSize: 13 }}>
+              {favoriteCount > 0 ? `${favoriteCount} 道` : '还没有'}
+            </span>
+          }
+          clickable
+          onClick={() => navigate('/favorites')}
+        >
+          我的收藏
         </List.Item>
       </List>
 

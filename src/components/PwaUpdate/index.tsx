@@ -7,27 +7,66 @@
 // 注：vite.config.ts 里 injectRegister 已关掉（设为 null），注册在这里手动做。
 
 import { useEffect, useState } from 'react';
-import { registerSW } from 'virtual:pwa-register';
 import { Button, Toast } from 'antd-mobile';
 import { ReloadOutlined, CloseOutlined } from '@ant-design/icons';
-
-type UpdateFn = (reloadPage?: boolean) => Promise<void>;
 
 export default function PwaUpdate() {
   const [needRefresh, setNeedRefresh] = useState(false);
   const [offlineReady, setOfflineReady] = useState(false);
-  const [updateSW, setUpdateSW] = useState<UpdateFn | null>(null);
   const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
-    if (!('serviceWorker' in navigator)) return;
-    // registerSW 在开发环境是空操作（没生成 SW），所以这里不用区分环境
-    const updater = registerSW({
-      onNeedRefresh: () => setNeedRefresh(true),
-      onOfflineReady: () => setOfflineReady(true),
-    });
-    // 注意：setState 直接传函数会被当成 updater，要再包一层
-    setUpdateSW(() => updater);
+    // 开发环境没有生成 sw.js，直接跳过（否则每次热更新都会多一条 404）
+    if (!('serviceWorker' in navigator) || import.meta.env.DEV) return;
+
+    // 进页面时已经有 SW 在接管 → 这次属于「更新」；没有 → 首次安装
+    let hadController = !!navigator.serviceWorker.controller;
+
+    /*
+      新 SW 装上后会 skipWaiting 立刻接管，此时页面里跑的仍是旧 JS，
+      所以这里监听 controllerchange 来提示用户 reload。
+      首次安装不提示更新，只提示一次「已可离线使用」。
+    */
+    const onControllerChange = () => {
+      if (!hadController) {
+        hadController = true;
+        setOfflineReady(true);
+        return;
+      }
+      setNeedRefresh(true);
+    };
+
+    /*
+      关键：iOS 独立 PWA 只在启动时检查 SW 更新，切后台再回来不检查。
+      所以每次回到前台/恢复显示都主动 update() 一次，
+      让「关掉重开」就能拿到新版本，而不是要删掉图标重新添加。
+    */
+    const checkUpdate = () => {
+      if (document.visibilityState !== 'visible') return;
+      navigator.serviceWorker
+        .getRegistration()
+        .then((reg) => reg?.update())
+        .catch(() => undefined);
+    };
+
+    navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+
+    // updateViaCache: 'none' 让 sw.js 绕过 iOS / 浏览器 HTTP 缓存，避免一直读旧 SW
+    navigator.serviceWorker
+      .register('/sw.js', { scope: '/', updateViaCache: 'none' })
+      .catch((e) => console.error('[pwa] Service Worker 注册失败', e));
+
+    document.addEventListener('visibilitychange', checkUpdate);
+    window.addEventListener('pageshow', checkUpdate);
+    window.addEventListener('focus', checkUpdate);
+    checkUpdate();
+
+    return () => {
+      navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+      document.removeEventListener('visibilitychange', checkUpdate);
+      window.removeEventListener('pageshow', checkUpdate);
+      window.removeEventListener('focus', checkUpdate);
+    };
   }, []);
 
   // 离线可用后提示一次（仅提示，不打断操作）
@@ -35,15 +74,10 @@ export default function PwaUpdate() {
     if (offlineReady) Toast.show({ content: '已可离线使用', position: 'bottom' });
   }, [offlineReady]);
 
-  const handleUpdate = async () => {
-    if (!updateSW) return;
+  const handleUpdate = () => {
     setUpdating(true);
-    try {
-      await updateSW(true); // true = 更新完自动 reload
-    } catch {
-      Toast.show({ content: '更新失败，请稍后手动刷新' });
-      setUpdating(false);
-    }
+    // 新 SW 已经接管，reload 后拿到的就是最新资源
+    window.location.reload();
   };
 
   if (!needRefresh) return null;

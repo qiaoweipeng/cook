@@ -19,6 +19,8 @@ import {
   PlusOutlined,
   ShoppingOutlined,
 } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
 import { usePriceStore } from '@/store/usePriceStore';
@@ -40,6 +42,8 @@ const { Text } = Typography;
  */
 export default function ShoppingListPanel() {
   const { message } = AntApp.useApp();
+  const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const dishes = useDishStore((s) => s.items);
   const ingredients = useIngredientStore((s) => s.items);
   // 采购时手动切平台：总成本立刻按这个平台的价格重算
@@ -186,7 +190,11 @@ export default function ShoppingListPanel() {
               type="primary"
               ghost
               icon={<PlusOutlined />}
-              onClick={() => setPickerOpen(true)}
+              onClick={() => {
+                // 移动端去独立搜索页选菜，桌面端保留原来的弹窗
+                if (isMobile) navigate('/search?mode=shopping');
+                else setPickerOpen(true);
+              }}
             >
               添加
             </Button>
@@ -217,7 +225,9 @@ export default function ShoppingListPanel() {
                 <div style={{ color: '#999' }}>还没有选菜</div>
                 <Button
                   type="link"
-                  onClick={() => setPickerOpen(true)}
+                  onClick={() =>
+                    isMobile ? navigate('/search?mode=shopping') : setPickerOpen(true)
+                  }
                   style={{ paddingTop: 4 }}
                 >
                   + 从菜单添加

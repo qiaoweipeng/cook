@@ -1,17 +1,29 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type TouchEvent } from 'react';
 import { Input, Segmented, Empty, Row, Col, Switch, Space, Spin, Tag, App as AntApp } from 'antd';
 import { Dropdown, Tabs, PullToRefresh, Toast } from 'antd-mobile';
-import { CaretDownFilled, SearchOutlined, StarOutlined, StarFilled } from '@ant-design/icons';
+import { CaretDownFilled, SearchOutlined } from '@ant-design/icons';
 import {
   CakeSlice,
+  ChefHat,
+  Citrus,
+  CookingPot,
+  Dumbbell,
   Flame,
+  FlameKindling,
   Leaf,
+  MapPin,
+  MoonStar,
   PartyPopper,
+  Pizza,
   Salad,
+  Sandwich,
   Snowflake,
   Soup,
   Sprout,
+  Store,
   UtensilsCrossed,
+  Wheat,
+  Wine,
   Zap,
   type LucideIcon,
 } from 'lucide-react';
@@ -27,7 +39,7 @@ import { useIsAdmin } from '@/store/useAuthStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useIsPadPortrait } from '@/hooks/useIsPadPortrait';
 import type { Dish, DishCategory } from '@/types';
-import { ATTRIBUTE_FILTER_TAGS } from '@/types';
+import { TAG_GROUPS } from '@/types';
 
 // 顶部标题区（「今天想吃点啥？」+ 收录数量）已整块删除，这里原本解构的 Text 也不再需要。
 
@@ -48,31 +60,46 @@ const categories: Array<DishCategory | '全部'> = [
 ];
 
 /**
- * 属性筛选 chips —— 引用 types/index.ts 的 ATTRIBUTE_FILTER_TAGS。
- * 一道菜必须且只能归一个菜系（category），但可以挂 1~5 个属性标签（tags）。
- * chips 多选时是「或」的关系，和菜系 Tab 是「且」。
- */
-const ATTRIBUTE_TAGS: readonly string[] = ATTRIBUTE_FILTER_TAGS;
-
-/**
- * 每个属性标签配一个线稿图标（lucide-react），移动端胶囊和「更多」面板里都带上，
- * 比纯文字更好认。没用到的标签不写进表里也能正常显示（只是没有图标）。
+ * 每个属性标签配一个线稿图标（lucide-react），移动端圆圈和「更多」面板里都带上，
+ * 比纯文字更好认。标签清单本身来自 types/index.ts 的 TAG_GROUPS。
  */
 const TAG_ICONS: Record<string, LucideIcon> = {
-  减脂: Salad,
-  快手: Zap,
-  下饭: UtensilsCrossed,
+  // 口味风味
   清淡: Leaf,
   重口: Flame,
-  素食: Sprout,
-  宴客: PartyPopper,
-  汤羹: Soup,
+  辛辣: FlameKindling,
+  酸甜: Citrus,
+  // 营养健康
+  减脂: Salad,
+  高蛋白: Dumbbell,
+  低碳水: Wheat,
+  暖胃: CookingPot,
+  // 做法形态
+  红烧: ChefHat,
   凉菜: Snowflake,
+  汤羹: Soup,
   烘焙: CakeSlice,
+  主食: Sandwich,
+  // 场景节奏
+  快手: Zap,
+  下饭: UtensilsCrossed,
+  下酒: Wine,
+  宴请: PartyPopper,
+  // 饮食偏好
+  素食: Sprout,
+  清真: MoonStar,
+  西餐: Pizza,
+  陕味: MapPin,
+  // 品牌系列
+  大碗先生: Store,
 };
 
-/** 移动端默认在一行里先露出的属性标签数量（其余收进「更多」里） */
-const MOBILE_TAG_PREVIEW = 6;
+/**
+ * 移动端默认在一行里先露出的 6 个标签（其余收进「更多」面板）。
+ * 特意不按分组顺序取前 6 个 —— 优先露出大家最常点的几个。
+ */
+const MOBILE_PREVIEW_TAGS = ['减脂', '快手', '下饭', '清淡', '重口', '素食'];
+const MOBILE_TAG_PREVIEW = MOBILE_PREVIEW_TAGS.length;
 
 const PAGE_SIZE = 8;
 
@@ -162,9 +189,7 @@ export default function Menu() {
   };
 
   /** 移动端默认露出的 6 个标签之外，还有几个处于选中状态（用来给倒三角入口提个醒） */
-  const hiddenSelectedCount = ATTRIBUTE_TAGS.slice(MOBILE_TAG_PREVIEW).filter((t) =>
-    activeTags.includes(t)
-  ).length;
+  const hiddenSelectedCount = activeTags.filter((t) => !MOBILE_PREVIEW_TAGS.includes(t)).length;
 
   /*
     移动端左右滑动切换分类：左滑看下一个、右滑看上一个。
@@ -319,53 +344,57 @@ export default function Menu() {
               flexWrap: 'wrap',
             }}
           >
-            <Input
-              allowClear
-              prefix={<SearchOutlined />}
-              placeholder="搜菜名或标签（如：番茄、汤、快手）"
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              style={{
-                maxWidth: isMobile ? 'none' : 320,
-                flex: isMobile ? 1 : undefined,
-                minWidth: 0,
-              }}
-            />
             {/*
-            移动端：收藏筛选做成搜索框右侧的一个图标按钮。
-            原来用的是 Switch（「我的收藏 / 全部菜品」两块文字），在这么窄的一行里太抢眼，
-            换成跟搜索框等高的星标：未选中白底灰星，选中橙底白星，一眼能看出状态。
-          */}
-            {isMobile && (
-              <button
-                type="button"
-                onClick={() => setFavOnly((v) => !v)}
-                aria-pressed={favOnly}
-                title={favOnly ? '显示全部菜品' : '只看我的收藏'}
+              移动端：搜索框改成「假输入框」，点一下跳到独立的搜索页（/search）。
+              真输入框留在这会让输入时列表跟着重排，而且小屏上键盘会挡住半屏；
+              独立搜索页有更大的结果区域，也方便复用给菜单/采购清单的「添加」。
+            */}
+            {isMobile ? (
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate('/search')}
                 style={{
-                  flexShrink: 0,
+                  flex: 1,
+                  minWidth: 0,
                   height: 32,
-                  minWidth: 38,
-                  padding: 0,
-                  borderRadius: 8,
-                  border: favOnly ? '1px solid #e8743c' : '1px solid #e3ddd4',
-                  background: favOnly ? '#e8743c' : '#fff',
-                  color: favOnly ? '#fff' : '#8c857e',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
+                  gap: 6,
+                  padding: '0 10px',
+                  borderRadius: 8,
+                  border: '1px solid #e3ddd4',
+                  background: '#fff',
+                  color: '#b8b2aa',
+                  fontSize: 13,
                   cursor: 'pointer',
-                  WebkitAppearance: 'none',
-                  transition: 'background-color 180ms ease, border-color 180ms ease, color 180ms ease',
                 }}
               >
-                {favOnly ? (
-                  <StarFilled style={{ fontSize: 15 }} />
-                ) : (
-                  <StarOutlined style={{ fontSize: 15 }} />
-                )}
-              </button>
+                <SearchOutlined style={{ fontSize: 13 }} />
+                <span
+                  style={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  搜菜名或标签（如：番茄、汤、快手）
+                </span>
+              </div>
+            ) : (
+              <Input
+                allowClear
+                prefix={<SearchOutlined />}
+                placeholder="搜菜名或标签（如：番茄、汤、快手）"
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                style={{ maxWidth: 320 }}
+              />
             )}
+            {/*
+              收藏入口已从首页移除，统一收到「个人」页面里
+              （个人 → 我的收藏 → 独立的收藏列表页）。
+            */}
             {/* 移动端：分类用 antd-mobile Tabs，横向滚动，点击后选中项自动滚入视野；桌面端保持 Segmented 不变 */}
             {isMobile ? (
               <div style={{ flex: '0 0 100%', marginTop: 4, minWidth: 0 }}>
@@ -432,7 +461,7 @@ export default function Menu() {
                     alignItems: 'center',
                   }}
                 >
-                  {ATTRIBUTE_TAGS.slice(0, MOBILE_TAG_PREVIEW).map((t) => renderCircleTag(t))}
+                  {MOBILE_PREVIEW_TAGS.map((t) => renderCircleTag(t))}
                 </div>
                 {/*
                   展开入口：不占布局位置，是一个实心倒三角，放在六个圆圈的水平中心、行底部，
@@ -455,17 +484,38 @@ export default function Menu() {
                       highlight={hiddenSelectedCount > 0}
                       title={<CaretDownFilled style={{ fontSize: 12 }} />}
                     >
+                      {/* 全部标签按分组展示，每组一个小标题，方便快速定位 */}
                       <div
                         style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(5, 1fr)',
-                          gap: 12,
-                          padding: '14px 12px 18px',
+                          padding: '12px 12px 16px',
                           maxHeight: '60vh',
                           overflowY: 'auto',
                         }}
                       >
-                        {ATTRIBUTE_TAGS.map((t) => renderCircleTag(t))}
+                        {TAG_GROUPS.map((group) => (
+                          <div key={group.name} style={{ marginBottom: 14 }}>
+                            <div
+                              style={{
+                                fontSize: 13,
+                                fontWeight: 600,
+                                color: '#5c554e',
+                                margin: '0 2px 10px',
+                                letterSpacing: 0.4,
+                              }}
+                            >
+                              {group.name}
+                            </div>
+                            <div
+                              style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(5, 1fr)',
+                                gap: '10px 4px',
+                              }}
+                            >
+                              {group.tags.map((t) => renderCircleTag(t))}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </Dropdown.Item>
                   </Dropdown>
@@ -477,25 +527,40 @@ export default function Menu() {
                   flex: '0 0 100%',
                   marginTop: 6,
                   display: 'flex',
-                  gap: 8,
-                  overflowX: 'auto',
-                  flexWrap: 'nowrap',
-                  paddingBottom: 2,
+                  flexDirection: 'column',
+                  gap: 6,
                 }}
               >
-                {ATTRIBUTE_TAGS.map((t) => {
-                  const on = activeTags.includes(t);
-                  return (
-                    <Tag.CheckableTag
-                      key={t}
-                      checked={on}
-                      onChange={() => toggleTag(t)}
-                      style={{ flexShrink: 0, fontSize: 14, padding: '2px 10px' }}
+                {TAG_GROUPS.map((group) => (
+                  <div
+                    key={group.name}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
+                  >
+                    <span
+                      style={{
+                        width: 56,
+                        flexShrink: 0,
+                        fontSize: 12,
+                        color: '#a9a29a',
+                      }}
                     >
-                      {t}
-                    </Tag.CheckableTag>
-                  );
-                })}
+                      {group.name}
+                    </span>
+                    {group.tags.map((t) => {
+                      const on = activeTags.includes(t);
+                      return (
+                        <Tag.CheckableTag
+                          key={t}
+                          checked={on}
+                          onChange={() => toggleTag(t)}
+                          style={{ fontSize: 14, padding: '2px 10px' }}
+                        >
+                          {t}
+                        </Tag.CheckableTag>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -507,64 +572,64 @@ export default function Menu() {
         onTouchStart={isMobile ? handleSwipeStart : undefined}
         onTouchEnd={isMobile ? handleSwipeEnd : undefined}
       >
-          {showManageTable ? (
-            <div className="menu-manage-table">
-              <DishManageTable
-                dishes={filtered}
-                ingredients={ingredients}
-                selectedRowKey={selectedRowKey}
-                onSelectedRowKeyChange={setSelectedRowKey}
-                onCreate={() => {
-                  setEditing(null);
-                  setEditorOpen(true);
-                }}
-                onEdit={(d) => {
-                  setEditing(d);
-                  setEditorOpen(true);
-                }}
-              />
+        {showManageTable ? (
+          <div className="menu-manage-table">
+            <DishManageTable
+              dishes={filtered}
+              ingredients={ingredients}
+              selectedRowKey={selectedRowKey}
+              onSelectedRowKeyChange={setSelectedRowKey}
+              onCreate={() => {
+                setEditing(null);
+                setEditorOpen(true);
+              }}
+              onEdit={(d) => {
+                setEditing(d);
+                setEditorOpen(true);
+              }}
+            />
+          </div>
+        ) : filtered.length === 0 ? (
+          <Empty description="没找到这道菜，换个关键词试试" style={{ marginTop: 48 }} />
+        ) : (
+          <>
+            <Row gutter={isMobile ? [10, 10] : [16, 16]}>
+              {visible.map((d) => (
+                // Pad 竖屏强制 3 列（span 8）。其余走响应式：手机 2 列、md 3 列、lg 起 4 列。
+                // 注意不能写成 lg={8}：iPad 横屏（1024~1194）也落在 lg 区间，那样横屏会变 3 列。
+                <Col key={d.id} {...(isPadPortrait ? { span: 8 } : { xs: 12, sm: 12, md: 8, lg: 6 })}>
+                  <DishCard dish={d} cost={calcDishCost(d, ingredients)} />
+                </Col>
+              ))}
+            </Row>
+
+            {/* sentinel：观察这个元素的位置来触发加载 */}
+            <div ref={sentinelRef} style={{ height: 1 }} />
+
+            {/* 底部状态条 */}
+            <div
+              style={{
+                textAlign: 'center',
+                padding: '24px 0 8px',
+                color: '#999',
+                fontSize: 13,
+              }}
+            >
+              {hasMore ? (
+                <Space size={6}>
+                  <Spin size="small" />
+                  <span>正在加载更多…</span>
+                </Space>
+              ) : (
+                isAllLoaded && (
+                  <span>
+                    已显示全部 {filtered.length} 道菜
+                  </span>
+                )
+              )}
             </div>
-          ) : filtered.length === 0 ? (
-            <Empty description="没找到这道菜，换个关键词试试" style={{ marginTop: 48 }} />
-          ) : (
-            <>
-              <Row gutter={isMobile ? [10, 10] : [16, 16]}>
-                {visible.map((d) => (
-                  // Pad 竖屏强制 3 列（span 8）。其余走响应式：手机 2 列、md 3 列、lg 起 4 列。
-                  // 注意不能写成 lg={8}：iPad 横屏（1024~1194）也落在 lg 区间，那样横屏会变 3 列。
-                  <Col key={d.id} {...(isPadPortrait ? { span: 8 } : { xs: 12, sm: 12, md: 8, lg: 6 })}>
-                    <DishCard dish={d} cost={calcDishCost(d, ingredients)} />
-                  </Col>
-                ))}
-              </Row>
-
-              {/* sentinel：观察这个元素的位置来触发加载 */}
-              <div ref={sentinelRef} style={{ height: 1 }} />
-
-              {/* 底部状态条 */}
-              <div
-                style={{
-                  textAlign: 'center',
-                  padding: '24px 0 8px',
-                  color: '#999',
-                  fontSize: 13,
-                }}
-              >
-                {hasMore ? (
-                  <Space size={6}>
-                    <Spin size="small" />
-                    <span>正在加载更多…</span>
-                  </Space>
-                ) : (
-                  isAllLoaded && (
-                    <span>
-                      已显示全部 {filtered.length} 道菜
-                    </span>
-                  )
-                )}
-              </div>
-            </>
-          )}
+          </>
+        )}
       </div>
 
       <DishEditor
