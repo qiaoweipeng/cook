@@ -9,7 +9,7 @@ import {
   readDismissed,
 } from '@/lib/seedDismiss';
 import { isCloudEnabled } from '@/lib/supabase';
-import { cloudDelete, cloudList, cloudSet } from '@/lib/cloudSync';
+import { cloudDelete, cloudList, cloudSet, saveIngredientsBulk, deleteIngredientsBulk } from '@/lib/cloudSync';
 import { checkIngredientUsage } from '@/lib/usage';
 import { logOp } from '@/lib/opLog';
 import { idbStorage, whenHydrated } from '@/lib/persistStorage';
@@ -149,21 +149,30 @@ export const useIngredientStore = create<IngredientState>()(
 
       replaceAll: async (ings) => {
         const old = get().items;
-        for (const it of old) {
-          if (!ings.some((x) => x.id === it.id)) await cloudDelete('ingredients', it.id);
-        }
-        for (const it of ings) await writeCloud(it);
+        const goneIds = old.filter((it) => !ings.some((x) => x.id === it.id)).map((it) => it.id);
+        /*
+          顺序很关键：先 upsert 新数据，再删旧数据。
+          反过来（先删后写）一旦中途失败，就会「旧的全删了、新的没写进去」= 库直接空掉。
+          现在最坏情况只是多剩几条旧数据，不会丢东西。
+        */
+        await saveIngredientsBulk(ings);
+        await deleteIngredientsBulk(goneIds);
         set({ items: ings });
-        logOp('导入食材（替换模式）', '', `共 ${ings.length} 项`);
+        logOp('导入食材（替换模式）', '', `共 ${ings.length} 项，清理旧数据 ${goneIds.length} 项`);
       },
 
       bulkMerge: async (ings) => {
+        if (ings.length === 0) return;
         const map = new Map<string, Ingredient>();
         for (const it of get().items) map.set(it.id, it);
         for (const it of ings) map.set(it.id, it);
         const merged = Array.from(map.values());
-        // 找出实际变化的写云端
-        for (const it of ings) await writeCloud(it);
+        /*
+          先等云端批量写完再落本地。
+          以前是逐条串行 cloudSet 且不抛错：100 多条要跑很久，界面没反馈，
+          失败还静默 —— 本地看着导进去了，一刷新云端还是老数据。
+        */
+        await saveIngredientsBulk(ings);
         set({ items: merged });
         logOp('导入食材（合并模式）', '', `共 ${ings.length} 项`);
       },

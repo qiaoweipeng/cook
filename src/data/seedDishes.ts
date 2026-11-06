@@ -75,7 +75,7 @@ export const seedDishes: Dish[] = [
     favorite: true,
     createdAt: baseTime + 86400000 * 3,
     ingredients: [
-      { ingredientId: 'ing_pork_tenderloin', amount: 0.6, unit: '斤' },
+      { ingredientId: 'ing_pork_tenderloin', amount: 300, unit: 'g' },
       { ingredientId: 'ing_egg', amount: 55, unit: 'g' },
       { ingredientId: 'ing_sugar', amount: 50, unit: 'g' },
       { ingredientId: 'ing_vinegar', amount: 30, unit: 'ml' },
@@ -104,7 +104,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 4,
     ingredients: [
-      { ingredientId: 'ing_pork_ribs', amount: 1, unit: '斤' },
+      { ingredientId: 'ing_pork_ribs', amount: 500, unit: 'g' },
       { ingredientId: 'ing_ginger', amount: 15, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 80, unit: 'g' },
       { ingredientId: 'ing_scallion', amount: 30, unit: 'g' },
@@ -136,8 +136,8 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 5,
     ingredients: [
-      { ingredientId: 'ing_tofu', amount: 1, unit: '斤' },
-      { ingredientId: 'ing_pork_tenderloin', amount: 0.2, unit: '斤' },
+      { ingredientId: 'ing_tofu', amount: 500, unit: 'g' },
+      { ingredientId: 'ing_pork_tenderloin', amount: 100, unit: 'g' },
       { ingredientId: 'ing_doubanjiang', amount: 20, unit: 'g' },
       { ingredientId: 'ing_pepper_red', amount: 80, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 40, unit: 'g' },
@@ -169,7 +169,7 @@ export const seedDishes: Dish[] = [
     favorite: true,
     createdAt: baseTime + 86400000 * 6,
     ingredients: [
-      { ingredientId: 'ing_shrimp', amount: 1, unit: '斤' },
+      { ingredientId: 'ing_shrimp', amount: 500, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 120, unit: 'g' },
       { ingredientId: 'ing_soy_sauce', amount: 15, unit: 'ml' },
       { ingredientId: 'ing_oil', amount: 20, unit: 'ml' },
@@ -197,7 +197,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 7,
     ingredients: [
-      { ingredientId: 'ing_sea_bass', amount: 1, unit: '斤' },
+      { ingredientId: 'ing_sea_bass', amount: 500, unit: 'g' },
       { ingredientId: 'ing_ginger', amount: 30, unit: 'g' },
       { ingredientId: 'ing_scallion', amount: 30, unit: 'g' },
       { ingredientId: 'ing_soy_sauce', amount: 30, unit: 'ml' },
@@ -225,7 +225,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 8,
     ingredients: [
-      { ingredientId: 'ing_pork_tenderloin', amount: 0.4, unit: '斤' },
+      { ingredientId: 'ing_pork_tenderloin', amount: 200, unit: 'g' },
       { ingredientId: 'ing_pepper_green', amount: 210, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 80, unit: 'g' },
       { ingredientId: 'ing_soy_sauce', amount: 15, unit: 'ml' },
@@ -254,7 +254,7 @@ export const seedDishes: Dish[] = [
     createdAt: baseTime + 86400000 * 9,
     ingredients: [
       { ingredientId: 'ing_noodle', amount: 400, unit: 'g' },
-      { ingredientId: 'ing_beef', amount: 0.4, unit: '斤' },
+      { ingredientId: 'ing_beef', amount: 200, unit: 'g' },
       { ingredientId: 'ing_tomato', amount: 400, unit: 'g' },
       { ingredientId: 'ing_onion', amount: 200, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 80, unit: 'g' },
@@ -286,7 +286,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 10,
     ingredients: [
-      { ingredientId: 'ing_fish_head', amount: 1, unit: '斤' },
+      { ingredientId: 'ing_fish_head', amount: 500, unit: 'g' },
       { ingredientId: 'ing_chili_diced', amount: 30, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 80, unit: 'g' },
       { ingredientId: 'ing_ginger', amount: 15, unit: 'g' },
@@ -315,9 +315,9 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 11,
     ingredients: [
-      { ingredientId: 'ing_chicken_leg', amount: 1, unit: '斤' },
+      { ingredientId: 'ing_chicken_leg', amount: 500, unit: 'g' },
       { ingredientId: 'ing_potato', amount: 400, unit: 'g' },
-      { ingredientId: 'ing_mushroom', amount: 0.3, unit: '斤' },
+      { ingredientId: 'ing_mushroom', amount: 150, unit: 'g' },
       { ingredientId: 'ing_pepper_green', amount: 70, unit: 'g' },
       { ingredientId: 'ing_ginger', amount: 15, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 80, unit: 'g' },
@@ -349,7 +349,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 12,
     ingredients: [
-      { ingredientId: 'ing_chicken_leg', amount: 1, unit: '斤' },
+      { ingredientId: 'ing_chicken_leg', amount: 500, unit: 'g' },
       { ingredientId: 'ing_pepper_green', amount: 210, unit: 'g' },
       { ingredientId: 'ing_pepper_red', amount: 160, unit: 'g' },
       { ingredientId: 'ing_ginger', amount: 15, unit: 'g' },
@@ -410,7 +410,7 @@ export const seedDishes: Dish[] = [
     favorite: true,
     createdAt: baseTime + 86400000 * 14,
     ingredients: [
-      { ingredientId: 'ing_beef', amount: 0.5, unit: '斤' },
+      { ingredientId: 'ing_beef', amount: 250, unit: 'g' },
       { ingredientId: 'ing_pepper_green', amount: 140, unit: 'g' },
       { ingredientId: 'ing_pepper_red', amount: 80, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 80, unit: 'g' },
@@ -469,7 +469,7 @@ export const seedDishes: Dish[] = [
     createdAt: baseTime + 86400000 * 16,
     ingredients: [
       { ingredientId: 'ing_snow_pea', amount: 200, unit: 'g' },
-      { ingredientId: 'ing_sausage', amount: 0.3, unit: '斤' },
+      { ingredientId: 'ing_sausage', amount: 150, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 40, unit: 'g' },
       { ingredientId: 'ing_soy_sauce', amount: 10, unit: 'ml' },
       { ingredientId: 'ing_salt', amount: 2, unit: 'g' },
@@ -498,7 +498,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 17,
     ingredients: [
-      { ingredientId: 'ing_sausage_fresh', amount: 0.3, unit: '斤' },
+      { ingredientId: 'ing_sausage_fresh', amount: 150, unit: 'g' },
       { ingredientId: 'ing_egg', amount: 165, unit: 'g' },
       { ingredientId: 'ing_scallion', amount: 15, unit: 'g' },
       { ingredientId: 'ing_salt', amount: 2, unit: 'g' },
@@ -523,7 +523,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 18,
     ingredients: [
-      { ingredientId: 'ing_tofu', amount: 1, unit: '斤' },
+      { ingredientId: 'ing_tofu', amount: 500, unit: 'g' },
       { ingredientId: 'ing_scallion_white', amount: 200, unit: 'g' },
       { ingredientId: 'ing_ginger', amount: 15, unit: 'g' },
       { ingredientId: 'ing_soy_sauce', amount: 20, unit: 'ml' },
@@ -553,7 +553,7 @@ export const seedDishes: Dish[] = [
     favorite: true,
     createdAt: baseTime + 86400000 * 19,
     ingredients: [
-      { ingredientId: 'ing_pork_belly', amount: 1.5, unit: '斤' },
+      { ingredientId: 'ing_pork_belly', amount: 750, unit: 'g' },
       { ingredientId: 'ing_scallion_white', amount: 200, unit: 'g' },
       { ingredientId: 'ing_ginger', amount: 30, unit: 'g' },
       { ingredientId: 'ing_anise', amount: 3, unit: 'g' },
@@ -585,7 +585,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 20,
     ingredients: [
-      { ingredientId: 'ing_shrimp', amount: 1, unit: '斤' },
+      { ingredientId: 'ing_shrimp', amount: 500, unit: 'g' },
       { ingredientId: 'ing_scallion_white', amount: 100, unit: 'g' },
       { ingredientId: 'ing_ginger', amount: 15, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 80, unit: 'g' },
@@ -617,7 +617,7 @@ export const seedDishes: Dish[] = [
     favorite: true,
     createdAt: baseTime + 86400000 * 21,
     ingredients: [
-      { ingredientId: 'ing_pork_belly', amount: 0.8, unit: '斤' },
+      { ingredientId: 'ing_pork_belly', amount: 400, unit: 'g' },
       { ingredientId: 'ing_garlic_sprout', amount: 150, unit: 'g' },
       { ingredientId: 'ing_pepper_green', amount: 70, unit: 'g' },
       { ingredientId: 'ing_pepper_red', amount: 80, unit: 'g' },
@@ -648,7 +648,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 22,
     ingredients: [
-      { ingredientId: 'ing_pork_tenderloin', amount: 0.4, unit: '斤' },
+      { ingredientId: 'ing_pork_tenderloin', amount: 200, unit: 'g' },
       { ingredientId: 'ing_pepper_green', amount: 210, unit: 'g' },
       { ingredientId: 'ing_egg', amount: 30, unit: 'g' },
       { ingredientId: 'ing_starch', amount: 5, unit: 'g' },
@@ -680,8 +680,8 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 23,
     ingredients: [
-      { ingredientId: 'ing_pork_belly', amount: 1, unit: '斤' },
-      { ingredientId: 'ing_tofu_dried', amount: 0.2, unit: '斤' },
+      { ingredientId: 'ing_pork_belly', amount: 500, unit: 'g' },
+      { ingredientId: 'ing_tofu_dried', amount: 100, unit: 'g' },
       { ingredientId: 'ing_scallion_white', amount: 100, unit: 'g' },
       { ingredientId: 'ing_ginger', amount: 15, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 80, unit: 'g' },
@@ -713,7 +713,7 @@ export const seedDishes: Dish[] = [
     favorite: true,
     createdAt: baseTime + 86400000 * 24,
     ingredients: [
-      { ingredientId: 'ing_chicken_wing', amount: 1, unit: '斤' },
+      { ingredientId: 'ing_chicken_wing', amount: 500, unit: 'g' },
       { ingredientId: 'ing_cola', amount: 500, unit: 'ml' },
       { ingredientId: 'ing_ginger', amount: 15, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 80, unit: 'g' },
@@ -743,7 +743,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 25,
     ingredients: [
-      { ingredientId: 'ing_chicken_leg', amount: 1, unit: '斤' },
+      { ingredientId: 'ing_chicken_leg', amount: 500, unit: 'g' },
       { ingredientId: 'ing_dried_chili', amount: 30, unit: 'g' },
       { ingredientId: 'ing_sichuan_pepper', amount: 5, unit: 'g' },
       { ingredientId: 'ing_egg', amount: 55, unit: 'g' },
@@ -777,7 +777,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 26,
     ingredients: [
-      { ingredientId: 'ing_duck', amount: 2, unit: '斤' },
+      { ingredientId: 'ing_duck', amount: 1000, unit: 'g' },
       { ingredientId: 'ing_beer', amount: 1, unit: 'L' },
       { ingredientId: 'ing_ginger', amount: 30, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 120, unit: 'g' },
@@ -816,7 +816,7 @@ export const seedDishes: Dish[] = [
       { ingredientId: 'ing_lettuce', amount: 350, unit: 'g' },
       { ingredientId: 'ing_potato', amount: 400, unit: 'g' },
       { ingredientId: 'ing_enoki', amount: 150, unit: 'g' },
-      { ingredientId: 'ing_tofu', amount: 0.5, unit: '斤' },
+      { ingredientId: 'ing_tofu', amount: 250, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 80, unit: 'g' },
       { ingredientId: 'ing_scallion', amount: 30, unit: 'g' },
     ],
@@ -839,9 +839,9 @@ export const seedDishes: Dish[] = [
     favorite: true,
     createdAt: baseTime + 86400000 * 28,
     ingredients: [
-      { ingredientId: 'ing_fish_piece', amount: 1, unit: '斤' },
-      { ingredientId: 'ing_pickle', amount: 0.5, unit: '斤' },
-      { ingredientId: 'ing_bean_sprout', amount: 0.3, unit: '斤' },
+      { ingredientId: 'ing_fish_piece', amount: 500, unit: 'g' },
+      { ingredientId: 'ing_pickle', amount: 250, unit: 'g' },
+      { ingredientId: 'ing_bean_sprout', amount: 150, unit: 'g' },
       { ingredientId: 'ing_egg', amount: 55, unit: 'g' },
       { ingredientId: 'ing_starch', amount: 20, unit: 'g' },
       { ingredientId: 'ing_dried_chili', amount: 15, unit: 'g' },
@@ -874,9 +874,9 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 29,
     ingredients: [
-      { ingredientId: 'ing_fish_piece', amount: 1.2, unit: '斤' },
-      { ingredientId: 'ing_bean_sprout', amount: 0.3, unit: '斤' },
-      { ingredientId: 'ing_cabbage', amount: 0.3, unit: '斤' },
+      { ingredientId: 'ing_fish_piece', amount: 600, unit: 'g' },
+      { ingredientId: 'ing_bean_sprout', amount: 150, unit: 'g' },
+      { ingredientId: 'ing_cabbage', amount: 150, unit: 'g' },
       { ingredientId: 'ing_egg', amount: 55, unit: 'g' },
       { ingredientId: 'ing_starch', amount: 20, unit: 'g' },
       { ingredientId: 'ing_doubanjiang', amount: 30, unit: 'g' },
@@ -910,7 +910,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 30,
     ingredients: [
-      { ingredientId: 'ing_shrimp', amount: 1, unit: '斤' },
+      { ingredientId: 'ing_shrimp', amount: 500, unit: 'g' },
       { ingredientId: 'ing_ginger', amount: 30, unit: 'g' },
       { ingredientId: 'ing_scallion', amount: 30, unit: 'g' },
       { ingredientId: 'ing_cooking_wine', amount: 15, unit: 'ml' },
@@ -936,7 +936,7 @@ export const seedDishes: Dish[] = [
     favorite: true,
     createdAt: baseTime + 86400000 * 31,
     ingredients: [
-      { ingredientId: 'ing_fan_shell', amount: 0.5, unit: '斤' },
+      { ingredientId: 'ing_fan_shell', amount: 250, unit: 'g' },
       { ingredientId: 'ing_vermicelli', amount: 150, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 160, unit: 'g' },
       { ingredientId: 'ing_scallion', amount: 15, unit: 'g' },
@@ -965,7 +965,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 32,
     ingredients: [
-      { ingredientId: 'ing_clam', amount: 1, unit: '斤' },
+      { ingredientId: 'ing_clam', amount: 500, unit: 'g' },
       { ingredientId: 'ing_dried_chili', amount: 5, unit: 'g' },
       { ingredientId: 'ing_doubanjiang', amount: 15, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 80, unit: 'g' },
@@ -995,7 +995,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 33,
     ingredients: [
-      { ingredientId: 'ing_crab', amount: 1, unit: '斤' },
+      { ingredientId: 'ing_crab', amount: 500, unit: 'g' },
       { ingredientId: 'ing_scallion_white', amount: 200, unit: 'g' },
       { ingredientId: 'ing_ginger', amount: 45, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 120, unit: 'g' },
@@ -1026,7 +1026,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 34,
     ingredients: [
-      { ingredientId: 'ing_shrimp', amount: 0.4, unit: '斤' },
+      { ingredientId: 'ing_shrimp', amount: 200, unit: 'g' },
       { ingredientId: 'ing_egg', amount: 165, unit: 'g' },
       { ingredientId: 'ing_scallion', amount: 15, unit: 'g' },
       { ingredientId: 'ing_cooking_wine', amount: 10, unit: 'ml' },
@@ -1053,7 +1053,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 35,
     ingredients: [
-      { ingredientId: 'ing_river_shrimp', amount: 0.4, unit: '斤' },
+      { ingredientId: 'ing_river_shrimp', amount: 200, unit: 'g' },
       { ingredientId: 'ing_chive', amount: 200, unit: 'g' },
       { ingredientId: 'ing_ginger', amount: 15, unit: 'g' },
       { ingredientId: 'ing_cooking_wine', amount: 10, unit: 'ml' },
@@ -1078,7 +1078,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 36,
     ingredients: [
-      { ingredientId: 'ing_small_yellow_fish', amount: 1, unit: '斤' },
+      { ingredientId: 'ing_small_yellow_fish', amount: 500, unit: 'g' },
       { ingredientId: 'ing_starch', amount: 30, unit: 'g' },
       { ingredientId: 'ing_egg', amount: 55, unit: 'g' },
       { ingredientId: 'ing_ginger', amount: 15, unit: 'g' },
@@ -1106,8 +1106,8 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 37,
     ingredients: [
-      { ingredientId: 'ing_string_bean', amount: 0.6, unit: '斤' },
-      { ingredientId: 'ing_pork_tenderloin', amount: 0.1, unit: '斤' },
+      { ingredientId: 'ing_string_bean', amount: 300, unit: 'g' },
+      { ingredientId: 'ing_pork_tenderloin', amount: 50, unit: 'g' },
       { ingredientId: 'ing_dried_chili', amount: 5, unit: 'g' },
       { ingredientId: 'ing_sichuan_pepper', amount: 2, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 80, unit: 'g' },
@@ -1138,7 +1138,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 38,
     ingredients: [
-      { ingredientId: 'ing_cabbage', amount: 0.6, unit: '斤' },
+      { ingredientId: 'ing_cabbage', amount: 300, unit: 'g' },
       { ingredientId: 'ing_dried_chili', amount: 5, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 120, unit: 'g' },
       { ingredientId: 'ing_vinegar', amount: 10, unit: 'ml' },
@@ -1242,7 +1242,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 42,
     ingredients: [
-      { ingredientId: 'ing_tofu', amount: 1, unit: '斤' },
+      { ingredientId: 'ing_tofu', amount: 500, unit: 'g' },
       { ingredientId: 'ing_fungus', amount: 10, unit: 'g' },
       { ingredientId: 'ing_pepper_green', amount: 70, unit: 'g' },
       { ingredientId: 'ing_pepper_red', amount: 80, unit: 'g' },
@@ -1275,7 +1275,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 43,
     ingredients: [
-      { ingredientId: 'ing_bean_sprout', amount: 0.6, unit: '斤' },
+      { ingredientId: 'ing_bean_sprout', amount: 300, unit: 'g' },
       { ingredientId: 'ing_chive', amount: 100, unit: 'g' },
       { ingredientId: 'ing_dried_chili', amount: 3, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 80, unit: 'g' },
@@ -1301,7 +1301,7 @@ export const seedDishes: Dish[] = [
     favorite: true,
     createdAt: baseTime + 86400000 * 44,
     ingredients: [
-      { ingredientId: 'ing_cucumber', amount: 1, unit: '斤' },
+      { ingredientId: 'ing_cucumber', amount: 500, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 120, unit: 'g' },
       { ingredientId: 'ing_vinegar', amount: 20, unit: 'ml' },
       { ingredientId: 'ing_soy_sauce', amount: 15, unit: 'ml' },
@@ -1329,7 +1329,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 45,
     ingredients: [
-      { ingredientId: 'ing_cabbage', amount: 0.6, unit: '斤' },
+      { ingredientId: 'ing_cabbage', amount: 300, unit: 'g' },
       { ingredientId: 'ing_vinegar', amount: 25, unit: 'ml' },
       { ingredientId: 'ing_dried_chili', amount: 5, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 80, unit: 'g' },
@@ -1420,7 +1420,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 48,
     ingredients: [
-      { ingredientId: 'ing_snow_pea', amount: 0.4, unit: '斤' },
+      { ingredientId: 'ing_snow_pea', amount: 200, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 80, unit: 'g' },
       { ingredientId: 'ing_salt', amount: 3, unit: 'g' },
       { ingredientId: 'ing_oil', amount: 10, unit: 'ml' },
@@ -1443,8 +1443,8 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 49,
     ingredients: [
-      { ingredientId: 'ing_cauliflower', amount: 1, unit: '斤' },
-      { ingredientId: 'ing_pork_belly', amount: 0.2, unit: '斤' },
+      { ingredientId: 'ing_cauliflower', amount: 500, unit: 'g' },
+      { ingredientId: 'ing_pork_belly', amount: 100, unit: 'g' },
       { ingredientId: 'ing_dried_chili', amount: 10, unit: 'g' },
       { ingredientId: 'ing_doubanjiang', amount: 15, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 120, unit: 'g' },
@@ -1550,7 +1550,7 @@ export const seedDishes: Dish[] = [
     createdAt: baseTime + 86400000 * 53,
     ingredients: [
       { ingredientId: 'ing_bitter_melon', amount: 300, unit: 'g' },
-      { ingredientId: 'ing_pork_tenderloin', amount: 0.2, unit: '斤' },
+      { ingredientId: 'ing_pork_tenderloin', amount: 100, unit: 'g' },
       { ingredientId: 'ing_pepper_red', amount: 80, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 80, unit: 'g' },
       { ingredientId: 'ing_fermented_black_bean', amount: 5, unit: 'g' },
@@ -1580,8 +1580,8 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 54,
     ingredients: [
-      { ingredientId: 'ing_winter_melon', amount: 1, unit: '斤' },
-      { ingredientId: 'ing_pork_meatball', amount: 0.6, unit: '斤' },
+      { ingredientId: 'ing_winter_melon', amount: 500, unit: 'g' },
+      { ingredientId: 'ing_pork_meatball', amount: 300, unit: 'g' },
       { ingredientId: 'ing_ginger', amount: 30, unit: 'g' },
       { ingredientId: 'ing_scallion', amount: 30, unit: 'g' },
       { ingredientId: 'ing_salt', amount: 5, unit: 'g' },
@@ -1607,7 +1607,7 @@ export const seedDishes: Dish[] = [
     favorite: true,
     createdAt: baseTime + 86400000 * 55,
     ingredients: [
-      { ingredientId: 'ing_chicken_leg', amount: 1, unit: '斤' },
+      { ingredientId: 'ing_chicken_leg', amount: 500, unit: 'g' },
       { ingredientId: 'ing_peanut', amount: 20, unit: 'g' },
       { ingredientId: 'ing_sesame', amount: 5, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 120, unit: 'g' },
@@ -1643,7 +1643,7 @@ export const seedDishes: Dish[] = [
     createdAt: baseTime + 86400000 * 56,
     ingredients: [
       { ingredientId: 'ing_xihamigua', amount: 300, unit: 'g' },
-      { ingredientId: 'ing_pork_tenderloin', amount: 0.2, unit: '斤' },
+      { ingredientId: 'ing_pork_tenderloin', amount: 100, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 80, unit: 'g' },
       { ingredientId: 'ing_soy_sauce', amount: 10, unit: 'ml' },
       { ingredientId: 'ing_salt', amount: 2, unit: 'g' },
@@ -1702,7 +1702,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 60,
     ingredients: [
-      { ingredientId: 'ing_sea_bass', amount: 1, unit: '斤' },
+      { ingredientId: 'ing_sea_bass', amount: 500, unit: 'g' },
       { ingredientId: 'ing_ginger', amount: 15, unit: 'g' },
       { ingredientId: 'ing_scallion', amount: 15, unit: 'g' },
       { ingredientId: 'ing_cooking_wine', amount: 10, unit: 'ml' },
@@ -1730,7 +1730,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 61,
     ingredients: [
-      { ingredientId: 'ing_chicken_breast', amount: 0.6, unit: '斤' },
+      { ingredientId: 'ing_chicken_breast', amount: 300, unit: 'g' },
       { ingredientId: 'ing_ginger', amount: 15, unit: 'g' },
       { ingredientId: 'ing_scallion', amount: 10, unit: 'g' },
       { ingredientId: 'ing_cooking_wine', amount: 15, unit: 'ml' },
@@ -1782,7 +1782,7 @@ export const seedDishes: Dish[] = [
     ingredients: [
       { ingredientId: 'ing_tomato', amount: 400, unit: 'g' },
       { ingredientId: 'ing_enoki', amount: 150, unit: 'g' },
-      { ingredientId: 'ing_tofu', amount: 0.5, unit: '斤' },
+      { ingredientId: 'ing_tofu', amount: 250, unit: 'g' },
       { ingredientId: 'ing_scallion', amount: 5, unit: 'g' },
       { ingredientId: 'ing_salt', amount: 3, unit: 'g' },
     ],
@@ -1830,7 +1830,7 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 65,
     ingredients: [
-      { ingredientId: 'ing_chicken_breast', amount: 0.5, unit: '斤' },
+      { ingredientId: 'ing_chicken_breast', amount: 250, unit: 'g' },
       { ingredientId: 'ing_cucumber', amount: 250, unit: 'g' },
       { ingredientId: 'ing_garlic', amount: 40, unit: 'g' },
       { ingredientId: 'ing_soy_sauce', amount: 15, unit: 'ml' },
@@ -1856,8 +1856,8 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 66,
     ingredients: [
-      { ingredientId: 'ing_winter_melon', amount: 0.5, unit: '斤' },
-      { ingredientId: 'ing_shrimp', amount: 0.3, unit: '斤' },
+      { ingredientId: 'ing_winter_melon', amount: 250, unit: 'g' },
+      { ingredientId: 'ing_shrimp', amount: 150, unit: 'g' },
       { ingredientId: 'ing_ginger', amount: 15, unit: 'g' },
       { ingredientId: 'ing_scallion', amount: 5, unit: 'g' },
       { ingredientId: 'ing_cooking_wine', amount: 10, unit: 'ml' },
@@ -1884,8 +1884,8 @@ export const seedDishes: Dish[] = [
     favorite: false,
     createdAt: baseTime + 86400000 * 67,
     ingredients: [
-      { ingredientId: 'ing_brown_rice', amount: 0.3, unit: '斤' },
-      { ingredientId: 'ing_chicken_breast', amount: 0.5, unit: '斤' },
+      { ingredientId: 'ing_brown_rice', amount: 150, unit: 'g' },
+      { ingredientId: 'ing_chicken_breast', amount: 250, unit: 'g' },
       { ingredientId: 'ing_white_pepper', amount: 2, unit: 'g' },
       { ingredientId: 'ing_salt', amount: 2, unit: 'g' },
       { ingredientId: 'ing_oil', amount: 5, unit: 'ml' },

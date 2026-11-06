@@ -1,6 +1,6 @@
 import type { Dish, Ingredient, MergedItem } from '@/types';
 import { getCurrentPlatform } from './price';
-import { normalizeToBase, pricePerBase, type UnitKind } from './price';
+import { normalizeToBase, pricePerBase, formatBaseValue, type UnitKind } from './price';
 
 /**
  * 把多道菜的食材清单合并成一份采购清单
@@ -38,11 +38,11 @@ export function mergeShoppingList(
         }
       }
 
-      // unitPrice 统一折算成比价单位：元/斤、元/L（没录价则为 0）
+      // unitPrice 统一折算成比价单位：元/kg、元/L（没录价则为 0）
       const unitPrice = !price
         ? 0
         : price.kind === 'mass'
-          ? price.value * 500
+          ? price.value * 1000
           : price.kind === 'volume'
             ? price.value * 1000
             : price.value;
@@ -65,15 +65,13 @@ export function mergeShoppingList(
     }
   }
 
-  // 输出时把 amount 美化成可读单位（能凑成斤 / L 的就不用 g / ml）
+  // 输出时把 amount 美化成可读单位：g / kg、ml / L
   return Array.from(map.values())
     .map(({ _baseKind, amount, ...rest }) => {
       const display =
-        _baseKind === 'mass' && amount >= 500
-          ? { amount: Math.round((amount / 500) * 100) / 100, unit: '斤' }
-          : _baseKind === 'volume' && amount >= 1000
-            ? { amount: Math.round((amount / 1000) * 100) / 100, unit: 'L' }
-            : { amount: Math.round(amount * 100) / 100, unit: rest.unit };
+        _baseKind === 'count'
+          ? { amount: Math.round(amount * 100) / 100, unit: rest.unit }
+          : formatBaseValue(amount, _baseKind);
       return {
         ...rest,
         amount: display.amount,

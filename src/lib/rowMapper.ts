@@ -72,7 +72,7 @@ export function rowToIng(r: any): Ingredient {
   /*
     老数据兼容：以前是单列 price_per_unit + spec / unit_grams / unit_ml。
     新表还没迁移、或者云端还是旧行时，把旧单价按「份量」折算到默认平台下，
-    页面至少还能显示合理的元/斤、元/L；等新种子写回云端后 legacy 标记会消失。
+    页面至少还能按克 / 毫升显示合理的价格；等新种子写回云端后 legacy 标记会消失。
   */
   let unit: Ingredient['unit'] = r.unit;
   let legacy = false;
@@ -85,10 +85,11 @@ export function rowToIng(r: any): Ingredient {
       unit = 'L';
       prices[DEFAULT_PLATFORM] = { price, amount: ml / 1000 };
     } else if (grams > 0) {
-      // 旧「个 / 把 / 袋 / 块」散装 → 折成斤
-      unit = '斤';
-      prices[DEFAULT_PLATFORM] = { price, amount: grams / 500 };
+      // 旧「个 / 把 / 袋 / 块」散装 → 折成克
+      unit = 'g';
+      prices[DEFAULT_PLATFORM] = { price, amount: grams };
     } else {
+      unit = 'g';
       prices[DEFAULT_PLATFORM] = { price, amount: 1 };
     }
     legacy = true;

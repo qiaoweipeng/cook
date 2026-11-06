@@ -2,6 +2,7 @@
 // 内部把嵌套结构（前端 Dish）拆开写入 4 张关联表，读时再合并
 
 import {
+  isCloudEnabled,
   pgDeleteById,
   pgFetch,
   pgInsert,
@@ -146,6 +147,25 @@ function isMissingIngredientImageColumn(e: unknown): boolean {
   return msg.includes('image');
 }
 
+/** 把数据库原始报错翻译成用户能看懂的话（单条 / 批量写入共用） */
+function translateIngredientError(e: unknown): Error {
+  const msg = e instanceof Error ? e.message : String(e ?? '');
+  if (isMissingIngredientImageColumn(e)) {
+    return new Error(
+      '数据库的 ingredients 表缺少 image 列，图片无法保存。' +
+      '请在 Supabase 控制台执行：ALTER TABLE ingredients ADD COLUMN image text;'
+    );
+  }
+  // 新的多平台价格 / 营养列没建：直接说清该执行哪段 SQL，别让用户对着 PGRST204 猜
+  if (msg.includes('prices') || msg.includes('calories')) {
+    return new Error(
+      '数据库的 ingredients 表还是旧结构（缺 prices / 营养列）。' +
+      '请先在 Supabase SQL 编辑器执行 supabase/schema.sql 里 ingredients 的 alter table 语句。'
+    );
+  }
+  return e instanceof Error ? e : new Error(msg);
+}
+
 async function saveIngredient(i: Ingredient): Promise<void> {
   // 简单 upsert：先尝试 update，0 行则 insert
   const row = ingRow(i);
@@ -157,21 +177,55 @@ async function saveIngredient(i: Ingredient): Promise<void> {
   try {
     await write();
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e ?? '');
-    if (isMissingIngredientImageColumn(e)) {
-      throw new Error(
-        '数据库的 ingredients 表缺少 image 列，图片无法保存。' +
-        '请在 Supabase 控制台执行：ALTER TABLE ingredients ADD COLUMN image text;'
-      );
+    throw translateIngredientError(e);
+  }
+}
+
+/*
+  批量写入食材（Excel 导入用）。
+
+  以前导入是「逐条 cloudSet」：每条先 PATCH 再 INSERT，100 多条 = 200~300 次串行请求，
+  跑几十秒到几分钟，而且失败被静默吞掉 —— 界面等半天没变化，刷新后云端还是旧数据，
+  看起来就是「根本导不进去」。
+
+  这里改成 PostgREST 的原生 upsert：一次 POST 写一整批，Prefer: resolution=merge-duplicates，
+  主键撞了就更新、不存在就插入。100 条只要 1 次请求。失败会抛给页面，不再假装成功。
+*/
+const BULK_CHUNK = 100;
+
+export async function saveIngredientsBulk(ings: Ingredient[]): Promise<void> {
+  if (!isCloudEnabled() || ings.length === 0) return;
+  /*
+    同一批里绝不能出现重复主键：Postgres 的 ON CONFLICT DO UPDATE 对同一行
+    更新两次会直接报 "cannot affect row a second time"，整批写入全失败。
+    重复 ID 常见于「Excel 里复制粘贴了一行」—— 先按 id 去重，后者为准。
+  */
+  const uniq = Array.from(new Map(ings.map((it) => [it.id, it])).values());
+  for (let i = 0; i < uniq.length; i += BULK_CHUNK) {
+    const chunk = uniq.slice(i, i + BULK_CHUNK);
+    try {
+      await pgFetch('ingredients', {
+        method: 'POST',
+        body: JSON.stringify(chunk.map(ingRow)),
+        query: { on_conflict: 'id' },
+        prefer: 'resolution=merge-duplicates,return=minimal',
+      });
+    } catch (e) {
+      throw translateIngredientError(e);
     }
-    // 新的多平台价格 / 营养列没建：直接说清该执行哪段 SQL，别让用户对着 PGRST204 猜
-    if (msg.includes('prices') || msg.includes('calories')) {
-      throw new Error(
-        '数据库的 ingredients 表还是旧结构（缺 prices / 营养列）。' +
-        '请先在 Supabase SQL 编辑器执行 supabase/schema.sql 里 ingredients 的 alter table 语句。'
-      );
-    }
-    throw e;
+  }
+}
+
+/** 批量删除食材：DELETE /ingredients?id=in.("a","b") */
+export async function deleteIngredientsBulk(ids: string[]): Promise<void> {
+  if (!isCloudEnabled() || ids.length === 0) return;
+  for (let i = 0; i < ids.length; i += BULK_CHUNK) {
+    const chunk = ids.slice(i, i + BULK_CHUNK);
+    const list = chunk.map((id) => `"${id}"`).join(',');
+    await pgFetch('ingredients', {
+      method: 'DELETE',
+      query: { id: `in.(${list})` },
+    });
   }
 }
 

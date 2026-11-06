@@ -1,4 +1,4 @@
-import type { Dish, Ingredient } from '@/types';
+import type { Dish, Ingredient, IngredientUnit } from '@/types';
 import { DEFAULT_PLATFORM } from './platforms';
 
 /*
@@ -20,6 +20,11 @@ export interface BaseValue {
   kind: UnitKind;
 }
 
+/*
+  单位换算表：新数据只会出现 g / kg / ml / L。
+  「克 / 公斤 / 斤 / 两」这些旧写法只留给历史菜谱做成本兜底，
+  界面上不会再出现，也不会写进新数据。
+*/
 const massMap: Record<string, number> = {
   g: 1,
   克: 1,
@@ -39,7 +44,7 @@ const volumeMap: Record<string, number> = {
 
 /**
  * 老数据里残留的「个 / 把 / 头」等计数单位：
- * 只用于让旧菜谱还能大概算出成本，新数据统一用 斤 / g / kg / ml / L。
+ * 只用于让旧菜谱还能大概算出成本，新数据统一用 g / kg / ml / L。
  */
 const legacyCountMap: Record<string, { value: number; kind: 'mass' | 'volume' }> = {
   个: { value: 100, kind: 'mass' },
@@ -85,11 +90,33 @@ export function pricePerBase(
   return { value: perUnit / base.value, kind: base.kind };
 }
 
+/** 某个平台这一份的原始记录：价格 + 份量 + 单位，不做任何折算 */
+export interface PlatformSpec {
+  platform: string;
+  price: number;
+  amount: number;
+  unit: IngredientUnit;
+}
+
 /**
- * 折算成人看得懂的比价单位：
+ * 读取某个平台的原始价格记录（表格里就按录入的样子显示「¥5 / 700g」）。
+ * 没录价或价格非法返回 null。
+ */
+export function priceSpec(ing: Ingredient, platform: string): PlatformSpec | null {
+  const p = ing.prices?.[platform];
+  if (!p || !Number.isFinite(p.price) || p.price <= 0) return null;
+  return {
+    platform,
+    price: p.price,
+    amount: p.amount && p.amount > 0 ? p.amount : 1,
+    unit: ing.unit,
+  };
+}
+
+/**
+ * 折算成便于对比的单位价（只在食材详情里作次要信息展示）：
  * - 固体 → 元/斤
  * - 液体 → 元/L
- * - 老计数单位 → 元/个、元/把…
  */
 export function displayUnitPrice(
   ing: Ingredient,
@@ -102,15 +129,18 @@ export function displayUnitPrice(
   return { value: base.value, unit: ing.unit };
 }
 
-/** 找这个食材最便宜的平台（没录价的平台跳过） */
-export function cheapestPlatform(
-  ing: Ingredient
-): { platform: string; value: number; unit: string } | null {
-  let best: { platform: string; value: number; unit: string } | null = null;
+/** 找这个食材最便宜的平台（按归一化到克 / 毫升的单价比较，返回原始记录用于展示） */
+export function cheapestPlatform(ing: Ingredient): PlatformSpec | null {
+  let best: PlatformSpec | null = null;
+  let bestValue = Infinity;
   for (const platform of Object.keys(ing.prices ?? {})) {
-    const d = displayUnitPrice(ing, platform);
-    if (!d || d.value <= 0) continue;
-    if (!best || d.value < best.value) best = { platform, ...d };
+    const spec = priceSpec(ing, platform);
+    const base = pricePerBase(ing, platform);
+    if (!spec || !base || base.value <= 0) continue;
+    if (base.value < bestValue) {
+      best = spec;
+      bestValue = base.value;
+    }
   }
   return best;
 }
@@ -213,10 +243,10 @@ export function calcDishNutrition(
   };
 }
 
-/** 把基础单位还原成可读的展示单位 */
+/** 把基础单位还原成可读的展示单位：g / kg、ml / L */
 export function formatBaseValue(value: number, kind: UnitKind): { amount: number; unit: string } {
   if (kind === 'mass') {
-    if (value >= 500) return { amount: Math.round((value / 500) * 100) / 100, unit: '斤' };
+    if (value >= 1000) return { amount: Math.round((value / 1000) * 100) / 100, unit: 'kg' };
     return { amount: Math.round(value), unit: 'g' };
   }
   if (kind === 'volume') {

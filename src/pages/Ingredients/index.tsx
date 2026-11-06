@@ -43,12 +43,21 @@ import { useIsAdmin } from '@/store/useAuthStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import type { Ingredient, IngredientCategory, IngredientUnit } from '@/types';
 import PriceTag from '@/components/PriceTag';
-import { displayUnitPrice, cheapestPlatform } from '@/utils/price';
+import BulkImagePairer from '@/components/BulkImagePairer';
+import { priceSpec, displayUnitPrice, pricePerBase, cheapestPlatform } from '@/utils/price';
 import {
   exportIngredientsToExcel,
   downloadIngredientTemplate,
   parseIngredientsExcel,
+  MissingAmountError,
+  InvalidUnitError,
 } from '@/utils/excel';
+import {
+  planImport,
+  buildMergeList,
+  type ImportPlan,
+  type ImportConflict,
+} from '@/utils/importDiff';
 
 const { Text } = Typography;
 
@@ -75,13 +84,12 @@ const CATEGORY_COLOR: Record<IngredientCategory, string> = {
   其他: 'purple',
 };
 
-/** 计价单位只留：固体按斤 / 克 / 公斤，液体按毫升 / 升 */
+/** 计价单位只有 4 个：固体 g / kg，液体 ml / L */
 const unitOptions: { value: IngredientUnit; label: string }[] = [
-  { value: '斤', label: '斤（500 g，固体默认）' },
-  { value: 'g', label: '克（g）' },
-  { value: 'kg', label: '公斤（kg）' },
-  { value: 'ml', label: '毫升（ml，液体）' },
-  { value: 'L', label: '升（L，液体）' },
+  { value: 'g', label: 'g 克（固体默认）' },
+  { value: 'kg', label: 'kg 千克' },
+  { value: 'ml', label: 'ml 毫升（液体默认）' },
+  { value: 'L', label: 'L 升' },
 ];
 
 const NUTRI_FIELDS = [
@@ -164,11 +172,20 @@ export default function Ingredients() {
   const [parsedItems, setParsedItems] = useState<Ingredient[]>([]);
   const [importMode, setImportMode] = useState<ImportMode>('merge');
   const [fileName, setFileName] = useState('');
+  // 解析完立刻算好的比对计划：新增 / 冲突 / 无变化（跳过）
+  const [importPlan, setImportPlan] = useState<ImportPlan | null>(null);
+  // 冲突对比弹窗 + 每行用户选的「用 Excel 覆盖 / 保留系统」
+  const [conflictModalOpen, setConflictModalOpen] = useState(false);
+  const [conflictChoices, setConflictChoices] = useState<Record<string, 'excel' | 'system'>>({});
+  // 正在写库（批量 upsert 期间按钮转圈，避免用户以为没反应又点一次）
+  const [importing, setImporting] = useState(false);
+  // 批量传图配对弹窗
+  const [bulkImageOpen, setBulkImageOpen] = useState(false);
 
   const openAdd = () => {
     setEditing(null);
     form.resetFields();
-    form.setFieldsValue({ category: '蔬菜', unit: '斤' });
+    form.setFieldsValue({ category: '蔬菜', unit: 'g' });
     setEditorOpen(true);
   };
 
@@ -317,14 +334,70 @@ export default function Ingredients() {
       }
       setParsedItems(parsed);
       setFileName(file.name);
+      // 解析完立刻和现有库比对：预览表格里能直接标出每行是新增/冲突/无变化
+      setImportPlan(planImport(parsed, items));
       setImportModalOpen(true);
     } catch (err) {
+      if (err instanceof MissingAmountError) {
+        // 份量留空是最容易算出天价单价的坑，直接列出有问题的行，不进入预览
+        modal.error({
+          title: `份量没填，已阻止导入（${err.items.length} 处）`,
+          width: 600,
+          content: (
+            <div>
+              <p style={{ marginBottom: 8 }}>
+                份量的意思是「这一份包含多少个计价单位」。单位是 g 时，份量填 500 表示
+                「500 克卖这个价」；留空会被系统当成 1 克，单价就算成几千上万元一斤。
+              </p>
+              <div style={{ maxHeight: 240, overflow: 'auto' }}>
+                {err.items.map((it, i) => (
+                  <div key={`${it}-${i}`} style={{ fontSize: 13, lineHeight: 1.9 }}>
+                    · {it}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ),
+        });
+        return;
+      }
+      if (err instanceof InvalidUnitError) {
+        // 旧单位（斤 / 公斤 / 克）不再自动换算，列出来让用户改成 g / kg / ml / L
+        modal.error({
+          title: `单位不支持，已阻止导入（${err.items.length} 处）`,
+          width: 600,
+          content: (
+            <div>
+              <p style={{ marginBottom: 8 }}>
+                单位只能填 g（克）、kg（千克）、ml（毫升）、L（升）。
+              </p>
+              <div style={{ maxHeight: 240, overflow: 'auto' }}>
+                {err.items.map((it, i) => (
+                  <div key={`${it}-${i}`} style={{ fontSize: 13, lineHeight: 1.9 }}>
+                    · {it}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ),
+        });
+        return;
+      }
       message.error('解析失败：' + (err as Error).message);
     }
   };
 
-  const confirmImport = () => {
-    if (parsedItems.length === 0) return;
+  /** 关掉导入弹窗并清空本次导入的所有暂存（计划、选择、文件名） */
+  const closeImportModal = () => {
+    setImportModalOpen(false);
+    setParsedItems([]);
+    setFileName('');
+    setImportPlan(null);
+    setConflictChoices({});
+  };
+
+  const confirmImport = async () => {
+    if (parsedItems.length === 0 || importing) return;
     if (importMode === 'replace') {
       modal.confirm({
         title: '确认要替换全部食材吗？',
@@ -332,22 +405,76 @@ export default function Ingredients() {
         okText: '替换',
         okButtonProps: { danger: true },
         cancelText: '取消',
-        onOk: () => {
-          replaceAll(parsedItems);
-          message.success(`已替换为 ${parsedItems.length} 条食材`);
-          setImportModalOpen(false);
-          setParsedItems([]);
-          setFileName('');
+        onOk: async () => {
+          setImporting(true);
+          try {
+            await replaceAll(parsedItems);
+            message.success(`已替换为 ${parsedItems.length} 条食材`);
+            closeImportModal();
+          } catch (e) {
+            // 关键：以前这里不 await，失败被静默吞掉，界面照样提示成功
+            message.error('导入失败：' + ((e as Error).message || '写入云端失败'));
+          } finally {
+            setImporting(false);
+          }
         },
       });
     } else {
-      bulkMerge(parsedItems);
-      const added = parsedItems.filter((p) => !items.some((i) => i.id === p.id)).length;
-      const updated = parsedItems.length - added;
-      message.success(`合并完成：新增 ${added} 条，覆盖 ${updated} 条`);
-      setImportModalOpen(false);
-      setParsedItems([]);
-      setFileName('');
+      const plan = importPlan ?? planImport(parsedItems, items);
+      if (plan.conflicts.length > 0) {
+        // 有冲突 → 打开对比表逐条选边，默认全部「用 Excel 覆盖」（最常见的改价场景）
+        setConflictChoices(
+          Object.fromEntries(plan.conflicts.map((c) => [c.key, 'excel' as const]))
+        );
+        setConflictModalOpen(true);
+        return;
+      }
+      // 没冲突：新增直接进库，无变化的静默跳过
+      setImporting(true);
+      try {
+        await bulkMerge(plan.news);
+        message.success(
+          `导入完成：新增 ${plan.news.length} 条，${plan.skipped.length} 条无变化已跳过`
+        );
+        closeImportModal();
+      } catch (e) {
+        message.error('导入失败：' + ((e as Error).message || '写入云端失败'));
+      } finally {
+        setImporting(false);
+      }
+    }
+  };
+
+  /** 冲突表点「确认导入」：新增 + 选了「用 Excel」的覆盖项一起写库 */
+  const confirmConflicts = async () => {
+    if (!importPlan || importing) return;
+    const mergeList = buildMergeList(importPlan, conflictChoices);
+    const overwriteCount = importPlan.conflicts.filter(
+      (c) => conflictChoices[c.key] === 'excel'
+    ).length;
+    const keepCount = importPlan.conflicts.length - overwriteCount;
+    if (mergeList.length === 0) {
+      // 全选了「保留系统」且没有新增 —— 什么都不用写
+      message.info('没有需要写入的改动（全部保留了系统数据）');
+      setConflictModalOpen(false);
+      closeImportModal();
+      return;
+    }
+    setImporting(true);
+    try {
+      await bulkMerge(mergeList);
+      message.success(
+        `导入完成：新增 ${importPlan.news.length} 条，覆盖 ${overwriteCount} 条` +
+        (keepCount ? `，保留系统 ${keepCount} 条` : '') +
+        (importPlan.skipped.length ? `，${importPlan.skipped.length} 条无变化已跳过` : '')
+      );
+      setConflictModalOpen(false);
+      closeImportModal();
+    } catch (e) {
+      // 失败就把弹窗留着，用户可以直接重试，不用重新选一遍文件
+      message.error('导入失败：' + ((e as Error).message || '写入云端失败'));
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -486,9 +613,9 @@ export default function Ingredients() {
                               </span>
                               {cheapest ? (
                                 <span style={{ flexShrink: 0 }}>
-                                  <PriceTag value={cheapest.value} size="small" />
+                                  <PriceTag value={cheapest.price} size="small" />
                                   <span style={{ color: '#999', fontSize: 12, marginLeft: 2 }}>
-                                    /{cheapest.unit}
+                                    / {cheapest.amount}{cheapest.unit}
                                   </span>
                                 </span>
                               ) : (
@@ -507,7 +634,7 @@ export default function Ingredients() {
                               }}
                             >
                               {platforms.map((platform) => {
-                                const d = displayUnitPrice(it, platform);
+                                const d = priceSpec(it, platform);
                                 const isCheapest = cheapest?.platform === platform;
                                 return (
                                   <span
@@ -522,7 +649,7 @@ export default function Ingredients() {
                                       fontWeight: isCheapest ? 600 : 400,
                                     }}
                                   >
-                                    {platform} {d ? `¥${Number(d.value.toFixed(2))}/${d.unit}` : '—'}
+                                    {platform} {d ? `¥${Number(d.price.toFixed(2))} / ${d.amount}${d.unit}` : '—'}
                                   </span>
                                 );
                               })}
@@ -569,10 +696,10 @@ export default function Ingredients() {
                 <Space size={10}>
                   {r.image && (
                     <img
-                      src={r.image}
+                      src={resolveImageUrl(r.image)}
                       alt=""
                       loading="lazy"
-                      onClick={(e) => { e.stopPropagation(); setPreviewSrc(r.image!); }}
+                      onClick={(e) => { e.stopPropagation(); setPreviewSrc(resolveImageUrl(r.image)); }}
                       style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, display: 'block', cursor: 'zoom-in', flexShrink: 0 }}
                     />
                   )}
@@ -608,17 +735,16 @@ export default function Ingredients() {
                 width: 118,
                 search: false,
                 sorter: (a, b) =>
-                  (displayUnitPrice(a, platform)?.value ?? Infinity) -
-                  (displayUnitPrice(b, platform)?.value ?? Infinity),
+                  (pricePerBase(a, platform)?.value ?? Infinity) -
+                  (pricePerBase(b, platform)?.value ?? Infinity),
                 render: (_, r) => {
-                  const d = displayUnitPrice(r, platform);
+                  const d = priceSpec(r, platform);
                   if (!d) return <Text type="secondary">-</Text>;
                   const isCheapest = cheapestPlatform(r)?.platform === platform;
                   return (
                     <span style={{ color: isCheapest ? '#E8743C' : undefined }}>
-                      <PriceTag value={d.value} size="small" />
-                      <span style={{ color: '#999', fontSize: 12 }}>/{d.unit}</span>
-                      {isCheapest && <Tag color="orange" style={{ marginLeft: 4 }}>最低</Tag>}
+                      <PriceTag value={d.price} size="small" />
+                      <span style={{ color: '#999', fontSize: 12 }}> / {d.amount}{d.unit}</span>
                     </span>
                   );
                 },
@@ -706,6 +832,9 @@ export default function Ingredients() {
                 </Tooltip>,
                 <Button key="export" icon={<DownloadOutlined />} onClick={handleExport}>导出 Excel</Button>,
                 <Button key="import" icon={<UploadOutlined />} onClick={handleImportClick}>导入 Excel</Button>,
+                <Button key="bulkimg" icon={<PictureOutlined />} onClick={() => setBulkImageOpen(true)}>
+                  批量传图
+                </Button>,
                 <input
                   key="file"
                   ref={fileInputRef}
@@ -780,7 +909,7 @@ export default function Ingredients() {
                   name="unit"
                   label="计价单位"
                   rules={[{ required: true }]}
-                  tooltip="固体用斤，液体用 ml / L；填价时按这个单位记「这一份多重」"
+                  tooltip="固体用 g / kg，液体用 ml / L；填价时按这个单位记「这一份多重 / 多少容量」"
                 >
                   <Select options={unitOptions} />
                 </Form.Item>
@@ -918,8 +1047,8 @@ export default function Ingredients() {
             ))}
 
             <Text type="secondary" style={{ fontSize: 12 }}>
-              例：生抽 1 升 10 元 → 单位选「L」，份量填 1，价格 10；土豆一袋 2 斤 3 元 →
-              单位「斤」，份量 2，价格 3
+              例：生抽 1 升 10 元 → 单位「L」，份量 1，价格 10；土豆一袋 1 千克 3 元 →
+              单位「kg」，份量 1，价格 3；土豆一盒 700 克 5 元 → 单位「g」，份量 700，价格 5
             </Text>
           </ProCard>
 
@@ -960,7 +1089,7 @@ export default function Ingredients() {
             <Space align="start" size={16} style={{ width: '100%', marginBottom: 4 }}>
               {detail.image ? (
                 <img
-                  src={detail.image}
+                  src={resolveImageUrl(detail.image)}
                   alt={detail.name}
                   style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }}
                 />
@@ -993,16 +1122,23 @@ export default function Ingredients() {
             <div style={{ fontSize: 13, fontWeight: 600, margin: '20px 0 8px' }}>各平台单价</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               {platforms.map((p) => {
-                const d = displayUnitPrice(detail, p);
+                const d = priceSpec(detail, p);
                 const isCheapest = cheapestPlatform(detail)?.platform === p;
+                // 次要信息：折算成每斤 / 每升多少钱，方便三个平台横向对比（只在详情里出现）
+                const unitPrice = displayUnitPrice(detail, p);
                 return (
                   <div key={p} style={{ border: '1px solid #f0f0f0', borderRadius: 8, padding: '8px 10px' }}>
                     <div style={{ fontSize: 12, color: '#999' }}>{p}</div>
                     {d ? (
                       <div style={{ marginTop: 2 }}>
-                        <PriceTag value={d.value} size="small" />
-                        <span style={{ color: '#999', fontSize: 12 }}>/{d.unit}</span>
+                        <PriceTag value={d.price} size="small" />
+                        <span style={{ color: '#999', fontSize: 12 }}> / {d.amount}{d.unit}</span>
                         {isCheapest && <Tag color="orange" style={{ marginLeft: 4 }}>最低</Tag>}
+                        {unitPrice && (
+                          <div style={{ fontSize: 11, color: '#b0aaa3', marginTop: 2 }}>
+                            约 ¥{Number(unitPrice.value.toFixed(2))} / {unitPrice.unit}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <Text type="secondary">未录入</Text>
@@ -1044,9 +1180,14 @@ export default function Ingredients() {
           </Space>
         }
         open={importModalOpen}
-        onCancel={() => setImportModalOpen(false)}
+        onCancel={closeImportModal}
         onOk={confirmImport}
-        okText={`确认导入 ${parsedItems.length} 条`}
+        confirmLoading={importing}
+        okText={
+          importMode === 'merge' && (importPlan?.conflicts.length ?? 0) > 0
+            ? `去处理 ${importPlan!.conflicts.length} 条冲突`
+            : `确认导入 ${parsedItems.length} 条`
+        }
         cancelText="取消"
         width={900}
         destroyOnClose
@@ -1074,7 +1215,7 @@ export default function Ingredients() {
             <Text strong>合并（推荐）</Text>
             <br />
             <Text type="secondary" style={{ fontSize: 12 }}>
-              按 ID 比对，相同 ID 用导入的数据覆盖，其余作为新增
+              按 ID 比对（ID 留空的按名称比对），有差异的会让你逐条选保留哪一边，其余新增
             </Text>
           </Radio>
           <Radio value="replace">
@@ -1086,6 +1227,24 @@ export default function Ingredients() {
           </Radio>
         </Radio.Group>
 
+        {/* 合并模式下的比对结果统计：一眼看清这次导入会发生什么 */}
+        {importMode === 'merge' && importPlan && (
+          <Space style={{ marginBottom: 12 }} size={16}>
+            <span>
+              <Tag color="green">新增</Tag>
+              <Text strong>{importPlan.news.length}</Text> 条
+            </span>
+            <span>
+              <Tag color="orange">冲突</Tag>
+              <Text strong>{importPlan.conflicts.length}</Text> 条
+            </span>
+            <span>
+              <Tag>无变化</Tag>
+              <Text strong>{importPlan.skipped.length}</Text> 条
+            </span>
+          </Space>
+        )}
+
         <Table<Ingredient>
           rowKey="id"
           dataSource={parsedItems.slice(0, PREVIEW_COUNT)}
@@ -1093,6 +1252,22 @@ export default function Ingredients() {
           size="small"
           scroll={{ y: 320 }}
           columns={[
+            // 合并模式下先标出每行的去向，再让用户决定导不导
+            ...(importMode === 'merge' && importPlan
+              ? [
+                {
+                  title: '状态',
+                  key: 'status',
+                  width: 80,
+                  render: (_: unknown, r: Ingredient) => {
+                    if (importPlan.conflicts.some((c) => c.key === r.id))
+                      return <Tag color="orange">冲突</Tag>;
+                    if (importPlan.skipped.some((s) => s.id === r.id)) return <Tag>无变化</Tag>;
+                    return <Tag color="green">新增</Tag>;
+                  },
+                },
+              ]
+              : []),
             { title: '名称', dataIndex: 'name', width: 120 },
             {
               title: '分类',
@@ -1107,7 +1282,7 @@ export default function Ingredients() {
                 const c = cheapestPlatform(r);
                 return c ? (
                   <Text>
-                    ¥{Number(c.value.toFixed(2))}/{c.unit}
+                    ¥{Number(c.price.toFixed(2))} / {c.amount}{c.unit}
                     <Text type="secondary" style={{ fontSize: 12 }}> · {c.platform}</Text>
                   </Text>
                 ) : (
@@ -1120,6 +1295,122 @@ export default function Ingredients() {
           ]}
         />
       </Modal>
+
+      {/* 冲突对比弹窗：逐条看「系统值 → Excel 值」，选保留哪一边 */}
+      <Modal
+        title={`处理冲突：${importPlan?.conflicts.length ?? 0} 条食材系统里已存在`}
+        open={conflictModalOpen}
+        onCancel={() => setConflictModalOpen(false)}
+        onOk={confirmConflicts}
+        confirmLoading={importing}
+        okText="确认导入"
+        cancelText="返回"
+        width={1000}
+        destroyOnClose
+      >
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message={
+            <div>
+              下面这些食材和系统里的对上了（按 ID 或名称），内容有差异。请逐条选择保留哪一边；
+              选「用 Excel 覆盖」会保留系统里的原 ID 和图片，只更新内容。
+            </div>
+          }
+        />
+        <Space style={{ marginBottom: 12 }}>
+          <Button
+            size="small"
+            onClick={() =>
+              setConflictChoices(
+                Object.fromEntries(
+                  (importPlan?.conflicts ?? []).map((c) => [c.key, 'excel' as const])
+                )
+              )
+            }
+          >
+            全部用 Excel
+          </Button>
+          <Button
+            size="small"
+            onClick={() =>
+              setConflictChoices(
+                Object.fromEntries(
+                  (importPlan?.conflicts ?? []).map((c) => [c.key, 'system' as const])
+                )
+              )
+            }
+          >
+            全部保留系统
+          </Button>
+        </Space>
+        <Table<ImportConflict>
+          rowKey="key"
+          dataSource={importPlan?.conflicts ?? []}
+          pagination={false}
+          size="small"
+          scroll={{ y: 420 }}
+          columns={[
+            {
+              title: '食材',
+              key: 'name',
+              width: 160,
+              render: (_: unknown, c: ImportConflict) => (
+                <Space direction="vertical" size={2}>
+                  <Text strong>{c.excel.name}</Text>
+                  {c.matchBy === 'name' ? (
+                    // ID 留空却同名：重点提示「系统里已经有了」，用户多半是想起来已有这条
+                    <Tag color="gold">系统已有同名食材</Tag>
+                  ) : (
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      ID: {c.system.id}
+                    </Text>
+                  )}
+                </Space>
+              ),
+            },
+            {
+              title: '差异（系统 → Excel）',
+              key: 'diffs',
+              render: (_: unknown, c: ImportConflict) => (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {c.diffs.map((d) => (
+                    <div key={d.label} style={{ fontSize: 12 }}>
+                      <Text type="secondary">{d.label}：</Text>
+                      <Text>{d.systemValue}</Text>
+                      <Text type="secondary"> → </Text>
+                      <Text strong style={{ color: '#E8743C' }}>
+                        {d.excelValue}
+                      </Text>
+                    </div>
+                  ))}
+                </div>
+              ),
+            },
+            {
+              title: '保留哪一边',
+              key: 'choice',
+              width: 200,
+              render: (_: unknown, c: ImportConflict) => (
+                <Radio.Group
+                  value={conflictChoices[c.key] ?? 'excel'}
+                  onChange={(e) =>
+                    setConflictChoices((prev) => ({
+                      ...prev,
+                      [c.key]: e.target.value as 'excel' | 'system',
+                    }))
+                  }
+                >
+                  <Radio value="excel">用 Excel 覆盖</Radio>
+                  <Radio value="system">保留系统</Radio>
+                </Radio.Group>
+              ),
+            },
+          ]}
+        />
+      </Modal>
+      <BulkImagePairer open={bulkImageOpen} onClose={() => setBulkImageOpen(false)} />
     </div>
   );
 }

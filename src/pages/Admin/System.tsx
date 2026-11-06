@@ -406,7 +406,7 @@ export default function AdminSystem() {
                   style={{ marginBottom: 16 }}
                 >
                   <Text type="secondary">
-                    食材库已改成「斤 / g / kg / ml / L + 多平台价格」的新结构，
+                    食材库已改成「g / kg / ml / L + 多平台价格」的新结构，
                     旧的单价、规格字段不再使用。用下面的按钮把代码里的新种子同步到云端。
                   </Text>
                   <div style={{ marginTop: 12 }}>

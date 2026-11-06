@@ -14,8 +14,8 @@ const VALID_CATEGORIES: IngredientCategory[] = [
   '其他',
 ];
 
-/** 计价单位只保留固体（斤/g/kg）和液体（ml/L） */
-const VALID_UNITS: IngredientUnit[] = ['斤', 'g', 'kg', 'ml', 'L'];
+/** 计价单位只有 4 个：固体 g / kg，液体 ml / L */
+const VALID_UNITS: IngredientUnit[] = ['g', 'kg', 'ml', 'L'];
 
 const NUTRITION_HEADERS = [
   '热量(kcal/100)',
@@ -88,15 +88,15 @@ export function downloadIngredientTemplate() {
     id: 'ing_salmon',
     name: '三文鱼',
     category: '海鲜',
-    unit: '斤',
+    unit: 'g',
     prices: {
-      [PRICE_PLATFORMS[0]]: { price: 79.9, amount: 1 },
-      [PRICE_PLATFORMS[1]]: { price: 69.9, amount: 1 },
-      [PRICE_PLATFORMS[2]]: { price: 72.9, amount: 1 },
-      [PRICE_PLATFORMS[3]]: { price: 65.9, amount: 1 },
+      [PRICE_PLATFORMS[0]]: { price: 79.9, amount: 500 },
+      [PRICE_PLATFORMS[1]]: { price: 69.9, amount: 500 },
+      [PRICE_PLATFORMS[2]]: { price: 72.9, amount: 500 },
+      [PRICE_PLATFORMS[3]]: { price: 65.9, amount: 500 },
     },
     nutrition: { calories: 208, protein: 20.4, fat: 13.4, carbs: 0, sodium: 59, fiber: 0 },
-    note: '一份约 200 g',
+    note: '一份 500 g 卖这个价',
   };
   const ws = XLSX.utils.json_to_sheet([toRow(example)], { header: [...EXCEL_HEADERS] });
   ws['!cols'] = cols();
@@ -116,6 +116,52 @@ function num(v: unknown): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/**
+ * 填了价格但份量留空 / 无效 —— 直接拦住整份导入。
+ *
+ * 为什么必须拦：份量的含义是「这一份包含多少个计价单位」。单位是 g 时
+ * 留空会被兜底成 1，等于告诉系统「1 克卖 3.99 元」，折算成斤就是 2000 元/斤。
+ * 这种错误导入后很难被发现（数字看着像真的），所以宁可在导入前报错。
+ */
+export class MissingAmountError extends Error {
+  /** 有问题的行，形如「生菜 · 朴朴超市」 */
+  readonly items: string[];
+
+  constructor(items: string[]) {
+    const head = items.slice(0, 8).join('、');
+    const more = items.length > 8 ? ` 等 ${items.length} 行` : '';
+    super(
+      `有 ${items.length} 行「填了价格但份量留空或不是正数」，无法导入：${head}${more}。\n` +
+      '份量的意思是「这一份多少个计价单位」：单位是 g，份量填 500 表示 500 克卖这个价；' +
+      '留空会被当成 1 克，单价会算出几千上万元一斤。请补全份量后重新导入。'
+    );
+    this.name = 'MissingAmountError';
+    this.items = items;
+  }
+}
+
+/**
+ * 单位不是 4 个标准单位 —— 整份导入拦截。
+ *
+ * 「斤」「公斤」「克」这类旧写法不再自动换算：硬换会把「2 斤」当成 2 克，
+ * 单价直接错几百倍。宁可在导入前让用户改掉，也不要静默算错。
+ */
+export class InvalidUnitError extends Error {
+  /** 有问题的行，形如「土豆 · 单位「斤」」 */
+  readonly items: string[];
+
+  constructor(items: string[]) {
+    const head = items.slice(0, 8).join('、');
+    const more = items.length > 8 ? ` 等 ${items.length} 行` : '';
+    super(
+      `有 ${items.length} 行填了不支持的计价单位：${head}${more}。\n` +
+      '单位只能填 g（克）、kg（千克）、ml（毫升）、L（升），请改好后重新导入。'
+    );
+    this.name = 'InvalidUnitError';
+    this.items = items;
+  }
+}
+
 /** 解析上传的 Excel → Ingredient[]（自动补 ID，分类兜底） */
 export async function parseIngredientsExcel(file: File): Promise<Ingredient[]> {
   const buf = await file.arrayBuffer();
@@ -125,7 +171,11 @@ export async function parseIngredientsExcel(file: File): Promise<Ingredient[]> {
   const ws = wb.Sheets[firstSheetName];
   const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
 
-  return rows
+  // 全表扫完再统一报错，让用户一次看到所有要补的行，而不是改一行再导一次
+  const missingAmount: string[] = [];
+  const invalidUnits: string[] = [];
+
+  const parsed = rows
     .map((row, idx) => {
       const name = cell(row['名称']);
       if (!name) return null; // 空行跳过
@@ -134,14 +184,23 @@ export async function parseIngredientsExcel(file: File): Promise<Ingredient[]> {
       const idRaw = cell(row['ID']);
       const id = idRaw || `ing_imp_${dayjs().valueOf()}_${idx}`;
       const unitRaw = cell(row['单位']) as IngredientUnit;
-      const unit: IngredientUnit = VALID_UNITS.includes(unitRaw) ? unitRaw : '斤';
+      // 留空按固体默认 g；填了但不认识（斤 / 公斤 / 克…）直接收集报错
+      const unit: IngredientUnit = VALID_UNITS.includes(unitRaw) ? unitRaw : 'g';
+      if (unitRaw && !VALID_UNITS.includes(unitRaw)) {
+        invalidUnits.push(`${name} · 单位「${unitRaw}」`);
+      }
 
-      // 每个平台：价格填了才算录了这个平台的价；份量不填默认 1 份
+      // 每个平台：价格填了才算录了这个平台的价；份量必须同时填，缺了整份导入报错
       const prices: Ingredient['prices'] = {};
       for (const platform of PRICE_PLATFORMS) {
         const price = num(row[`${platform}价格(元)`]);
         if (price === undefined || price < 0) continue;
-        prices[platform] = { price, amount: num(row[`${platform}份量`]) ?? 1 };
+        const amount = num(row[`${platform}份量`]);
+        if (amount === undefined || amount <= 0) {
+          missingAmount.push(`${name} · ${platform}`);
+          continue;
+        }
+        prices[platform] = { price, amount };
       }
 
       const cal = num(row[NUTRITION_HEADERS[0]]);
@@ -166,16 +225,20 @@ export async function parseIngredientsExcel(file: File): Promise<Ingredient[]> {
         prices,
         nutrition: hasNutrition
           ? {
-              calories: cal ?? 0,
-              protein: protein ?? 0,
-              fat: fat ?? 0,
-              carbs: carbs ?? 0,
-              sodium: sodium ?? 0,
-              fiber: fiber ?? 0,
-            }
+            calories: cal ?? 0,
+            protein: protein ?? 0,
+            fat: fat ?? 0,
+            carbs: carbs ?? 0,
+            sodium: sodium ?? 0,
+            fiber: fiber ?? 0,
+          }
           : undefined,
         note: cell(row['备注']) || undefined,
       } as Ingredient;
     })
     .filter((x): x is Ingredient => x !== null);
+
+  if (invalidUnits.length > 0) throw new InvalidUnitError(invalidUnits);
+  if (missingAmount.length > 0) throw new MissingAmountError(missingAmount);
+  return parsed;
 }

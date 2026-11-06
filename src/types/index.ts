@@ -45,7 +45,7 @@ export type IngredientCategory =
 export interface DishIngredient {
   ingredientId: string;
   amount: number;
-  unit: string;
+  unit: IngredientUnit;
 }
 
 export interface Step {
@@ -70,13 +70,13 @@ export interface Dish {
   createdAt: number;
 }
 
-/** 计价单位：固体用斤 / g / kg，液体用 ml / L */
-export type IngredientUnit = '斤' | 'g' | 'kg' | 'ml' | 'L';
+/** 全站唯一计价单位：固体用 g / kg，液体用 ml / L，不再使用斤、公斤等写法 */
+export type IngredientUnit = 'g' | 'kg' | 'ml' | 'L';
 
 /**
  * 某个平台的价格记录。
- * 用户只记「这一份花了多少钱 + 这一份有多重/多少容量」，
- * 系统再折算成统一的「元/斤」或「元/L」用于比价。
+ * 单位 = 这一份包装的计量单位（跟食材的 unit 一致），
+ * 用户只记「这一整份花了多少钱 + 这一份有多重/多少容量」。
  */
 export interface PlatformPrice {
   /** 这一份实际花了多少钱（元） */

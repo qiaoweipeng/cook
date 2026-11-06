@@ -27,7 +27,7 @@ import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
 import { pickImage, formatSize, IMAGE_ACCEPT } from '@/lib/imageUpload';
 import { resolveImageUrl, deleteImage } from '@/lib/imageStorage';
-import type { Dish, DishCategory, DishIngredient, Step } from '@/types';
+import type { Dish, DishCategory, DishIngredient, IngredientUnit, Step } from '@/types';
 import { BUILTIN_TAGS } from '@/types';
 
 const { Text } = Typography;
@@ -38,11 +38,10 @@ const CATEGORIES: DishCategory[] = [
   '家常', '川菜', '粤菜', '湘菜', '鲁菜', '江浙', '其他',
 ];
 
-/** 配料单位：固体用斤 / g / kg，液体用 ml / L（跟食材库的计价单位保持一致） */
+/** 配料单位：固体用 g / kg，液体用 ml / L（跟食材库的计价单位保持一致） */
 const UNIT_OPTIONS = [
   { value: 'g', label: 'g 克' },
-  { value: '斤', label: '斤' },
-  { value: 'kg', label: 'kg 公斤' },
+  { value: 'kg', label: 'kg 千克' },
   { value: 'ml', label: 'ml 毫升' },
   { value: 'L', label: 'L 升' },
 ];
@@ -242,7 +241,7 @@ export default function DishEditor({
         .map((r) => ({
           ingredientId: r.ingredientId!,
           amount: Number(r.amount),
-          unit: r.unit || 'g',
+          unit: (r.unit || 'g') as IngredientUnit,
         }));
       const cleanedSteps: Step[] = steps
         .map((t) => t.trim())

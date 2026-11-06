@@ -364,7 +364,7 @@ export default function ShoppingListPanel() {
                     </Text>
                     {cheapest && (
                       <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>
-                        最低 {cheapest.platform} ¥{Number(cheapest.value.toFixed(2))}/{cheapest.unit}
+                        最低 {cheapest.platform} ¥{Number(cheapest.price.toFixed(2))} / {cheapest.amount}{cheapest.unit}
                       </div>
                     )}
                   </div>

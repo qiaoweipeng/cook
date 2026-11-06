@@ -18,26 +18,26 @@ import type { Dish, Ingredient } from '@/types';
 
 // ---------- 测试用的固定食材 ----------
 
-/** 土豆：盒马NB 2.6 元/斤，朴朴 1.9 元/斤；营养是「每 100g」的口径 */
+/** 土豆：盒马NB 2.6 元/500g，朴朴 1.9 元/500g；营养是「每 100g」的口径 */
 const potato: Ingredient = {
   id: 'ing_potato',
   name: '土豆',
   category: '蔬菜',
-  unit: '斤',
+  unit: 'g',
   prices: {
-    盒马NB: { price: 2.6, amount: 1 },
-    朴朴超市: { price: 1.9, amount: 1 },
+    盒马NB: { price: 2.6, amount: 500 },
+    朴朴超市: { price: 1.9, amount: 500 },
   },
   nutrition: { calories: 77, protein: 2.0, fat: 0.1, carbs: 17.5, sodium: 6, fiber: 2.2 },
 };
 
-/** 鸡蛋：盒马NB 8.9 元/斤 */
+/** 鸡蛋：盒马NB 8.9 元/500g */
 const egg: Ingredient = {
   id: 'ing_egg',
   name: '鸡蛋',
   category: '蛋奶',
-  unit: '斤',
-  prices: { 盒马NB: { price: 8.9, amount: 1 } },
+  unit: 'g',
+  prices: { 盒马NB: { price: 8.9, amount: 500 } },
   nutrition: { calories: 143, protein: 13.3, fat: 8.8, carbs: 2.8, sodium: 131, fiber: 0 },
 };
 
@@ -100,9 +100,9 @@ describe('normalizeToBase 单位归一化', () => {
   });
 });
 
-// ---------- displayUnitPrice / cheapestPlatform：折算成 元/斤、元/L ----------
+// ---------- displayUnitPrice / cheapestPlatform：详情页次要折价、跨平台比价 ----------
 
-describe('displayUnitPrice 比价口径', () => {
+describe('displayUnitPrice 折算单位价', () => {
   test('固体统一折成 元/斤', () => {
     expect(displayUnitPrice(potato, '盒马NB')).toEqual({ value: 2.6, unit: '斤' });
   });
@@ -121,53 +121,54 @@ describe('displayUnitPrice 比价口径', () => {
 });
 
 describe('cheapestPlatform 找最低价', () => {
-  test('两个平台里选更便宜的那个', () => {
-    expect(cheapestPlatform(potato)).toEqual({ platform: '朴朴超市', value: 1.9, unit: '斤' });
+  test('两个平台里选更便宜的那个，返回原始记录（不折算）', () => {
+    expect(cheapestPlatform(potato)).toEqual({
+      platform: '朴朴超市',
+      price: 1.9,
+      amount: 500,
+      unit: 'g',
+    });
   });
 });
 
 // ---------- lineCost / calcDishCost：一道菜要花多少钱 ----------
 
 describe('lineCost 单项小计', () => {
-  test('0.5 斤土豆 × 2.6 元/斤 = 1.3 元', () => {
-    expect(lineCost({ ingredientId: 'ing_potato', amount: 0.5, unit: '斤' }, allIngredients, '盒马NB')).toBe(1.3);
+  test('250g 土豆 × 2.6 元/500g = 1.3 元', () => {
+    expect(lineCost({ ingredientId: 'ing_potato', amount: 250, unit: 'g' }, allIngredients, '盒马NB')).toBe(1.3);
   });
 
-  test('菜谱用克、食材按斤计价也能算：100g 鸡蛋 = 8.9/5 = 1.78 元', () => {
+  test('菜谱用克、食材按 500g 计价也能算：100g 鸡蛋 = 8.9/5 = 1.78 元', () => {
     expect(lineCost({ ingredientId: 'ing_egg', amount: 100, unit: 'g' }, allIngredients, '盒马NB')).toBe(1.78);
   });
 
   test('选定平台没录价时，自动退回有价的平台，不至于算成 0', () => {
-    // 快乐猴没录土豆价，应退回盒马NB 的 2.6 元/斤
-    expect(lineCost({ ingredientId: 'ing_potato', amount: 0.5, unit: '斤' }, allIngredients, '快乐猴')).toBe(1.3);
-  });
-
-  test('老菜谱的计数单位兜底：1 个土豆 ≈ 100g → 2.6 × 100/500 = 0.52 元', () => {
-    expect(lineCost({ ingredientId: 'ing_potato', amount: 1, unit: '个' }, allIngredients, '盒马NB')).toBe(0.52);
+    // 快乐猴没录土豆价，应退回盒马NB 的 2.6 元/500g
+    expect(lineCost({ ingredientId: 'ing_potato', amount: 250, unit: 'g' }, allIngredients, '快乐猴')).toBe(1.3);
   });
 
   test('食材不存在 / 完全没价格 → 0', () => {
-    expect(lineCost({ ingredientId: 'no_such', amount: 1, unit: '斤' }, allIngredients, '盒马NB')).toBe(0);
+    expect(lineCost({ ingredientId: 'no_such', amount: 1, unit: 'g' }, allIngredients, '盒马NB')).toBe(0);
   });
 });
 
 describe('calcDishCost 整道菜成本', () => {
-  test('土豆 0.5 斤 + 鸡蛋 100g = 1.3 + 1.78 = 3.08 元', () => {
+  test('土豆 250g + 鸡蛋 100g = 1.3 + 1.78 = 3.08 元', () => {
     const dish = makeDish([
-      { ingredientId: 'ing_potato', amount: 0.5, unit: '斤' },
+      { ingredientId: 'ing_potato', amount: 250, unit: 'g' },
       { ingredientId: 'ing_egg', amount: 100, unit: 'g' },
     ]);
     expect(calcDishCost(dish, allIngredients, '盒马NB')).toBe(3.08);
   });
 
   test('切换平台后按新平台重算：土豆在朴朴更便宜', () => {
-    const dish = makeDish([{ ingredientId: 'ing_potato', amount: 1, unit: '斤' }]);
+    const dish = makeDish([{ ingredientId: 'ing_potato', amount: 500, unit: 'g' }]);
     expect(calcDishCost(dish, allIngredients, '朴朴超市')).toBe(1.9);
   });
 
   test('不传平台时跟随全局当前平台', () => {
     setCurrentPlatform('朴朴超市');
-    const dish = makeDish([{ ingredientId: 'ing_potato', amount: 1, unit: '斤' }]);
+    const dish = makeDish([{ ingredientId: 'ing_potato', amount: 500, unit: 'g' }]);
     expect(calcDishCost(dish, allIngredients)).toBe(1.9);
     setCurrentPlatform('盒马NB'); // 用完还原，别影响别的用例
   });
@@ -189,8 +190,8 @@ describe('calcDishNutrition 营养求和', () => {
     });
   });
 
-  test('半斤（250g）= ×2.5，结果按各自的精度四舍五入', () => {
-    const dish = makeDish([{ ingredientId: 'ing_potato', amount: 0.5, unit: '斤' }]);
+  test('250g = ×2.5，结果按各自的精度四舍五入', () => {
+    const dish = makeDish([{ ingredientId: 'ing_potato', amount: 250, unit: 'g' }]);
     const n = calcDishNutrition(dish, allIngredients)!;
     expect(n.calories).toBe(193);   // 77 × 2.5 = 192.5 → 193
     expect(n.protein).toBe(5);      // 2.0 × 2.5
@@ -217,18 +218,14 @@ describe('calcDishNutrition 营养求和', () => {
     expect(calcDishNutrition(dish, allIngredients)).toBeNull();
   });
 
-  test('无法折算重量的单位（勺）直接跳过', () => {
-    const dish = makeDish([{ ingredientId: 'ing_potato', amount: 1, unit: '勺' }]);
-    expect(calcDishNutrition(dish, allIngredients)).toBeNull();
-  });
 });
 
 // ---------- formatBaseValue：展示单位还原 ----------
 
 describe('formatBaseValue 展示单位', () => {
-  test('600g → 1.2 斤；300g → 300 g', () => {
-    expect(formatBaseValue(600, 'mass')).toEqual({ amount: 1.2, unit: '斤' });
-    expect(formatBaseValue(300, 'mass')).toEqual({ amount: 300, unit: 'g' });
+  test('1200g → 1.2 kg；600g → 600 g', () => {
+    expect(formatBaseValue(1200, 'mass')).toEqual({ amount: 1.2, unit: 'kg' });
+    expect(formatBaseValue(600, 'mass')).toEqual({ amount: 600, unit: 'g' });
   });
 
   test('1500ml → 1.5 L', () => {

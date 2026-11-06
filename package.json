@@ -21,6 +21,7 @@
     "antd-mobile": "^5.43.0",
     "antd-mobile-icons": "^0.3.0",
     "dayjs": "^1.11.13",
+    "jszip": "^3.10.2",
     "localforage": "^1.10.0",
     "lucide-react": "^1.57.0",
     "react": "^18.3.1",
