@@ -215,7 +215,9 @@ export default function BulkImagePairer({ open, onClose }: Props) {
         const { blob, ext } = await compressImage(imgFile);
         const key = `ingredients/${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
         await uploadImage(key, blob, blob.type || `image/${ext}`);
-        await update(pair.ingredient.id, { image: key });
+        // throwOnError=true：云端写失败要抛出来，不能静默吞——否则用户以为成功了，
+        // 刷新后从云端拉数据 image 字段还是空的，等于白传
+        await update(pair.ingredient.id, { image: key }, true);
       } catch (e) {
         failed++;
         errors.push(`${pair.ingredient.name}: ${e instanceof Error ? e.message.slice(0, 80) : String(e)}`);

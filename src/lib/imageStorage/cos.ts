@@ -12,8 +12,11 @@ import type { ImageStorageProvider } from './types';
 /** 当前桶的公网访问域名（不带路径），构建时内联，形如 https://xxx-123.cos.ap-guangzhou.myqcloud.com */
 const PUBLIC_BASE = (import.meta.env.VITE_COS_PUBLIC_BASE ?? '').trim().replace(/\/+$/, '');
 
-/** 上传/删除共用的中转函数（同域调用，没有 CORS 问题） */
-const FUNCTION_URL = '/.netlify/functions/cos-upload';
+/** 上传/删除共用的中转函数地址。
+ *  - 线上/本地 netlify dev：默认相对路径 '/.netlify/functions/cos-upload' 走同域
+ *  - 本地 pnpm dev：用 VITE_UPLOAD_FUNCTION_URL 指到线上部署好的 Function（省得本地装 netlify-cli）
+ */
+const FUNCTION_URL = (import.meta.env.VITE_UPLOAD_FUNCTION_URL ?? '/.netlify/functions/cos-upload').trim();
 
 async function callFunction(
   method: 'POST' | 'DELETE',

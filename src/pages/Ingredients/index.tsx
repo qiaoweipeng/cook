@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { ProTable, ProCard } from '@ant-design/pro-components';
-import type { ProColumns } from '@ant-design/pro-components';
+import type { ProColumns, ActionType } from '@ant-design/pro-components';
 import {
   Table,
   Button,
@@ -124,7 +124,7 @@ type ImportMode = 'merge' | 'replace';
 const PREVIEW_COUNT = 100;
 
 export default function Ingredients() {
-  const { items, add, update, remove, replaceAll, bulkMerge } = useIngredientStore();
+  const { items, add, update, remove, replaceAll, bulkMerge, load } = useIngredientStore();
   const platforms = usePriceStore((s) => s.platforms);
   const isAdmin = useIsAdmin();
   const isMobile = useIsMobile();
@@ -168,6 +168,7 @@ export default function Ingredients() {
 
   // —— 导入相关 ——
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const tableActionRef = useRef<ActionType>();
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [parsedItems, setParsedItems] = useState<Ingredient[]>([]);
   const [importMode, setImportMode] = useState<ImportMode>('merge');
@@ -264,9 +265,8 @@ export default function Ingredients() {
       };
 
       if (editing) {
-        await update(editing.id, payload);
+        await update(editing.id, payload, true);
         message.success('已更新');
-        // 编辑完成后清掉选中态（回到未选中页面）
         setSelectedRowKey(undefined);
       } else {
         const newIng: Ingredient = {
@@ -277,6 +277,11 @@ export default function Ingredients() {
         message.success('已添加');
       }
       setEditorOpen(false);
+      // 1) 先从云端重新拉最新数据（items 变了）
+      await load();
+      // 2) ProTable 用 request 异步加载并缓存，items 变了它不会自动重新 request ——
+      // 手动调 reload 才会触发 request 重新执行
+      tableActionRef.current?.reload();
     } catch (e) {
       const msg = (e as Error).message;
       if (msg) message.error(msg);
@@ -291,6 +296,8 @@ export default function Ingredients() {
       message.success('已删除');
       setEditorOpen(false);
       setSelectedRowKey(undefined);
+      await load();
+      tableActionRef.current?.reload();
     } catch (e) {
       // 占用检查在 store 里抛出
       message.error((e as Error).message);
@@ -680,6 +687,7 @@ export default function Ingredients() {
         </>
       ) : (
         <ProTable<Ingredient>
+          actionRef={tableActionRef}
           rowKey="id"
           bordered
           size="small"

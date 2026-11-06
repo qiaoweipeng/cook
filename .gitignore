@@ -39,3 +39,6 @@ coverage/
 backups/
 # tsc -b 的构建缓存
 *.tsbuildinfo
+
+# Local Netlify folder
+.netlify

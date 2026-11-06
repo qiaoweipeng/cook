@@ -62,11 +62,26 @@ function buildAuthorization(opts: {
   );
 }
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, x-object-key, x-upload-token',
+  'Access-Control-Max-Age': '86400',
+};
+
+function ok(message = 'ok', status = 200): Response {
+  return new Response(message, { status, headers: CORS_HEADERS });
+}
+
 function fail(status: number, message: string): Response {
-  return new Response(message, { status });
+  return new Response(message, { status, headers: CORS_HEADERS });
 }
 
 export default async (req: Request): Promise<Response> => {
+  // OPTIONS 预检请求：浏览器跨域 POST/DELETE 会先发这个
+  if (req.method === 'OPTIONS') {
+    return ok('', 204);
+  }
   const method = req.method;
   if (method !== 'POST' && method !== 'DELETE') {
     return fail(405, 'Method Not Allowed');
@@ -131,9 +146,9 @@ export default async (req: Request): Promise<Response> => {
     body,
   });
 
-  if (cosRes.ok) return new Response('ok', { status: 200 });
+  if (cosRes.ok) return ok();
   // 删除时对象不存在 = 幂等成功，保持和 Supabase 适配器一致
-  if (method === 'DELETE' && cosRes.status === 404) return new Response('ok', { status: 200 });
+  if (method === 'DELETE' && cosRes.status === 404) return ok();
 
   const detail = await cosRes.text().catch(() => '');
   return fail(502, `COS 返回 HTTP ${cosRes.status}：${detail.slice(0, 200)}`);

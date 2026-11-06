@@ -24,7 +24,7 @@ interface IngredientState {
   load: () => Promise<void>;
   add: (ing: Ingredient) => Promise<void>;
   addMany: (ings: Ingredient[]) => Promise<void>;
-  update: (id: string, patch: Partial<Ingredient>) => Promise<void>;
+  update: (id: string, patch: Partial<Ingredient>, throwOnError?: boolean) => Promise<void>;
   remove: (id: string) => Promise<void>;
   removeAll: () => Promise<void>;
   replaceAll: (ings: Ingredient[]) => Promise<void>;
@@ -118,12 +118,12 @@ export const useIngredientStore = create<IngredientState>()(
         logOp('批量新增食材', '', `共 ${ings.length} 项`);
       },
 
-      update: async (id, patch) => {
+      update: async (id, patch, throwOnError = false) => {
         const old = get().items.find((it) => it.id === id);
         if (!old) return;
         const next = { ...old, ...patch };
         set((s) => ({ items: s.items.map((it) => (it.id === id ? next : it)) }));
-        await writeCloud(next);
+        await writeCloud(next, throwOnError);
         logOp('编辑食材', old.name);
       },
 
