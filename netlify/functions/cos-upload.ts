@@ -140,11 +140,18 @@ export default async (req: Request): Promise<Response> => {
     headers: signedHeaders,
   });
 
-  const cosRes = await fetch(url, {
-    method: method === 'POST' ? 'PUT' : 'DELETE',
-    headers: { Authorization: authorization, ...extraHeaders },
-    body,
-  });
+  let cosRes: Response;
+  try {
+    cosRes = await fetch(url, {
+      method: method === 'POST' ? 'PUT' : 'DELETE',
+      headers: { Authorization: authorization, ...extraHeaders },
+      body,
+    });
+  } catch (e) {
+    // fetch 本身失败（网络不通、签名错误导致 COS 返回非 HTTP 响应、DNS 解析不到等）
+    const detail = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    return fail(502, `COS 调用 fetch 失败：${detail} | url=${url}`);
+  }
 
   if (cosRes.ok) return ok();
   // 删除时对象不存在 = 幂等成功，保持和 Supabase 适配器一致
