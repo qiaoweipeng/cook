@@ -140,9 +140,13 @@ a {
   margin-right: 0;
 }
 
-/* 首页移动端「更多」下拉面板：固定在 84px 处展开，不再跟着触发点的位置计算 */
+/*
+  首页移动端「更多」下拉面板：固定在 84px 处展开，不再跟着触发点的位置计算。
+  PWA 独立运行时（无浏览器地址栏）顶部会多出状态栏/刘海的 safe-area，
+  吸顶筛选栏整体下移，所以这里也要把安全区加回去，否则面板会偏上。
+*/
 .adm-dropdown-popup {
-  top: 84px !important;
+  top: calc(84px + env(safe-area-inset-top)) !important;
 }
 
 /* 移动端食材库侧边导航（antd-mobile SideBar）：条目收紧 + 主题橙已在组件内联变量设置 */

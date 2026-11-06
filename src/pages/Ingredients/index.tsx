@@ -24,7 +24,7 @@ import {
   Upload,
   Image,
 } from 'antd';
-import { SideBar } from 'antd-mobile';
+import { SideBar, Popup, Button as AmButton } from 'antd-mobile';
 import {
   PlusOutlined,
   EditOutlined,
@@ -546,14 +546,14 @@ export default function Ingredients() {
                     return (
                       <div
                         key={it.id}
-                        onClick={() => isAdmin && openEditRow(it)}
+                        onClick={() => setDetail(it)}
                         style={{
                           background: '#fff',
                           borderRadius: 12,
                           padding: '10px 12px',
                           // 极淡的暖色描边，跟左侧暖米色侧栏呼应，也把卡片边界勾出来
                           border: '1px solid #f7f1ea',
-                          cursor: isAdmin ? 'pointer' : 'default',
+                          cursor: 'pointer',
                         }}
                       >
                         <div
@@ -1074,10 +1074,10 @@ export default function Ingredients() {
         </Form>
       </Drawer>
 
-      {/* 食材详情弹窗：表格「操作」列的「食材详情」打开 */}
+      {/* 食材详情弹窗：表格「操作」列的「食材详情」打开（移动端另有一套 Popup 版本） */}
       <Modal
         title="食材详情"
-        open={!!detail}
+        open={!!detail && !isMobile}
         onCancel={() => setDetail(null)}
         footer={null}
         width={560}
@@ -1167,6 +1167,163 @@ export default function Ingredients() {
           </>
         )}
       </Modal>
+
+      {/*
+        移动端食材详情：antd-mobile Popup 从顶部弹出，点遮罩即关闭。
+        内容结构和 PC 端 Modal 一致，但按窄屏重新排了一遍，不复用 PC 那套布局。
+      */}
+      {isMobile && (
+        <Popup
+          position="top"
+          visible={!!detail}
+          onMaskClick={() => setDetail(null)}
+          bodyStyle={{
+            maxHeight: '82vh',
+            overflowY: 'auto',
+            borderBottomLeftRadius: 16,
+            borderBottomRightRadius: 16,
+            padding: 'calc(14px + env(safe-area-inset-top)) 16px 20px',
+            background: '#fff',
+          }}
+        >
+          {detail && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                {detail.image ? (
+                  <img
+                    src={resolveImageUrl(detail.image)}
+                    alt={detail.name}
+                    style={{ width: 84, height: 84, objectFit: 'cover', borderRadius: 10, flexShrink: 0 }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 84,
+                      height: 84,
+                      borderRadius: 10,
+                      flexShrink: 0,
+                      background: 'linear-gradient(135deg, #fff1e8, #ffe3d0)',
+                      color: '#e8743c',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 24,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {detail.name.slice(0, 1)}
+                  </div>
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 17, fontWeight: 600, color: '#2D2A26' }}>{detail.name}</div>
+                  <Space size={6} wrap style={{ marginTop: 8 }}>
+                    <Tag color={CATEGORY_COLOR[detail.category]} style={{ marginInlineEnd: 0 }}>
+                      {detail.category}
+                    </Tag>
+                    <Tag style={{ marginInlineEnd: 0 }}>按{detail.unit}计价</Tag>
+                    {cheapestPlatform(detail) && (
+                      <Tag color="orange" style={{ marginInlineEnd: 0 }}>
+                        最低价 · {cheapestPlatform(detail)!.platform}
+                      </Tag>
+                    )}
+                  </Space>
+                  {detail.note && (
+                    <div style={{ marginTop: 8, fontSize: 12, color: '#999', lineHeight: 1.5 }}>
+                      {detail.note}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ fontSize: 13, fontWeight: 600, margin: '18px 0 8px' }}>各平台单价</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {platforms.map((p) => {
+                  const d = priceSpec(detail, p);
+                  const isCheapest = cheapestPlatform(detail)?.platform === p;
+                  const unitPrice = displayUnitPrice(detail, p);
+                  return (
+                    <div
+                      key={p}
+                      style={{ border: '1px solid #f5ede4', borderRadius: 10, padding: '8px 10px' }}
+                    >
+                      <div style={{ fontSize: 12, color: '#999' }}>{p}</div>
+                      {d ? (
+                        <div style={{ marginTop: 2 }}>
+                          <PriceTag value={d.price} size="small" />
+                          <span style={{ color: '#999', fontSize: 12 }}>
+                            {' '}/ {d.amount}
+                            {d.unit}
+                          </span>
+                          {isCheapest && (
+                            <Tag color="orange" style={{ marginLeft: 4, marginInlineEnd: 0 }}>
+                              最低
+                            </Tag>
+                          )}
+                          {unitPrice && (
+                            <div style={{ fontSize: 11, color: '#b0aaa3', marginTop: 2 }}>
+                              约 ¥{Number(unitPrice.value.toFixed(2))} / {unitPrice.unit}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          未录入
+                        </Text>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div style={{ fontSize: 13, fontWeight: 600, margin: '18px 0 8px' }}>
+                营养成分（每 100g / 100ml）
+              </div>
+              {detail.nutrition ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                  {NUTRI_FIELDS.map((f) => (
+                    <div key={f.key} style={{ background: '#faf7f2', borderRadius: 8, padding: '8px 10px' }}>
+                      <div style={{ fontSize: 11, color: '#999' }}>{f.label}</div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: '#2D2A26' }}>
+                        {detail.nutrition?.[f.key] ?? '—'}
+                        <span style={{ fontSize: 11, fontWeight: 400, color: '#999' }}> {f.unit}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  未填写营养成分
+                </Text>
+              )}
+
+              {isAdmin && (
+                <AmButton
+                  block
+                  color="primary"
+                  style={{ marginTop: 18, '--color': '#E8743C' } as CSSProperties}
+                  onClick={() => {
+                    setDetail(null);
+                    openEditRow(detail);
+                  }}
+                >
+                  编辑食材
+                </AmButton>
+              )}
+
+              {/* 顶部弹层底部的拖拽指示条 */}
+              <div
+                style={{
+                  width: 36,
+                  height: 4,
+                  borderRadius: 2,
+                  background: '#e8e3dd',
+                  margin: '18px auto 0',
+                }}
+              />
+            </>
+          )}
+        </Popup>
+      )}
 
       {/* 导入预览弹窗 */}
       <Modal
