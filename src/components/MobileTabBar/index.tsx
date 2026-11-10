@@ -99,7 +99,7 @@ export default function MobileTabBar() {
     <div
       style={{
         position: 'fixed',
-        bottom: 0,
+        bottom: 'calc(2px + env(safe-area-inset-bottom))',
         left: 12,
         right: 12,
         zIndex: 100,
@@ -126,8 +126,7 @@ export default function MobileTabBar() {
           '--lg-brightness': '0.88',
           '--lg-saturate': '180%',
         } as React.CSSProperties}
-        // 玻璃层铺满整个胶囊（包括 safe-area），但按钮内容往上抬避开底部横条
-        contentStyle={{ padding: '4px 10px', paddingBottom: `calc(8px + env(safe-area-inset-bottom))` }}
+        contentStyle={{ padding: '4px 10px' }}
       >
         <TabBar
           activeKey={tabActiveKey}
