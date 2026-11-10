@@ -9,6 +9,7 @@ import { theme } from './theme';
 import { clearLegacyLocalCache } from '@/lib/persistStorage';
 import { disablePinchZoom } from '@/lib/noZoom';
 import { disableDevtoolsShortcuts } from '@/lib/noDevtools';
+import '@sohumsuthar/liquid-glass/css/liquid-glass-core.css';
 import './index.css';
 
 // 本地缓存已从 localStorage 搬到 IndexedDB，清掉旧缓存释放配额

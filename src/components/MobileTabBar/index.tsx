@@ -10,8 +10,12 @@ import { useEffect, useState } from 'react';
 import { TabBar, Badge } from 'antd-mobile';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CircleFadingArrowUp } from 'lucide-react';
+import { LiquidGlass } from '@sohumsuthar/liquid-glass';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useFamilyStore } from '@/store/useFamilyStore';
+
+/** 胶囊圆角：外层裁切容器负责圆角 + overflow:hidden，强制把 LiquidGlass 的一切 filter 输出裁成圆角 */
+const CAPSULE_RADIUS = 56;
 
 /** 页面往下滚超过这个距离，首页 tab 就切成「回到顶部」 */
 const BACK_TO_TOP_OFFSET = 160;
@@ -89,72 +93,90 @@ export default function MobileTabBar() {
   ];
 
   return (
+    // 外层裁切容器：唯一职责是 fixed 定位 + 胶囊圆角 + overflow: hidden
+    // LiquidGlass 的 backdrop-filter / SVG displacement / box-shadow 等一切 filter 输出
+    // 都会被这个父容器强制裁成圆角，彻底绕过 liquid-glass 库自身对圆角的不支持
     <div
-      className="mobile-tabbar glass-panel"
       style={{
         position: 'fixed',
-        bottom: 'calc(4px + env(safe-area-inset-bottom))',
+        bottom: `calc(0px + env(safe-area-inset-bottom))`,
         left: 12,
         right: 12,
         zIndex: 100,
-        // 胶囊形状：大圆角 + 四周留白，不贴边，像 iOS 悬浮式底部导航
-        borderRadius: 28,
-        paddingBottom: 0,
-        boxSizing: 'border-box',
+        borderRadius: CAPSULE_RADIUS,
+        overflow: 'hidden',
       }}
     >
-      <TabBar
-        activeKey={tabActiveKey}
-        onChange={(key) => {
-          // 页面已经滚下去了：首页 tab 这时是「回到顶部」，点了先回顶部，不跳页
-          if (key === '/menu' && scrolled) {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            return;
-          }
-          navigate(key);
+      <LiquidGlass
+        variant="regular"
+        macro
+        className="mobile-tabbar"
+        style={{
+          position: 'relative',
+          borderRadius: CAPSULE_RADIUS,
+          // 让 LiquidGlass 填满父容器（它原本是 fixed 定位，现在改成 relative 后需要手动撑满）
+          inset: 'auto',
+          width: '100%',
+          height: '100%',
+          padding: 0,
+          // 库自带的 box-shadow 会投射到父容器圆角外面，关掉，让父容器的 overflow 裁掉它
+          boxShadow: 'none',
         }}
-        style={
-          {
-            '--adm-color-primary': '#E8743C',
-            // TabBar 自身底色置为透明，露出外层容器的毛玻璃
-            '--adm-color-background': 'transparent',
-            background: 'transparent',
-            '--height': '56px',
-          } as React.CSSProperties
-        }
+        contentStyle={{ padding: '4px 10px' }}
       >
-        {tabs.map((t) => {
-          // 滚下去后，第一个 tab（首页）临时变成「回到顶部」
-          const showBackToTop = t.key === '/menu' && scrolled;
-          return (
-            <TabBar.Item
-              key={t.key}
-              icon={(active) => {
-                // 滚下去时这个 tab 已经是「回到顶部」动作，保持高亮提醒可以点
-                const activeLook = active || showBackToTop;
-                return (
-                  <span className={activeLook ? 'tab-ico tab-ico-on' : 'tab-ico'}>
-                    {showBackToTop ? (
-                      <BackToTopIcon active={activeLook} />
-                    ) : (
-                      <img src={t.icon} alt="" />
-                    )}
-                  </span>
-                );
-              }}
-              title={(active) => {
-                const activeLook = active || showBackToTop;
-                return (
-                  <span className={activeLook ? 'tab-txt tab-txt-on' : 'tab-txt'}>
-                    {showBackToTop ? '回到顶部' : t.title}
-                  </span>
-                );
-              }}
-              badge={t.badge}
-            />
-          );
-        })}
-      </TabBar>
+        <TabBar
+          activeKey={tabActiveKey}
+          onChange={(key) => {
+            // 页面已经滚下去了：首页 tab 这时是「回到顶部」，点了先回顶部，不跳页
+            if (key === '/menu' && scrolled) {
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+              return;
+            }
+            navigate(key);
+          }}
+          style={
+            {
+              '--adm-color-primary': '#E8743C',
+              // TabBar 自身底色置为透明，露出外层 LiquidGlass 的玻璃效果
+              '--adm-color-background': 'transparent',
+              background: 'transparent',
+              '--height': '56px',
+            } as React.CSSProperties
+          }
+        >
+          {tabs.map((t) => {
+            // 滚下去后，第一个 tab（首页）临时变成「回到顶部」
+            const showBackToTop = t.key === '/menu' && scrolled;
+            return (
+              <TabBar.Item
+                key={t.key}
+                icon={(active) => {
+                  // 滚下去时这个 tab 已经是「回到顶部」动作，保持高亮提醒可以点
+                  const activeLook = active || showBackToTop;
+                  return (
+                    <span className={activeLook ? 'tab-ico tab-ico-on' : 'tab-ico'}>
+                      {showBackToTop ? (
+                        <BackToTopIcon active={activeLook} />
+                      ) : (
+                        <img src={t.icon} alt="" />
+                      )}
+                    </span>
+                  );
+                }}
+                title={(active) => {
+                  const activeLook = active || showBackToTop;
+                  return (
+                    <span className={activeLook ? 'tab-txt tab-txt-on' : 'tab-txt'}>
+                      {showBackToTop ? '回到顶部' : t.title}
+                    </span>
+                  );
+                }}
+                badge={t.badge}
+              />
+            );
+          })}
+        </TabBar>
+      </LiquidGlass>
     </div>
   );
 }
