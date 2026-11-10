@@ -258,8 +258,8 @@ export const useShoppingStore = create<ShoppingState>()(
         set({ checkedKeys: allKeys });
       },
 
-      // 结算：快照进历史 + 清空当前
-      settle: ({ platform, total, checkedTotal }) => {
+      // 结算：快照进历史 + 清空当前（同时清空云端）
+      settle: async ({ platform, total, checkedTotal }) => {
         const state = get();
         const entry: ShoppingHistoryEntry = {
           id: genId(),
@@ -278,6 +278,20 @@ export const useShoppingStore = create<ShoppingState>()(
           extraItems: [],
           extraCheckedIds: [],
         });
+        // 清空云端，否则下次 load 会把旧数据拉回来
+        const me = useAuthStore.getState().user?.uid;
+        if (me) {
+          try {
+            await writeShopping(me, {
+              selectedDishIds: [],
+              checkedKeys: [],
+              extraItems: [],
+              extraCheckedIds: [],
+            });
+          } catch (e) {
+            console.warn('[shopping] settle write failed', e);
+          }
+        }
       },
 
       clearHistory: () => {
