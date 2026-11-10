@@ -99,7 +99,7 @@ export default function MobileTabBar() {
     <div
       style={{
         position: 'fixed',
-        bottom: `calc(0px + env(safe-area-inset-bottom))`,
+        bottom: 0,
         left: 12,
         right: 12,
         zIndex: 100,
@@ -108,21 +108,26 @@ export default function MobileTabBar() {
       }}
     >
       <LiquidGlass
-        variant="regular"
+        // clear 变体比 regular 更通透（tint 层只有 40% 白 vs regular 的 66%），
+        // regular 在手机上 scrim 太厚，backdrop-filter 本身就偏弱，叠 66% 白几乎完全不透
+        variant="clear"
         macro
         className="mobile-tabbar"
         style={{
           position: 'relative',
           borderRadius: CAPSULE_RADIUS,
-          // 让 LiquidGlass 填满父容器（它原本是 fixed 定位，现在改成 relative 后需要手动撑满）
           inset: 'auto',
           width: '100%',
           height: '100%',
           padding: 0,
-          // 库自带的 box-shadow 会投射到父容器圆角外面，关掉，让父容器的 overflow 裁掉它
           boxShadow: 'none',
-        }}
-        contentStyle={{ padding: '4px 10px' }}
+          // 手机上 backdrop-filter 弱，主动加 blur 和 brightness 提升通透感
+          '--lg-blur': '16px',
+          '--lg-brightness': '0.88',
+          '--lg-saturate': '180%',
+        } as React.CSSProperties}
+        // 玻璃层铺满整个胶囊（包括 safe-area），但按钮内容往上抬避开底部横条
+        contentStyle={{ padding: '4px 10px', paddingBottom: `calc(8px + env(safe-area-inset-bottom))` }}
       >
         <TabBar
           activeKey={tabActiveKey}
