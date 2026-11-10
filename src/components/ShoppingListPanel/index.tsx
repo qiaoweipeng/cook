@@ -85,6 +85,7 @@ export default function ShoppingListPanel() {
     // 结算
     settle,
     selectAllCheckedKeys,
+    history,
   } = useShoppingStore();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [keyword, setKeyword] = useState('');
@@ -98,6 +99,7 @@ export default function ShoppingListPanel() {
   const [manualName, setManualName] = useState('');
   const [manualPrice, setManualPrice] = useState<number | null>(null);
   const [manualUnit, setManualUnit] = useState('');
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const selectedDishes = useMemo(
     () => dishes.filter((d) => selectedDishIds.includes(d.id)),
@@ -170,6 +172,13 @@ export default function ShoppingListPanel() {
     return (
       <>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 'calc(130px + env(safe-area-inset-bottom))' }}>
+          {/* —— 顶部历史按钮 —— */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button size="small" onClick={() => setHistoryOpen(true)}>
+              历史记录 {history.length > 0 && `(${history.length})`}
+            </Button>
+          </div>
+
           {/* —— 已选菜品 —— */}
           <div style={cardStyle}>
             <div style={cardHeader}>
@@ -688,6 +697,104 @@ export default function ShoppingListPanel() {
               });
             })()}
           </div>
+        </Popup>
+
+        {/* —— 历史采购清单抽屉 —— */}
+        <Popup
+          visible={historyOpen}
+          onMaskClick={() => setHistoryOpen(false)}
+          position="top"
+          bodyStyle={{
+            borderBottomLeftRadius: 20,
+            borderBottomRightRadius: 20,
+            maxHeight: '78vh',
+            overflow: 'auto',
+            padding: '14px 16px 24px',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ fontSize: 16, fontWeight: 700 }}>采购历史</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {history.length > 0 && (
+                <Popconfirm
+                  title="清空全部历史？"
+                  okText="清空"
+                  cancelText="取消"
+                  okButtonProps={{ danger: true }}
+                  onConfirm={() => {
+                    useShoppingStore.getState().clearHistory();
+                    message.success('已清空历史');
+                  }}
+                >
+                  <Button size="small" danger>全部清空</Button>
+                </Popconfirm>
+              )}
+              <Button size="small" onClick={() => setHistoryOpen(false)}>关闭</Button>
+            </div>
+          </div>
+
+          {history.length === 0 ? (
+            <Empty
+              description="还没有结算过，买完东西点「结算」就会记一笔"
+              style={{ padding: '40px 0' }}
+            />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {history.map((entry) => {
+                const d = new Date(entry.settledAt);
+                const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                return (
+                  <div
+                    key={entry.id}
+                    style={{
+                      background: '#fff',
+                      border: '1px solid #f3eee7',
+                      borderRadius: 12,
+                      padding: 12,
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <div style={{ fontSize: 13, color: '#8C7C6C' }}>
+                        {dateStr} {timeStr}
+                      </div>
+                      <Tag style={{ margin: 0 }}>{entry.platform}</Tag>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                        <div>
+                          <div style={{ fontSize: 11, color: '#999' }}>菜品</div>
+                          <div style={{ fontSize: 14, fontWeight: 600 }}>{entry.selectedDishIds.length} 道</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 11, color: '#999' }}>其他</div>
+                          <div style={{ fontSize: 14, fontWeight: 600 }}>{entry.extraItems.length} 项</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 11, color: '#999' }}>已勾选</div>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: '#6B8B5C' }}>¥{entry.checkedTotal.toFixed(2)}</div>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 11, color: '#999' }}>总成本</div>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: '#E8743C' }}>¥{entry.total.toFixed(2)}</div>
+                      </div>
+                    </div>
+                    {entry.selectedDishIds.length > 0 && (
+                      <div style={{ fontSize: 11, color: '#8C7C6C', marginTop: 6, paddingTop: 6, borderTop: '1px dashed #f3eee7' }}>
+                        菜品：{entry.selectedDishIds.map((id) => dishes.find((d) => d.id === id)?.name).filter(Boolean).join('、')}
+                        {entry.extraItems.length > 0 && (
+                          <>
+                            ；其他：{entry.extraItems.map((e) => e.name).join('、')}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </Popup>
       </>
     );

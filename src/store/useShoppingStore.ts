@@ -110,6 +110,8 @@ export const useShoppingStore = create<ShoppingState>()(
       load: async () => {
         // 先等 IndexedDB 缓存恢复完，避免云端新数据被旧缓存覆盖
         await whenHydrated(useShoppingStore);
+        const history = loadHistory();
+        set({ history });
         if (!isCloudEnabled()) {
           set({ loaded: true });
           return;
@@ -302,11 +304,11 @@ export const useShoppingStore = create<ShoppingState>()(
         isCloudEnabled()
           ? {}
           : {
-              selectedDishIds: s.selectedDishIds,
-              checkedKeys: s.checkedKeys,
-              extraItems: s.extraItems,
-              extraCheckedIds: s.extraCheckedIds,
-            },
+            selectedDishIds: s.selectedDishIds,
+            checkedKeys: s.checkedKeys,
+            extraItems: s.extraItems,
+            extraCheckedIds: s.extraCheckedIds,
+          },
     }
   )
 );
