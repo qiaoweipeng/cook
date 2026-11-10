@@ -90,22 +90,16 @@ export default function MobileTabBar() {
 
   return (
     <div
-      className="mobile-tabbar"
+      className="mobile-tabbar glass-panel"
       style={{
         position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        width: '100%',
-        maxWidth: '100vw',
+        bottom: 'calc(10px + env(safe-area-inset-bottom))',
+        left: 12,
+        right: 12,
         zIndex: 100,
-        // 毛玻璃效果：半透明白底 + 高斯模糊，内容从导航栏下滑过时呈朦胧感
-        background: 'rgba(255, 255, 255, 0.72)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        borderTop: '1px solid rgba(45, 42, 38, 0.08)',
-        // iPhone 底部安全区
-        paddingBottom: 'env(safe-area-inset-bottom)',
+        // 胶囊形状：大圆角 + 四周留白，不贴边，像 iOS 悬浮式底部导航
+        borderRadius: 28,
+        paddingBottom: 0,
         boxSizing: 'border-box',
       }}
     >

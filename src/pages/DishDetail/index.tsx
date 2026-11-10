@@ -18,6 +18,8 @@ import {
   CalendarOutlined,
   CheckOutlined,
   LeftOutlined,
+  SearchOutlined,
+  ShareAltOutlined,
   ShoppingCartOutlined,
   StarFilled,
   StarOutlined,
@@ -37,7 +39,7 @@ import PriceTag from '@/components/PriceTag';
 
 const { Title, Text } = Typography;
 
-const COVER_HEIGHT = 240;
+const COVER_HEIGHT = 400;
 
 /*
   NavBar 里的圆形图标底座：裸图标直接搁在白底导航栏上太素，加个淡橙圆圈压一下。
@@ -156,68 +158,94 @@ export default function DishDetail() {
   };
 
   return (
-    <div>
+    <div
+      style={
+        isMobile
+          ? { paddingBottom: 'calc(78px + env(safe-area-inset-bottom))' }
+          : undefined
+      }
+    >
       {/*
-        移动端顶部统一用 NavBar：返回交给它自带的返回箭头，采购 / 收藏放右侧。
-        之前那套毛玻璃圆钮是浮在封面图上的（沉浸式），但状态辨识度不够，
-        而且圆钮会挡住封面图 —— 换成常规 NavBar 后标题栏显示菜名，滚到哪都知道在看哪道菜。
+        移动端顶部：左边保留返回，中间的菜名改成「搜索入口」，点击跳搜索页；
+        采购 / 菜单 / 收藏三个操作全部移到底部操作条（见下面的 fixed bar）。
       */}
       {isMobile && (
-        <NavBar
-          onBack={() => navigate('/menu')}
-          backArrow={
-            <span className="icon-btn" style={iconCircle}>
-              <LeftOutlined />
-            </span>
-          }
-          right={
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span
-                className="icon-btn"
-                role="button"
-                aria-label={inShopping ? '从采购清单移除' : '加入采购清单'}
-                onClick={() => {
-                  toggleDishInShopping(dish.id);
-                  message.success(inShopping ? '已从采购清单移除' : '已加入采购清单');
-                }}
-                style={{ ...iconCircle, ...(inShopping ? iconCircleActive : null) }}
-              >
-                {inShopping ? <CheckOutlined /> : <ShoppingCartOutlined />}
+        <div
+          className="glass-panel"
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 20,
+            marginTop: 'calc(-16px - env(safe-area-inset-top))',
+            paddingTop: 'calc(16px + env(safe-area-inset-top))',
+            borderLeft: 'none',
+            borderRight: 'none',
+            borderTop: 'none',
+            borderRadius: 0,
+            boxShadow: '0 1px 0 rgba(45, 42, 38, 0.04)',
+          }}
+        >
+          <NavBar
+            onBack={() => navigate('/menu')}
+            backArrow={
+              <span className="icon-btn" style={iconCircle}>
+                <LeftOutlined />
               </span>
-              {/* 今日菜单：只加今天这一天，已在今天菜单里再点就是移除 */}
+            }
+            right={
               <span
                 className="icon-btn"
                 role="button"
-                aria-label={inTodayMenu ? '从今日菜单移除' : '加入今日菜单'}
-                onClick={() => {
-                  if (todayMenuReadOnly) return; // 只读成员点了没意义，交给 toggle 里的 warning
-                  void toggleTodayMenu();
+                aria-label="分享"
+                onClick={async () => {
+                  const shareData = { title: dish.name, url: window.location.href };
+                  try {
+                    if (typeof navigator !== 'undefined' && navigator.share) {
+                      await navigator.share(shareData);
+                    } else if (navigator.clipboard) {
+                      await navigator.clipboard.writeText(shareData.url);
+                      message.success('链接已复制，去分享给朋友吧');
+                    } else {
+                      message.info(window.location.href);
+                    }
+                  } catch {
+                    /* 用户取消分享，不报错 */
+                  }
                 }}
-                style={{
-                  ...iconCircle,
-                  ...(inTodayMenu ? iconCircleActive : null),
-                  ...(todayMenuReadOnly ? { opacity: 0.4, cursor: 'not-allowed' } : null),
-                }}
+                style={iconCircle}
               >
-                {inTodayMenu ? <CheckOutlined /> : <CalendarOutlined />}
+                <ShareAltOutlined />
               </span>
+            }
+            style={{ background: 'transparent' }}
+          >
+            <div
+              role="button"
+              aria-label="搜索菜品"
+              onClick={() => navigate('/search')}
+              style={{
+                width: '100%',
+                height: 32,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '0 12px',
+                borderRadius: 16,
+                background: 'rgba(244, 241, 236, 0.85)',
+                color: '#b8b2aa',
+                fontSize: 13,
+                cursor: 'pointer',
+              }}
+            >
+              <SearchOutlined style={{ fontSize: 13 }} />
               <span
-                className="icon-btn"
-                role="button"
-                aria-label={dish.favorite ? '取消收藏' : '收藏'}
-                onClick={() => {
-                  toggleFavorite(dish.id);
-                  message.success(dish.favorite ? '已取消收藏' : '已收藏');
-                }}
-                style={{ ...iconCircle, ...(dish.favorite ? iconCircleActive : null) }}
+                style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
               >
-                {dish.favorite ? <StarFilled /> : <StarOutlined />}
+                搜索菜品
               </span>
             </div>
-          }
-        >
-          {dish.name}
-        </NavBar>
+          </NavBar>
+        </div>
       )}
 
       {/* 桌面端：整页一张卡片，上半部分是「左图 + 右信息」，下半部分是详细做法，中间用一条分隔线衔接 */}
@@ -539,6 +567,66 @@ export default function DishDetail() {
             )}
 
           </Card>
+
+          {/* 底部固定操作条：最左收藏图标，右侧两个主操作按钮 —— 液态玻璃底 */}
+          <div
+            className="glass-panel"
+            style={{
+              position: 'fixed',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 100,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '10px 14px calc(10px + env(safe-area-inset-bottom))',
+              borderTop: '1px solid rgba(45, 42, 38, 0.06)',
+              borderLeft: 'none',
+              borderRight: 'none',
+              borderBottom: 'none',
+              borderRadius: 0,
+              boxShadow: '0 -2px 16px rgba(0, 0, 0, 0.04)',
+            }}
+          >
+            <span
+              className="icon-btn"
+              role="button"
+              aria-label={dish.favorite ? '取消收藏' : '收藏'}
+              onClick={() => {
+                toggleFavorite(dish.id);
+                message.success(dish.favorite ? '已取消收藏' : '已收藏');
+              }}
+              style={{
+                ...iconCircle,
+                width: 38,
+                height: 38,
+                fontSize: 17,
+                flexShrink: 0,
+                ...(dish.favorite ? iconCircleActive : null),
+              }}
+            >
+              {dish.favorite ? <StarFilled /> : <StarOutlined />}
+            </span>
+            <Button
+              style={{ flex: 1, height: 40 }}
+              disabled={todayMenuReadOnly}
+              title={todayMenuReadOnly ? '你在家庭菜单里是只读权限' : undefined}
+              onClick={() => void toggleTodayMenu()}
+            >
+              {inTodayMenu ? '已加入今日菜单' : '加入今日菜单'}
+            </Button>
+            <Button
+              type="primary"
+              style={{ flex: 1, height: 40 }}
+              onClick={() => {
+                toggleDishInShopping(dish.id);
+                message.success(inShopping ? '已从采购清单移除' : '已加入采购清单');
+              }}
+            >
+              {inShopping ? '已加入采购清单' : '加入采购清单'}
+            </Button>
+          </div>
         </>
       )}
     </div>

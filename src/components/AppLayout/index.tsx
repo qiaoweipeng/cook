@@ -75,8 +75,11 @@ export default function AppLayout() {
   const familyIncomingCount = useFamilyStore((s) => s.incoming.length + s.incomingTransfers.length);
   const isAdmin = useIsAdmin();
   const isMobile = useIsMobile();
-  // 移动端底部导航：仅「移动端 + 非管理员」显示（管理员不做移动端适配）
-  const showMobileNav = isMobile && !isAdmin && Boolean(user);
+  // 移动端整体布局（米白背景、无桌面顶栏/页脚、12px 内边距）
+  const mobileLayout = isMobile && !isAdmin && Boolean(user);
+  // 底部 TabBar：菜品详情页（/menu/:id）不显示，让位给页面自己的底部操作条
+  const isDishDetail = segs[1] === 'menu' && Boolean(segs[2]);
+  const showMobileNav = mobileLayout && !isDishDetail;
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [familyOpen, setFamilyOpen] = useState(false);
 
@@ -202,11 +205,11 @@ export default function AppLayout() {
         // 背景按端区分（见 README「视觉与交互基调」）：
         // PC 纯白——后台表格多，表格原生白底，米白要逐个组件适配；
         // 移动端燕麦米白——用户端全是卡片流，白卡片浮在米白上层次更好。
-        background: showMobileNav ? '#FAF7F2' : '#ffffff',
+        background: mobileLayout ? '#FAF7F2' : '#ffffff',
       }}
     >
-      {/* 移动端：完全隐藏顶部导航栏（logo + 菜单 + 操作区） */}
-      {!showMobileNav && (
+      {/* 移动端：完全隐藏顶部导航栏（logo + 菜单 + 操作区）；详情页虽然隐藏底栏，但仍按移动端布局渲染 */}
+      {!mobileLayout && (
         <Header
           style={{
             display: 'flex',
@@ -302,14 +305,14 @@ export default function AppLayout() {
 
       <Content
         style={{
-          padding: showMobileNav ? '16px 12px' : '24px 24px 48px',
+          padding: mobileLayout ? '16px 12px' : '24px 24px 48px',
           // iOS PWA 下状态栏是透明的，内容从屏幕最顶端开始画，
           // 这里给状态栏让出高度，否则各页面顶部会被它压住。
           // env(safe-area-inset-top) 在 Android 和普通浏览器里是 0，所以不会影响那边的布局。
-          paddingTop: showMobileNav ? 'calc(16px + env(safe-area-inset-top))' : undefined,
+          paddingTop: isMobile ? 'calc(16px + env(safe-area-inset-top))' : undefined,
           // 给底部导航留出空间（约 50px 导航 + 安全区）
-          paddingBottom: showMobileNav ? 'calc(60px + env(safe-area-inset-bottom))' : undefined,
-          maxWidth: showMobileNav ? '100%' : 1200,
+          paddingBottom: showMobileNav ? 'calc(78px + env(safe-area-inset-bottom))' : undefined,
+          maxWidth: mobileLayout ? '100%' : 1200,
           margin: '0 auto',
           width: '100%',
         }}
@@ -318,7 +321,7 @@ export default function AppLayout() {
       </Content>
 
       {/* 移动端隐藏页脚，桌面端保留 */}
-      {!showMobileNav && (
+      {!mobileLayout && (
         <Footer style={{ textAlign: 'center', background: 'transparent', color: '#aaa', padding: '24px' }}>
           <span style={{ fontSize: 13 }}>
             每个人都可以是大厨
@@ -335,7 +338,7 @@ export default function AppLayout() {
         onClose={() => setDrawerOpen(false)}
         styles={{
           body: {
-            padding: showMobileNav ? '12px' : '20px 24px 32px',
+            padding: mobileLayout ? '12px' : '20px 24px 32px',
             background: '#ffffff',
           },
         }}
