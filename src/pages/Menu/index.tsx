@@ -122,7 +122,40 @@ export default function Menu() {
   const [editing, setEditing] = useState<Dish | null>(null);
   // 菜单管理表格的选中行 id（单选），保存成功后清空，跟食材库管理一致
   const [selectedRowKey, setSelectedRowKey] = useState<string | undefined>(undefined);
+  // 移动端吸顶栏（搜索框 + 分类 + 标签）滚动时收起/露出
+  const [hideStickyBar, setHideStickyBar] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
+
+  /*
+    移动端吸顶栏跟随滚动方向：
+    向下滚动（看列表）时收起，把屏幕让给菜品；向上滚动时立刻露出，方便换分类/搜索。
+    只在移动端绑定监听，桌面端保持原来的常驻吸顶。
+  */
+  useEffect(() => {
+    if (!isMobile) return;
+    let lastY = window.scrollY;
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY;
+        const delta = y - lastY;
+        // 一屏顶端时永远露出，避免顶部出现「空白收起」的状态
+        if (y <= 40) {
+          setHideStickyBar((prev) => (prev ? false : prev));
+        } else if (Math.abs(delta) > 6) {
+          // 6px 阈值过滤掉触控板的细微抖动
+          const next = delta > 0;
+          setHideStickyBar((prev) => (prev === next ? prev : next));
+        }
+        lastY = y;
+        ticking = false;
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [isMobile]);
 
   /*
     PC 端 + 管理员：这里换成「菜单管理」表格，一行一道菜、字段摊开，
@@ -327,6 +360,11 @@ export default function Menu() {
                 backdropFilter: 'blur(12px)',
                 WebkitBackdropFilter: 'blur(12px)',
                 borderBottom: '1px solid rgba(45, 42, 38, 0.06)',
+                // 向下滚动收起（整块滑出屏幕顶部），向上滚动滑回来。
+                // 用 transform 而不是改 height/display，避免滚动过程中触发重排导致列表跳动。
+                transform: hideStickyBar ? 'translateY(-100%)' : 'translateY(0)',
+                transition: 'transform 240ms cubic-bezier(0.4, 0, 0.2, 1)',
+                willChange: 'transform',
               }
               : { margin: '20px 0 16px' }
           }
@@ -357,7 +395,8 @@ export default function Menu() {
                 style={{
                   flex: 1,
                   minWidth: 0,
-                  height: 32,
+                  // 全站搜索框统一 36px（见 index.css 的 .app-search）
+                  height: 36,
                   display: 'flex',
                   alignItems: 'center',
                   gap: 6,

@@ -46,6 +46,8 @@ export default function Search() {
   const toggleDish = useShoppingStore((s) => s.toggleDish);
 
   const [keyword, setKeyword] = useState('');
+  // plan 模式本地多选：不在 store 里（因为 plan 是一次性往某天塞菜，不持久化选择）
+  const [planSelectedIds, setPlanSelectedIds] = useState<string[]>([]);
   const inputRef = useRef<InputRef>(null);
 
   // 移动端进入即聚焦，省一次点击；桌面上也会自动聚焦
@@ -67,30 +69,50 @@ export default function Search() {
     else navigate('/menu');
   };
 
-  const handlePick = async (dish: Dish) => {
+  const handlePick = (dish: Dish) => {
     if (mode === 'browse') {
       navigate('/menu/' + dish.id);
       return;
     }
     if (mode === 'plan') {
-      if (!day) {
-        message.error('没拿到日期，请返回菜单重试');
-        return;
-      }
-      await addDishToDay(day, dish.id);
-      message.success(`已把「${dish.name}」加进菜单`);
-      goBack();
+      // 多选：点一下 toggle 选中 / 取消，留在页面继续挑下一道
+      setPlanSelectedIds((prev) =>
+        prev.includes(dish.id) ? prev.filter((x) => x !== dish.id) : [...prev, dish.id]
+      );
       return;
     }
     // shopping：勾选 / 取消勾选，留在页面方便连续加菜
-    const picked = selectedDishIds.includes(dish.id);
-    await toggleDish(dish.id);
-    if (picked) message.success(`已移出「${dish.name}」`);
-    else message.success(`已把「${dish.name}」加入采购清单`);
+    void toggleDish(dish.id);
+  };
+
+  /** plan 模式点「完成」：把选中的菜全部加进那天，再返回 */
+  const handlePlanDone = async () => {
+    if (planSelectedIds.length === 0) {
+      goBack();
+      return;
+    }
+    if (!day) {
+      message.error('没拿到日期，请返回菜单重试');
+      return;
+    }
+    // 逐个加，await 不阻塞循环（store 内部应该是 O(1)），但让 message 只弹一次
+    for (const id of planSelectedIds) {
+      await addDishToDay(day, id);
+    }
+    message.success(`已把 ${planSelectedIds.length} 道菜加进 ${day} 的菜单`);
+    goBack();
   };
 
   const headerAction =
-    mode === 'shopping' ? (
+    mode === 'plan' ? (
+      <button
+        type="button"
+        onClick={() => void handlePlanDone()}
+        style={actionStyle}
+      >
+        {planSelectedIds.length > 0 ? `完成 ${planSelectedIds.length}` : '完成'}
+      </button>
+    ) : mode === 'shopping' ? (
       <button type="button" onClick={goBack} style={actionStyle}>
         完成
       </button>
@@ -101,7 +123,9 @@ export default function Search() {
     );
 
   const placeholder =
-    mode === 'plan' ? '搜菜名或标签，点一下加进这一天的菜单' : '搜菜名或标签（如：番茄、汤、快手）';
+    mode === 'plan'
+      ? `搜菜名或标签，挑好后点右上角完成加进 ${day || '这一天'}`
+      : '搜菜名或标签（如：番茄、汤、快手）';
 
   return (
     <div>
@@ -126,6 +150,7 @@ export default function Search() {
         <Input
           ref={inputRef}
           allowClear
+          className="app-search"
           prefix={<SearchOutlined style={{ color: '#b8b2aa' }} />}
           placeholder={placeholder}
           value={keyword}
@@ -148,8 +173,13 @@ export default function Search() {
           }}
         >
           {mode === 'plan'
-            ? `点菜品即可加进 ${day || '这一天的'} 菜单`
+            ? `点菜品勾选，挑好后点「完成」一次性加进 ${day || '这一天'}`
             : '点菜品勾选进采购清单，可连续选择多个'}
+          {mode === 'plan' && planSelectedIds.length > 0 && (
+            <Tag color="orange" style={{ marginInlineEnd: 0 }}>
+              已选 {planSelectedIds.length} 道
+            </Tag>
+          )}
           {mode === 'shopping' && selectedDishIds.length > 0 && (
             <Tag color="orange" style={{ marginInlineEnd: 0 }}>
               已选 {selectedDishIds.length} 道
@@ -169,7 +199,13 @@ export default function Search() {
       ) : (
         <div style={{ background: '#fff', borderRadius: 14, overflow: 'hidden' }}>
           {results.map((dish, i) => {
-            const picked = mode === 'shopping' && selectedDishIds.includes(dish.id);
+            // plan 和 shopping 都用「打勾圆圈」的选中态，来源不同
+            const picked =
+              mode === 'plan'
+                ? planSelectedIds.includes(dish.id)
+                : mode === 'shopping'
+                  ? selectedDishIds.includes(dish.id)
+                  : false;
             const cost = calcDishCost(dish, ingredients);
             return (
               <div
@@ -184,6 +220,12 @@ export default function Search() {
                   padding: '12px 12px',
                   borderTop: i === 0 ? undefined : '1px solid #f6f2ec',
                   cursor: 'pointer',
+                  // 选中态：整行浅橙底 + 品牌橙描边（原来那层 '1px solid #f6f2ec' 会被 border 覆盖，
+                  // 所以这里只在选中时给一个完整的外框）
+                  background: picked ? '#FFF6EC' : undefined,
+                  border: picked ? '1px solid #F3C9AF' : undefined,
+                  borderRadius: picked ? 10 : undefined,
+                  margin: picked ? '2px 0' : undefined,
                 }}
               >
                 {dish.coverImage ? (
@@ -224,8 +266,8 @@ export default function Search() {
                     <span
                       style={{
                         fontSize: 15,
-                        fontWeight: 600,
-                        color: '#2D2A26',
+                        fontWeight: picked ? 700 : 600,
+                        color: picked ? '#E8743C' : '#2D2A26',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
@@ -249,7 +291,7 @@ export default function Search() {
                   )}
                 </div>
 
-                {mode === 'shopping' && (
+                {(mode === 'plan' || mode === 'shopping') && (
                   <div
                     style={{
                       width: 24,

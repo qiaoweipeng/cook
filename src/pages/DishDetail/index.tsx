@@ -225,7 +225,8 @@ export default function DishDetail() {
               onClick={() => navigate('/search')}
               style={{
                 width: '100%',
-                height: 32,
+                // 全站搜索框统一 36px（见 index.css 的 .app-search）
+                height: 36,
                 display: 'flex',
                 alignItems: 'center',
                 gap: 6,

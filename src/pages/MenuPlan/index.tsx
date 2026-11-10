@@ -36,6 +36,7 @@ import {
   FileTextOutlined,
   WalletOutlined,
 } from '@ant-design/icons';
+import { Popup } from 'antd-mobile';
 import dayjs, { type Dayjs } from 'dayjs';
 import { Link, useNavigate } from 'react-router-dom';
 import { resolveImageUrl } from '@/lib/imageStorage';
@@ -216,6 +217,40 @@ export default function MenuPlan() {
   const todayCost = todayDishes.reduce((sum, d) => sum + calcDishCost(d, ingredients), 0);
   const todayMinutes = todayDishes.reduce((sum, d) => sum + (d.cookTimeMin ?? 0), 0);
 
+  // 范围统计（跟随 view 走，用于三个视图都显示的统计卡）
+  const rangeDays: Dayjs[] = useMemo(() => {
+    if (view === 'day') return [todayDate];
+    if (view === 'week') return days; // 跟 weekAnchor 对齐，翻周后也对
+    // 本月：monthAnchor 所在月的所有格（过滤掉上/下月的灰色格子）
+    return monthGrid.filter((d) => isSameMonth(d, monthAnchor));
+  }, [view, days, monthGrid, monthAnchor, todayDate]);
+
+  const rangeDishCount = useMemo(
+    () => rangeDays.reduce((s, d) => s + dishesOf(dayKey(d)).length, 0),
+    [rangeDays, plans]
+  );
+  const rangeCost = useMemo(
+    () =>
+      rangeDays.reduce(
+        (s, d) =>
+          s + dishesOf(dayKey(d)).reduce((ss, dd) => ss + calcDishCost(dd, ingredients), 0),
+        0
+      ),
+    [rangeDays, plans, ingredients]
+  );
+  const rangeMinutes = useMemo(
+    () =>
+      rangeDays.reduce(
+        (s, d) =>
+          s + dishesOf(dayKey(d)).reduce((ss, dd) => ss + (dd.cookTimeMin ?? 0), 0),
+        0
+      ),
+    [rangeDays, plans]
+  );
+
+  // 移动端弹框：点日历上的某一天时滑出底部弹框，展示当天菜品
+  const [dayPopupDay, setDayPopupDay] = useState<string | null>(null);
+
   /** 周/月视图标题里的统计：跟着当前翻到的那一页 */
   const viewDishCount = days.reduce((sum, d) => sum + dishesOf(dayKey(d)).length, 0);
   const viewDaysWithPlan = monthGrid.filter(
@@ -302,8 +337,22 @@ export default function MenuPlan() {
       : `「${family?.adminName}的家庭」共享菜单`
     : '';
 
-  /** 周视图 / 月视图顶部那条：← 范围 → + 回到本周/本月 */
+  /** 今日 / 周视图 / 月视图顶部那条卡片（移动端三个视图都显示） */
   const rangeBar = (() => {
+    if (view === 'day') {
+      return (
+        <div style={rangeBarStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Text style={{ fontSize: 15, fontWeight: 600, color: '#2D2A26' }}>
+              今天 · {formatMonthDay(todayDate)} · {weekdayLabel(todayDate)}
+            </Text>
+          </div>
+          <span style={{ color: '#888', fontSize: 13 }}>
+            {todayDishes.length === 0 ? '还没安排菜，点日历上的今天或「添加」开始吧' : `已安排 ${todayDishes.length} 道菜`}
+          </span>
+        </div>
+      );
+    }
     if (view === 'week') {
       return (
         <div style={rangeBarStyle}>
@@ -522,28 +571,22 @@ export default function MenuPlan() {
   return (
     <div>
       {/*
-        顶部：标题 + 日期（日期的全页唯一一处）+ 个人/家庭切换，下面接三段视图切换。
-        今日视图接下来还会渲染一张「今日概览」卡（白底、三列统计），但它**不**再写日期。
-        周/月视图切换到别的视图后那张卡自动消失。
+        顶部：移动端大幅精简 —— 去掉「今日菜单」大标题和日期副标题；
+        只留右上角的家庭 Switch + 历史记录按钮，再下面是「今日 / 本周 / 本月」三段。
+
+        桌面端保持原样（标题 + 日期 + 家庭 Switch + 历史记录 + Segmented 铺满）。
       */}
-      <div style={{ marginBottom: 18 }}>
+      {isMobile ? (
         <div
           style={{
+            marginBottom: 14,
             display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            gap: 12,
+            flexDirection: 'column',
+            gap: 10,
           }}
         >
-          <div style={{ minWidth: 0 }}>
-            <Text style={{ fontSize: 24, fontWeight: 700, color: '#2A2119' }}>今日菜单</Text>
-            <div style={{ color: '#8C7C6C', marginTop: 4, fontSize: 13 }}>
-              {dateLine}
-              {familyHint && ` · ${familyHint}`}
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          {/* 第一行：家庭 + 历史记录（右对齐） */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
             {familyReadOnly && <Tag>仅查看</Tag>}
             {familyMode && (
               <Button size="small" onClick={() => setHistoryOpen(true)}>
@@ -568,210 +611,257 @@ export default function MenuPlan() {
               />
             </Tooltip>
           </div>
-        </div>
 
-        <div style={{ marginTop: 14 }}>
-          <Segmented
-            value={view}
-            onChange={(v) => switchView(v as ViewMode)}
-            block={isMobile}
-            options={[
+          {/*
+            第二行：今日 / 本周 / 本月 —— 三等分，用自定义 div 代替 antd Segmented
+            （antd 的 block 会拉满整行，但我们要的就是三等分，自定义更直观）。
+            选中那段用品牌橙底 + 白字高亮。
+          */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 6,
+              background: '#f0ebe4',
+              borderRadius: 10,
+              padding: 4,
+            }}
+          >
+            {([
               { label: '今日', value: 'day' },
               { label: '本周', value: 'week' },
               { label: '本月', value: 'month' },
-            ]}
-          />
-        </div>
-      </div>
-
-      {/*
-        —— 今日视图：今日概览卡（参考稿样式：白底圆角 + 三列统计 + 中间竖分隔线）——
-        放回这三个统计（今天几道菜 / 预估花费 / 预计耗时）——
-        参考稿就是这样的：顶部一个汇总卡，下接菜品列表，不是冗余。
-        这里**不**再写日期，全页日期只在标题下面那行报一次。
-      */}
-      {view === 'day' && (
-        <div
-          style={{
-            background: '#fff',
-            borderRadius: 20,
-            padding: 16,
-            marginBottom: 16,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            boxShadow: '0 2px 12px rgba(120, 102, 84, 0.06)',
-          }}
-        >
-          {/* 列 1：今日菜品（参考稿图标底色 #FBEDE3） */}
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 13,
-                background: '#FBEDE3',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#E8743C',
-                fontSize: 18,
-              }}
-            >
-              <FileTextOutlined />
-            </div>
-            <div style={{ fontSize: 19, fontWeight: 700, color: '#2A2119' }}>
-              {todayDishes.length} 道
-            </div>
-            <div style={{ fontSize: 12, color: '#8C7C6C' }}>今日菜品</div>
-          </div>
-
-          {/* 分隔线 1 */}
-          <div style={{ width: 1, height: 40, background: '#F0EBE4' }} />
-
-          {/* 列 2：预估花费（参考稿图标底色 #FAF1E2） */}
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 13,
-                background: '#FAF1E2',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#C08A2E',
-                fontSize: 18,
-              }}
-            >
-              <WalletOutlined />
-            </div>
-            <div style={{ fontSize: 19, fontWeight: 700, color: '#2A2119' }}>
-              <PriceTag value={todayCost} size="small" />
-            </div>
-            <div style={{ fontSize: 12, color: '#8C7C6C' }}>预估花费</div>
-          </div>
-
-          {/* 分隔线 2 */}
-          <div style={{ width: 1, height: 40, background: '#F0EBE4' }} />
-
-          {/* 列 3：预计耗时（参考稿图标底色 #EDF2E6） */}
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 13,
-                background: '#EDF2E6',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#6B8B5C',
-                fontSize: 18,
-              }}
-            >
-              <ClockCircleOutlined />
-            </div>
-            <div style={{ fontSize: 19, fontWeight: 700, color: '#2A2119' }}>
-              {todayMinutes}
-              <span style={{ fontSize: 13, fontWeight: 500 }}> 分</span>
-            </div>
-            <div style={{ fontSize: 12, color: '#8C7C6C' }}>预计耗时</div>
-          </div>
-        </div>
-      )}
-
-      {/* 周/月视图的翻页条（今日视图不显示） */}
-      {rangeBar}
-
-      {/* —— 周视图：周一 ~ 周日 —— */}
-      {view === 'week' && (
-        <div style={WEEK_STRIP_STYLE}>
-          {days.map((d, i) => {
-            const key = dayKey(d);
-            const isToday = key === todayKey;
-            const selected = key === selectedDay;
-            const dayDishes = dishesOf(key);
-            return (
-              <div key={key} onClick={() => setSelectedDay(key)} style={dayBoxStyle(selected, isToday)}>
-                <div
+            ] as { label: string; value: ViewMode }[]).map((opt) => {
+              const active = view === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => switchView(opt.value)}
                   style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: 4,
+                    padding: '7px 0',
+                    fontSize: 14,
+                    fontWeight: active ? 600 : 500,
+                    color: active ? '#fff' : '#8C7C6C',
+                    background: active ? '#E8743C' : 'transparent',
+                    border: 'none',
+                    borderRadius: 7,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
                   }}
                 >
-                  <span style={{ fontWeight: 600, color: selected ? '#E8743C' : '#2D2A26' }}>
-                    {WEEKDAY_LABELS[i]}
-                  </span>
-                  {isToday && (
-                    <Tag color="orange" style={{ margin: 0, fontSize: 11, lineHeight: '18px' }}>
-                      今天
-                    </Tag>
-                  )}
-                </div>
-                <div style={{ fontSize: 12, color: '#999', marginBottom: 8 }}>{d.format('M/D')}</div>
-                {dayDishes.length === 0 ? (
-                  <div style={{ fontSize: 12, color: '#ccc' }}>还没安排</div>
-                ) : (
-                  dayDishes.slice(0, 3).map((dish) => (
-                    <div
-                      key={dish.id}
-                      style={{
-                        fontSize: 12,
-                        color: '#666',
-                        background: '#FAF7F2',
-                        borderRadius: 6,
-                        padding: '2px 6px',
-                        marginBottom: 4,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                      title={dish.name}
-                    >
-                      {dish.name}
-                    </div>
-                  ))
-                )}
-                {dayDishes.length > 3 && (
-                  <div style={{ fontSize: 12, color: '#bbb' }}>+{dayDishes.length - 3} 道</div>
-                )}
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div style={{ marginBottom: 18 }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              gap: 12,
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <Text style={{ fontSize: 24, fontWeight: 700, color: '#2A2119' }}>今日菜单</Text>
+              <div style={{ color: '#8C7C6C', marginTop: 4, fontSize: 13 }}>
+                {dateLine}
+                {familyHint && ` · ${familyHint}`}
               </div>
-            );
-          })}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              {familyReadOnly && <Tag>仅查看</Tag>}
+              {familyMode && (
+                <Button size="small" onClick={() => setHistoryOpen(true)}>
+                  历史记录
+                </Button>
+              )}
+              <Tooltip
+                title={
+                  family
+                    ? familyMode
+                      ? `正在查看「${family.adminName}的家庭」共享菜单，点一下切回个人菜单`
+                      : `切到「${family.adminName}的家庭」共享菜单（和家人看到同一份）`
+                    : '先在右上角头像菜单「我的家庭」里创建或加入家庭'
+                }
+              >
+                <Switch
+                  checked={familyMode}
+                  disabled={!family}
+                  checkedChildren="家庭"
+                  unCheckedChildren="个人"
+                  onChange={(v) => setMode(v ? 'family' : 'personal')}
+                />
+              </Tooltip>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 14 }}>
+            <Segmented
+              value={view}
+              onChange={(v) => switchView(v as ViewMode)}
+              block={false}
+              options={[
+                { label: '今日', value: 'day' },
+                { label: '本周', value: 'week' },
+                { label: '本月', value: 'month' },
+              ]}
+            />
+          </div>
         </div>
       )}
 
-      {/* —— 月视图：整月日历 —— */}
-      {view === 'month' && (
-        <div style={{ marginBottom: 20 }}>
-          <div style={gridStyle(isMobile)}>
+      {/*
+        —— 统计卡（三列：菜数 / 花费 / 耗时）——
+        移动端：三个 view 都显示，文案跟随 view 变成「今日/本周/本月」。
+        桌面端：保持原样 —— 只有 view='day' 才渲染这张卡。
+      */}
+      {(isMobile || view === 'day') &&
+        (() => {
+          const label =
+            view === 'day' ? '今日菜品' : view === 'week' ? '本周菜品' : '本月菜品';
+          const costLabel = '预估花费';
+          const timeLabel = '预计耗时';
+          const dishCount = isMobile ? rangeDishCount : todayDishes.length;
+          const cost = isMobile ? rangeCost : todayCost;
+          const minutes = isMobile ? rangeMinutes : todayMinutes;
+
+          return (
+            <div
+              style={{
+                background: '#fff',
+                borderRadius: 20,
+                padding: 16,
+                marginBottom: 16,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                boxShadow: '0 2px 12px rgba(120, 102, 84, 0.06)',
+              }}
+            >
+              {/* 列 1：菜品数 */}
+              <div
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 13,
+                    background: '#FBEDE3',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#E8743C',
+                    fontSize: 18,
+                  }}
+                >
+                  <FileTextOutlined />
+                </div>
+                <div style={{ fontSize: 19, fontWeight: 700, color: '#2A2119' }}>
+                  {dishCount} 道
+                </div>
+                <div style={{ fontSize: 12, color: '#8C7C6C' }}>{label}</div>
+              </div>
+
+              {/* 分隔线 1 */}
+              <div style={{ width: 1, height: 40, background: '#F0EBE4' }} />
+
+              {/* 列 2：预估花费 */}
+              <div
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 13,
+                    background: '#FAF1E2',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#C08A2E',
+                    fontSize: 18,
+                  }}
+                >
+                  <WalletOutlined />
+                </div>
+                <div style={{ fontSize: 19, fontWeight: 700, color: '#2A2119' }}>
+                  <PriceTag value={cost} size="small" />
+                </div>
+                <div style={{ fontSize: 12, color: '#8C7C6C' }}>{costLabel}</div>
+              </div>
+
+              {/* 分隔线 2 */}
+              <div style={{ width: 1, height: 40, background: '#F0EBE4' }} />
+
+              {/* 列 3：预计耗时 */}
+              <div
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 13,
+                    background: '#EDF2E6',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#6B8B5C',
+                    fontSize: 18,
+                  }}
+                >
+                  <ClockCircleOutlined />
+                </div>
+                <div style={{ fontSize: 19, fontWeight: 700, color: '#2A2119' }}>
+                  {minutes}
+                  <span style={{ fontSize: 13, fontWeight: 500 }}> 分</span>
+                </div>
+                <div style={{ fontSize: 12, color: '#8C7C6C' }}>{timeLabel}</div>
+              </div>
+            </div>
+          );
+        })()}
+
+      {/* 今日/周/月视图上面的范围卡片（三个视图都显示） */}
+      {rangeBar}
+
+      {/*
+        —— 移动端：月历常驻渲染 ——
+        不管 view 是 day / week / month，底下都是同一张月历，
+        只是高亮范围不同：
+          - view='day'  → 今天那格描品牌橙边 + 浅橙底
+          - view='week'  → 本周年份的 7 格一起描边 + 底
+          - view='month' → 本月所有格浅橙底（今天额外橙底白字）
+
+        桌面端保持原样（周条 + 条件渲染月视图）。
+      */}
+      {isMobile ? (
+        <div style={{ marginBottom: 16 }}>
+          <div style={gridStyle(true)}>
             {WEEKDAY_LABELS.map((label) => (
               <div
                 key={label}
@@ -786,18 +876,52 @@ export default function MenuPlan() {
               </div>
             ))}
           </div>
-          <div style={gridStyle(isMobile)}>
+          <div style={gridStyle(true)}>
             {monthGrid.map((d) => {
               const key = dayKey(d);
               const isToday = key === todayKey;
-              const selected = key === selectedDay;
-              const inMonth = isSameMonth(d, todayDate);
+              const inMonth = isSameMonth(d, monthAnchor);
               const dayDishes = dishesOf(key);
+
+              // 高亮逻辑：view 决定这一格要不要进高亮范围
+              const inHighlightRange = (() => {
+                if (view === 'day') return key === todayKey;
+                if (view === 'week') return days.some((wk) => dayKey(wk) === key);
+                // month：anchor 月内全部高亮
+                return inMonth;
+              })();
+
+              // 今天永远高亮（有今天那个圆点），叠加上面的 range 高亮
+              const borderColor = isToday
+                ? '#E8743C'
+                : inHighlightRange
+                  ? '#F3C9AF'
+                  : '#f0ebe4';
+              const cellBg = isToday
+                ? '#FFF6EC'
+                : inHighlightRange
+                  ? '#FFF1E8'
+                  : '#fff';
+
               return (
                 <div
                   key={key}
-                  onClick={() => setSelectedDay(key)}
-                  style={monthCellStyle(selected, isToday, inMonth, isMobile)}
+                  onClick={() => {
+                    // 同时更新 selectedDay（让弹框里的添加/删除/清空函数拿到正确日期）
+                    setSelectedDay(key);
+                    setDayPopupDay(key);
+                  }}
+                  style={{
+                    height: 62,
+                    borderRadius: 10,
+                    border: `1.5px solid ${borderColor}`,
+                    background: cellBg,
+                    padding: '4px 4px 2px',
+                    cursor: 'pointer',
+                    overflow: 'hidden',
+                    opacity: inMonth ? 1 : 0.42,
+                    transition: 'all 0.15s',
+                  }}
                 >
                   <div
                     style={{
@@ -808,13 +932,13 @@ export default function MenuPlan() {
                   >
                     <span
                       style={{
-                        fontSize: isMobile ? 12 : 13,
+                        fontSize: 12,
                         fontWeight: isToday ? 700 : 500,
                         color: isToday ? '#fff' : '#2D2A26',
                         background: isToday ? '#E8743C' : 'transparent',
                         borderRadius: '50%',
-                        width: isMobile ? 18 : 20,
-                        height: isMobile ? 18 : 20,
+                        width: 18,
+                        height: 18,
                         display: 'inline-flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -826,26 +950,8 @@ export default function MenuPlan() {
                       <span style={{ fontSize: 10, color: '#E8743C' }}>{dayDishes.length} 道</span>
                     )}
                   </div>
-                  {dayDishes.length > 0 && !isMobile && (
-                    <div
-                      style={{
-                        marginTop: 4,
-                        fontSize: 11,
-                        color: '#666',
-                        background: '#FAF7F2',
-                        borderRadius: 5,
-                        padding: '2px 4px',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                      title={dayDishes.map((x) => x.name).join('、')}
-                    >
-                      {dayDishes[0].name}
-                    </div>
-                  )}
                   {dayDishes.length === 0 && (
-                    <div style={{ marginTop: isMobile ? 2 : 4 }}>
+                    <div style={{ marginTop: 2 }}>
                       <ClockCircleOutlined style={{ fontSize: 10, color: '#e6e0d8' }} />
                     </div>
                   )}
@@ -854,10 +960,175 @@ export default function MenuPlan() {
             })}
           </div>
         </div>
+      ) : (
+        <>
+          {/* —— 周视图：周一 ~ 周日 —— */}
+          {view === 'week' && (
+            <div style={WEEK_STRIP_STYLE}>
+              {days.map((d, i) => {
+                const key = dayKey(d);
+                const isToday = key === todayKey;
+                const selected = key === selectedDay;
+                const dayDishes = dishesOf(key);
+                return (
+                  <div
+                    key={key}
+                    onClick={() => setSelectedDay(key)}
+                    style={dayBoxStyle(selected, isToday)}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: 4,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontWeight: 600,
+                          color: selected ? '#E8743C' : '#2D2A26',
+                        }}
+                      >
+                        {WEEKDAY_LABELS[i]}
+                      </span>
+                      {isToday && (
+                        <Tag color="orange" style={{ margin: 0, fontSize: 11, lineHeight: '18px' }}>
+                          今天
+                        </Tag>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#999', marginBottom: 8 }}>
+                      {d.format('M/D')}
+                    </div>
+                    {dayDishes.length === 0 ? (
+                      <div style={{ fontSize: 12, color: '#ccc' }}>还没安排</div>
+                    ) : (
+                      dayDishes.slice(0, 3).map((dish) => (
+                        <div
+                          key={dish.id}
+                          style={{
+                            fontSize: 12,
+                            color: '#666',
+                            background: '#FAF7F2',
+                            borderRadius: 6,
+                            padding: '2px 6px',
+                            marginBottom: 4,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                          title={dish.name}
+                        >
+                          {dish.name}
+                        </div>
+                      ))
+                    )}
+                    {dayDishes.length > 3 && (
+                      <div style={{ fontSize: 12, color: '#bbb' }}>
+                        +{dayDishes.length - 3} 道
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* —— 月视图：整月日历 —— */}
+          {view === 'month' && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={gridStyle(isMobile)}>
+                {WEEKDAY_LABELS.map((label) => (
+                  <div
+                    key={label}
+                    style={{
+                      textAlign: 'center',
+                      fontSize: 12,
+                      color: '#999',
+                      paddingBottom: 4,
+                    }}
+                  >
+                    {label}
+                  </div>
+                ))}
+              </div>
+              <div style={gridStyle(isMobile)}>
+                {monthGrid.map((d) => {
+                  const key = dayKey(d);
+                  const isToday = key === todayKey;
+                  const selected = key === selectedDay;
+                  const inMonth = isSameMonth(d, todayDate);
+                  const dayDishes = dishesOf(key);
+                  return (
+                    <div
+                      key={key}
+                      onClick={() => setSelectedDay(key)}
+                      style={monthCellStyle(selected, isToday, inMonth, isMobile)}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: isMobile ? 12 : 13,
+                            fontWeight: isToday ? 700 : 500,
+                            color: isToday ? '#fff' : '#2D2A26',
+                            background: isToday ? '#E8743C' : 'transparent',
+                            borderRadius: '50%',
+                            width: isMobile ? 18 : 20,
+                            height: isMobile ? 18 : 20,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          {d.date()}
+                        </span>
+                        {dayDishes.length > 0 && (
+                          <span style={{ fontSize: 10, color: '#E8743C' }}>
+                            {dayDishes.length} 道
+                          </span>
+                        )}
+                      </div>
+                      {dayDishes.length > 0 && !isMobile && (
+                        <div
+                          style={{
+                            marginTop: 4,
+                            fontSize: 11,
+                            color: '#666',
+                            background: '#FAF7F2',
+                            borderRadius: 5,
+                            padding: '2px 4px',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                          title={dayDishes.map((x) => x.name).join('、')}
+                        >
+                          {dayDishes[0].name}
+                        </div>
+                      )}
+                      {dayDishes.length === 0 && (
+                        <div style={{ marginTop: isMobile ? 2 : 4 }}>
+                          <ClockCircleOutlined style={{ fontSize: 10, color: '#e6e0d8' }} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
-      {/* 选中那天的详情（三视图共用） */}
-      {dayDetail}
+      {/* 选中那天的详情（三视图共用）—— 桌面端保留，移动端隐藏（弹框里有） */}
+      {!isMobile && dayDetail}
 
       {/* 添加菜品弹窗 */}
       <Modal
@@ -873,6 +1144,7 @@ export default function MenuPlan() {
         <Input
           allowClear
           autoFocus
+          className="app-search"
           prefix={<SearchOutlined />}
           placeholder="搜索菜名或标签"
           value={keyword}
@@ -916,6 +1188,156 @@ export default function MenuPlan() {
 
       {/* 家庭菜单修改历史 */}
       <FamilyMenuHistory open={historyOpen} onClose={() => setHistoryOpen(false)} />
+
+      {/*
+        移动端：点日历上的某一天 → 底部弹框展示当天菜品。
+        这样整个移动端首页不用塞下所有日期的菜品，只管看一眼、选一天、弹出来处理。
+      */}
+      <Popup
+        visible={dayPopupDay !== null}
+        onMaskClick={() => setDayPopupDay(null)}
+        bodyStyle={{
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+          maxHeight: '78vh',
+          overflow: 'auto',
+          padding: '14px 16px 24px',
+        }}
+      >
+        {dayPopupDay && (
+          <>
+            {/* 弹框头部：日期 + 关闭 + 添加 */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: 10,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
+                <span style={{ fontSize: 18, fontWeight: 700, color: '#2D2A26' }}>
+                  {formatMonthDay(selectedDate)}
+                </span>
+                <span style={{ color: '#8C7C6C', fontSize: 13 }}>
+                  {weekdayLabel(selectedDate)} · 共 {selectedDishes.length} 道
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                {!familyReadOnly && (
+                  <Button
+                    size="small"
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    onClick={() => {
+                      navigate(`/search?mode=plan&day=${selectedDay}`);
+                    }}
+                  >
+                    添加
+                  </Button>
+                )}
+                <Button size="small" onClick={() => setDayPopupDay(null)}>
+                  关闭
+                </Button>
+              </div>
+            </div>
+
+            {selectedDishes.length === 0 ? (
+              <Empty
+                description={
+                  familyReadOnly
+                    ? '这一天还没安排（你只有查看权限）'
+                    : selectedIsToday
+                      ? '今天还没想好吃什么，点「添加」安排上'
+                      : '这一天还没安排，点「添加」加两道'
+                }
+                style={{ marginTop: 24 }}
+              />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {selectedDishes.map((dish) => (
+                  <div
+                    key={dish.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      background: '#fff',
+                      border: '1px solid #f0ebe4',
+                      borderRadius: 14,
+                      padding: 10,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 10,
+                        overflow: 'hidden',
+                        flexShrink: 0,
+                        background: '#f0eee9',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#E8743C',
+                        fontSize: 18,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {dish.coverImage ? (
+                        <img
+                          src={resolveImageUrl(dish.coverImage)}
+                          alt={dish.name}
+                          loading="lazy"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        dish.name.slice(0, 1)
+                      )}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <Link
+                        to={`/menu/${dish.id}`}
+                        onClick={() => setDayPopupDay(null)}
+                        style={{ fontSize: 15, fontWeight: 600, color: '#2D2A26' }}
+                      >
+                        {dish.name}
+                      </Link>
+                      <div style={{ color: '#8C7C6C', fontSize: 12, marginTop: 3 }}>
+                        {dish.category} · {dish.cookTimeMin} 分钟 · 难度 {dish.difficulty}/3
+                      </div>
+                    </div>
+                    <PriceTag value={calcDishCost(dish, ingredients)} size="small" />
+                    {!familyReadOnly && (
+                      <Button
+                        type="text"
+                        danger
+                        size="small"
+                        icon={<DeleteOutlined />}
+                        onClick={() => handleRemove(dish)}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 清空整天：放在底部，避免误触 */}
+            {!familyReadOnly && selectedDishes.length > 0 && (
+              <Popconfirm
+                title={`清空 ${formatMonthDay(selectedDate)} 的菜单？`}
+                okText="清空"
+                cancelText="取消"
+                onConfirm={() => handleClear().then(() => setDayPopupDay(null))}
+              >
+                <Button type="text" danger size="small" style={{ marginTop: 12 }}>
+                  清空这一天
+                </Button>
+              </Popconfirm>
+            )}
+          </>
+        )}
+      </Popup>
     </div>
   );
 }

@@ -402,6 +402,62 @@ textarea,
 }
 
 /*
+  全站搜索框统一高度。
+  首页的假输入框、独立搜索页、今日菜单添加弹窗、食材库、采购清单选菜、
+  菜品详情顶栏 —— 之前有的用 antd 默认高度、有的手写 height，
+  实际渲染出来差几个像素，这一处统一成 36px。
+  同时清掉输入框/搜索按钮的上下内边距，避免内容把高度重新撑开。
+*/
+/*
+  所有加了 className="app-search" 的搜索框，不管是 Input / Input.Search / 还是其他变体，
+  统一成 36px 高。antd 的 className 挂载层在不同组件上不一样：
+    - Input:           挂在 .ant-input 上
+    - Input prefix={}:  挂在 .ant-input-affix-wrapper 上
+    - Input.Search:     挂在最外层 .ant-input-search div 上，里面还包了 group-wrapper → input-wrapper → affix-wrapper
+  所以这里用「所有可能层 + :has() 兜底」双向覆盖，确保不管 antd 把 className 挂哪一层，
+  36px 都能一路传进去。
+*/
+
+/* 入口 1：class 直接挂在那层（ant-input / affix-wrapper 等） */
+.app-search,
+.app-search.ant-input,
+.app-search.ant-input-affix-wrapper,
+.app-search.ant-input-group-wrapper,
+.app-search.ant-input-wrapper,
+.app-search.ant-input-search {
+  height: 36px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  line-height: 36px !important;
+}
+
+/* 入口 2：Input.Search 的 class 挂在 .ant-input-search 最外层
+   —— 里面所有子层（group-wrapper / input-wrapper / affix-wrapper / input）全部强制 36px */
+.app-search.ant-input-search *,
+.app-search.ant-input-search .ant-input-group-wrapper,
+.app-search.ant-input-search .ant-input-wrapper,
+.app-search.ant-input-search .ant-input-affix-wrapper,
+.app-search.ant-input-search .ant-input {
+  height: 36px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+/* 兜底：用 :has() 反查（兼容 antd 把 className 挂到最内层 input 的情况） */
+.ant-input-group-wrapper:has(.app-search),
+.ant-input-wrapper:has(.app-search),
+.ant-input-affix-wrapper:has(.app-search),
+.ant-input-search:has(.app-search) {
+  height: 36px !important;
+}
+
+/* 搜索按钮（放大镜图标那个按钮）—— 和输入框同高 */
+.app-search .ant-input-search-button,
+.ant-input-search:has(.app-search) .ant-input-search-button {
+  height: 36px !important;
+}
+
+/*
   圆形图标按钮（.icon-btn）里的 antd 图标会往下沉、贴着底部。
 
   原因是 antd 给 .anticon 设了 line-height: 0 和 vertical-align: -0.125em ——

@@ -495,25 +495,46 @@ export default function Ingredients() {
       {isMobile ? (
         <>
           {/* 移动端：只留搜索框 + 左侧分类导航 + 右侧条目卡列表（不用表格，避免文字被压缩看不清） */}
-          <Input.Search
-            placeholder="搜食材名"
-            allowClear
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            style={{ width: '100%', marginBottom: 10 }}
-          />
+          {/*
+            搜索框常驻吸顶：列表往下翻的时候也能随时改关键词。
+            负外边距 + safe-area 的处理和首页吸顶栏一致，横贯全屏、不被状态栏压住。
+          */}
+          <div
+            style={{
+              position: 'sticky',
+              top: 0,
+              zIndex: 6,
+              marginTop: 'calc(-16px - env(safe-area-inset-top))',
+              marginLeft: -12,
+              marginRight: -12,
+              padding: 'calc(10px + env(safe-area-inset-top)) 12px 10px',
+              background: 'rgba(255, 255, 255, 0.92)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+            }}
+          >
+            <Input.Search
+              className="app-search"
+              placeholder="搜食材名"
+              allowClear
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              style={{ width: '100%' }}
+            />
+          </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
             <div
               style={{
                 flexShrink: 0,
                 position: 'sticky',
-                top: 0,
+                // 顶部让出吸顶搜索栏的高度（36 高 + 上下各 10 内边距），否则会被搜索栏盖住
+                top: 'calc(56px + env(safe-area-inset-top))',
                 zIndex: 5,
                 borderRadius: 10,
                 overflow: 'hidden',
                 // 给一个接近整屏的高度：分类少的时候左边只占一截、下面空一大块，看着像没做完。
                 // 分类多的时候 SideBar 自己内部滚动，不会顶出屏幕。
-                height: 'calc(100vh - 150px)',
+                height: 'calc(100vh - 206px)',
                 border: '1px solid #f5ede4',
               }}
             >
