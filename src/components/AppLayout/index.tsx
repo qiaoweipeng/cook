@@ -311,7 +311,7 @@ export default function AppLayout() {
           // env(safe-area-inset-top) 在 Android 和普通浏览器里是 0，所以不会影响那边的布局。
           paddingTop: isMobile ? 'calc(16px + env(safe-area-inset-top))' : undefined,
           // 给底部导航留出空间（约 50px 导航 + 安全区）
-          paddingBottom: showMobileNav ? 'calc(78px + env(safe-area-inset-bottom))' : undefined,
+          paddingBottom: showMobileNav ? 'calc(64px + env(safe-area-inset-bottom))' : undefined,
           maxWidth: mobileLayout ? '100%' : 1200,
           margin: '0 auto',
           width: '100%',

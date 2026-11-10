@@ -93,7 +93,7 @@ export default function MobileTabBar() {
       className="mobile-tabbar glass-panel"
       style={{
         position: 'fixed',
-        bottom: 'calc(10px + env(safe-area-inset-bottom))',
+        bottom: 'calc(4px + env(safe-area-inset-bottom))',
         left: 12,
         right: 12,
         zIndex: 100,

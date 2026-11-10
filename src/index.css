@@ -191,20 +191,20 @@ a {
 /* ============ 液态玻璃（Liquid Glass）基础类 ============
    苹果 Liquid Glass 的四个视觉层：
    1. 底图模糊 + 饱和度提升（让背后颜色更鲜亮）
-   2. 半透明本体（不透明白，透出底色的暖感）
+   2. 半透明本体（极低透明度，若隐若现）
    3. 顶部高光渐变 + 内阴影（模拟光斜打在玻璃上的折射）
    4. 极细描边 + 外阴影（模拟玻璃边缘厚度）
    噪点层可选：增加磨砂质感，默认关闭（用 opacity: 0），需要磨砂时加 .glass-frosted
 */
 .glass-panel {
-  backdrop-filter: blur(18px) saturate(180%);
-  -webkit-backdrop-filter: blur(18px) saturate(180%);
-  background: rgba(255, 255, 255, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(26px) saturate(200%);
+  -webkit-backdrop-filter: blur(26px) saturate(200%);
+  background: rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.4);
   position: relative;
   box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    0 1px 2px rgba(0, 0, 0, 0.03),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 .glass-panel::before {
@@ -213,13 +213,13 @@ a {
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  /* 左上 → 右下 的高光渐变，模拟光打在玻璃表面 */
+  /* 左上 → 右下 的高光渐变，比之前淡很多，保持通透 */
   background: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.45) 0%,
-    rgba(255, 255, 255, 0.12) 40%,
-    rgba(255, 255, 255, 0) 60%,
-    rgba(255, 255, 255, 0.06) 100%
+    rgba(255, 255, 255, 0.28) 0%,
+    rgba(255, 255, 255, 0.06) 45%,
+    rgba(255, 255, 255, 0) 65%,
+    rgba(255, 255, 255, 0.04) 100%
   );
 }
 
@@ -241,16 +241,16 @@ a {
 
 /* ============ 移动端底部导航：液态玻璃胶囊 ============ */
 .mobile-tabbar.glass-panel {
-  background: rgba(255, 255, 255, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 28px;
   /* 悬浮投影：胶囊下面一层淡阴影，让它从页面内容里"浮"出来 */
   box-shadow:
-    0 8px 32px rgba(45, 42, 38, 0.08),
-    0 2px 6px rgba(45, 42, 38, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    0 6px 24px rgba(45, 42, 38, 0.06),
+    0 2px 4px rgba(45, 42, 38, 0.03),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
   /* 给 TabBar 内部留点呼吸空间，让胶囊边缘不紧贴图标 */
-  padding: 4px 8px;
+  padding: 4px 10px;
 }
 
 /* ============ 移动端底部导航：加大图标与文字间距（默认仅 2px，文字再往下一些） ============ */
