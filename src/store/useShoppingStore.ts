@@ -4,6 +4,7 @@ import { isCloudEnabled } from '@/lib/supabase';
 import { cloudList, cloudSet } from '@/lib/cloudSync';
 import { idbStorage, whenHydrated } from '@/lib/persistStorage';
 import { useAuthStore } from './useAuthStore';
+import { useDishStore } from './useDishStore';
 
 export interface ExtraItem {
   id: string;
@@ -139,29 +140,49 @@ export const useShoppingStore = create<ShoppingState>()(
       },
 
       toggleDish: async (id) => {
-        const next = get().selectedDishIds.includes(id)
-          ? get().selectedDishIds.filter((x) => x !== id)
-          : [...get().selectedDishIds, id];
-        set({ selectedDishIds: next });
+        const prev = get().selectedDishIds;
+        const isAdding = !prev.includes(id);
+        const next = isAdding ? [...prev, id] : prev.filter((x) => x !== id);
+
+        // 勾选状态存的是 ingredientId（不是「某道菜里的」食材 id），
+        // 两道菜共享同一食材时，勾了 A 的猪肉，B 的猪肉会自动勾上 —— 这不是用户要的。
+        // 解法：添加新菜 → 把这道菜里的所有 ingredientId 从 checkedKeys 里剔掉（新菜默认全不勾）；
+        //        移除菜品 → 同样把它的 ingredientId 剔掉（这道菜都不要了，勾它的食材也没意义）。
+        const dish = useDishStore.getState().items.find((d) => d.id === id);
+        let nextChecked = get().checkedKeys;
+        if (dish) {
+          const ingIds = new Set(dish.ingredients.map((di) => di.ingredientId));
+          nextChecked = nextChecked.filter((k) => !ingIds.has(k));
+        }
+
+        set({ selectedDishIds: next, checkedKeys: nextChecked });
         const me = useAuthStore.getState().user?.uid;
         if (me)
           await writeShopping(me, {
             selectedDishIds: next,
-            checkedKeys: get().checkedKeys,
+            checkedKeys: nextChecked,
             extraItems: get().extraItems,
             extraCheckedIds: get().extraCheckedIds,
           });
       },
 
       clearDishes: async () => {
-        set({ selectedDishIds: [] });
+        // 「清空」就是把采购清单重置回起点：菜品、合并食材勾选、额外项、额外项勾选一起清。
+        // 只清 selectedDishIds 会残留 checkedKeys，加回同一道菜 / 加一道含共享食材的菜时
+        // 旧的勾选 id 又会在新列表里命中，表现成「自动勾上了」——这不是用户要的。
+        set({
+          selectedDishIds: [],
+          checkedKeys: [],
+          extraItems: [],
+          extraCheckedIds: [],
+        });
         const me = useAuthStore.getState().user?.uid;
         if (me)
           await writeShopping(me, {
             selectedDishIds: [],
-            checkedKeys: get().checkedKeys,
-            extraItems: get().extraItems,
-            extraCheckedIds: get().extraCheckedIds,
+            checkedKeys: [],
+            extraItems: [],
+            extraCheckedIds: [],
           });
       },
 

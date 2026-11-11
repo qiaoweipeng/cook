@@ -27,6 +27,7 @@ import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
 import { pickImage, formatSize, IMAGE_ACCEPT } from '@/lib/imageUpload';
 import { resolveImageUrl, deleteImage } from '@/lib/imageStorage';
+import { usePasteImage } from '@/hooks/usePasteImage';
 import type { Dish, DishCategory, DishIngredient, IngredientUnit, Step } from '@/types';
 import { TAG_GROUPS } from '@/types';
 
@@ -192,6 +193,11 @@ export default function DishEditor({
       setImgProcessing(false);
     }
   };
+
+  // 编辑器打开时支持直接粘贴图片（截图 / 网页复制 / 复制的图片文件）
+  usePasteImage(open, (file) => {
+    void handlePickImage(file);
+  });
 
   /** 回滚：删掉刚上传但没能存进数据库的图，保证桶与数据库一致 */
   const rollbackUpload = async () => {
@@ -531,7 +537,7 @@ export default function DishEditor({
               </Form.Item>
 
               <Text type="secondary" style={{ fontSize: 12 }}>
-                支持 JPG / PNG / WebP 静态图，建议 3:4 竖图（上传前会自动压缩）
+                支持 JPG / PNG / WebP 静态图，建议 3:4 竖图（上传前会自动压缩）；也可以直接 Ctrl+V / ⌘V 粘贴截图
               </Text>
             </div>
           </div>

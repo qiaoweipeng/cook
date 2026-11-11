@@ -120,6 +120,27 @@ export interface Ingredient {
   legacy?: boolean;
 }
 
+/** 8 个食材分类各一种颜色，表格 / 详情里一眼区分 */
+export const CATEGORY_COLOR: Record<IngredientCategory, string> = {
+  蔬菜: 'green',
+  肉类: 'red',
+  海鲜: 'cyan',
+  调料: 'orange',
+  主食: 'gold',
+  蛋奶: 'blue',
+  水果: 'magenta',
+  其他: 'purple',
+};
+
+export const NUTRI_FIELDS = [
+  { key: 'calories', label: '热量', unit: 'kcal' },
+  { key: 'protein', label: '蛋白质', unit: 'g' },
+  { key: 'fat', label: '脂肪', unit: 'g' },
+  { key: 'carbs', label: '碳水', unit: 'g' },
+  { key: 'sodium', label: '钠', unit: 'mg' },
+  { key: 'fiber', label: '膳食纤维', unit: 'g' },
+] as const;
+
 /** 菜单（今日/本周/本月共用）：日期 key（YYYY-MM-DD）→ 当天的菜品 id 列表 */
 export type WeeklyPlans = Record<string, string[]>;
 

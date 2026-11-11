@@ -41,7 +41,9 @@ import { useIngredientStore } from '@/store/useIngredientStore';
 import { usePriceStore } from '@/store/usePriceStore';
 import { useIsAdmin } from '@/store/useAuthStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { usePasteImage } from '@/hooks/usePasteImage';
 import type { Ingredient, IngredientCategory, IngredientUnit } from '@/types';
+import { CATEGORY_COLOR, NUTRI_FIELDS } from '@/types';
 import PriceTag from '@/components/PriceTag';
 import BulkImagePairer from '@/components/BulkImagePairer';
 import { priceSpec, displayUnitPrice, pricePerBase, cheapestPlatform } from '@/utils/price';
@@ -72,18 +74,6 @@ const categories: IngredientCategory[] = [
   '其他',
 ];
 
-/** 8 个食材分类各一种颜色，表格里一眼区分 */
-const CATEGORY_COLOR: Record<IngredientCategory, string> = {
-  蔬菜: 'green',
-  肉类: 'red',
-  海鲜: 'cyan',
-  调料: 'orange',
-  主食: 'gold',
-  蛋奶: 'blue',
-  水果: 'magenta',
-  其他: 'purple',
-};
-
 /** 计价单位只有 4 个：固体 g / kg，液体 ml / L */
 const unitOptions: { value: IngredientUnit; label: string }[] = [
   { value: 'g', label: 'g 克（固体默认）' },
@@ -91,15 +81,6 @@ const unitOptions: { value: IngredientUnit; label: string }[] = [
   { value: 'ml', label: 'ml 毫升（液体默认）' },
   { value: 'L', label: 'L 升' },
 ];
-
-const NUTRI_FIELDS = [
-  { key: 'calories', label: '热量', unit: 'kcal' },
-  { key: 'protein', label: '蛋白质', unit: 'g' },
-  { key: 'fat', label: '脂肪', unit: 'g' },
-  { key: 'carbs', label: '碳水', unit: 'g' },
-  { key: 'sodium', label: '钠', unit: 'mg' },
-  { key: 'fiber', label: '膳食纤维', unit: 'g' },
-] as const;
 
 /** 平台价格在表单里平铺成 price_平台 / amount_平台 两组字段 */
 type PriceField = `price_${string}` | `amount_${string}`;
@@ -165,6 +146,11 @@ export default function Ingredients() {
       setImgProcessing(false);
     }
   };
+
+  // 编辑器打开时，支持直接把图片粘贴进来（截图 / 网页复制 / 复制的图片文件）
+  usePasteImage(editorOpen, (file) => {
+    void handlePickImage(file);
+  });
 
   // —— 导入相关 ——
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1012,7 +998,7 @@ export default function Ingredients() {
                   </Form.Item>
 
                   <Text type="secondary" style={{ fontSize: 12 }}>
-                    支持 JPG / PNG / WebP 静态图，上传前会自动压缩
+                    支持 JPG / PNG / WebP 静态图，上传前会自动压缩；也可以直接 Ctrl+V / ⌘V 粘贴截图
                   </Text>
                 </div>
               </div>

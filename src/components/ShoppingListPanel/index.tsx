@@ -443,7 +443,10 @@ export default function ShoppingListPanel() {
           </div>
         </div>
 
-        {/* —— 底部 sticky 结算栏（叠在导航栏上方 ~64px + safe） —— */}
+        {/* —— 底部 sticky 结算栏（叠在导航栏上方 ~64px + safe） ——
+          注意：结算栏已经靠 bottom 被推到 home indicator 之上，内部 padding 不需要再加 safe-area，
+          否则在 iPhone（safe ≈ 34px）上底部 padding 会膨胀到 44px，整个卡片显得特别厚。
+        */}
         <div
           style={{
             position: 'fixed',
@@ -451,7 +454,6 @@ export default function ShoppingListPanel() {
             left: 0,
             right: 0,
             padding: '10px 16px',
-            paddingBottom: 'calc(10px + env(safe-area-inset-bottom))',
             background: 'rgba(255,255,255,0.88)',
             backdropFilter: 'blur(20px) saturate(180%)',
             borderTop: '1px solid rgba(0,0,0,0.06)',

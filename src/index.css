@@ -269,7 +269,7 @@ a {
   height: 26px;
   display: block;
   /* 未选中：降饱和 + 压淡，让位给当前选中的那个 */
-  filter: grayscale(1) brightness(1.05) opacity(0.45);
+  filter: grayscale(1) brightness(1.05) opacity(0.72);
   transition:
     filter 240ms ease,
     transform 240ms ease;

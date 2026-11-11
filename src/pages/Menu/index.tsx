@@ -117,6 +117,8 @@ export default function Menu() {
   const [category, setCategory] = useState<DishCategory | '全部'>('全部');
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [favOnly, setFavOnly] = useState(false);
+  // 每次进页面生成一个新 seed → 菜品列表随机打乱，避免每次打开都是添加顺序
+  const [sessionSeed] = useState(() => Math.random());
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Dish | null>(null);
@@ -266,6 +268,19 @@ export default function Menu() {
     });
   }, [dishes, keyword, category, activeTags, favOnly]);
 
+  // Fisher-Yates 打乱：每次进页面 sessionSeed 不同 → 顺序不同；
+  // 筛选条件变了也会重新 shuffle（合理，因为列表本身变了）。
+  const shuffled = useMemo(() => {
+    const arr = filtered.slice();
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+    // sessionSeed 进依赖数组确保每次进页面重新打乱
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, sessionSeed]);
+
   // 筛选条件变了 → 把已加载的页数重置回 PAGE_SIZE
   useEffect(() => {
     setDisplayCount(PAGE_SIZE);
@@ -280,7 +295,7 @@ export default function Menu() {
         const entry = entries[0];
         if (entry.isIntersecting) {
           setDisplayCount((c) => {
-            if (c >= filtered.length) return c;
+            if (c >= shuffled.length) return c;
             return c + PAGE_SIZE;
           });
         }
@@ -289,11 +304,11 @@ export default function Menu() {
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [filtered.length, keyword, category, favOnly]);
+  }, [shuffled.length, keyword, category, favOnly]);
 
-  const visible = filtered.slice(0, displayCount);
-  const hasMore = displayCount < filtered.length;
-  const isAllLoaded = !hasMore && filtered.length > 0;
+  const visible = shuffled.slice(0, displayCount);
+  const hasMore = displayCount < shuffled.length;
+  const isAllLoaded = !hasMore && shuffled.length > 0;
 
   /**
    * 下拉刷新：重新从云端拉菜品和食材库。

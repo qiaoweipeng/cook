@@ -152,6 +152,17 @@ export default function App() {
   const userUid = useAuthStore((s) => s.user?.uid);
   useDisabledWatcher();
 
+  // 首帧已经提交到 DOM，淡出并移除 index.html 里的开屏骨架。
+  // 必须在 effect 里做（而不是 render 之后立刻删）：那时 React 还没把内容写进 DOM，
+  // 提前删会重新露出空白。
+  useEffect(() => {
+    const splash = document.getElementById('boot-splash');
+    if (!splash) return;
+    splash.classList.add('is-hidden');
+    const timer = window.setTimeout(() => splash.remove(), 400);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   // 登录用户变了（换账号）→ 先清空上一个人的采购清单/菜单/家庭数据，再按新用户重拉。
   // 登出路径自己在 AppLayout / Profile 里 reset，这里只管「换成一个新的 uid」。
   const prevUidRef = useRef<string | null | undefined>(undefined);

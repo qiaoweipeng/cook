@@ -34,9 +34,182 @@
     <link rel="apple-touch-icon" sizes="512x512" href="/icon/512*512.png" />
     <link rel="apple-touch-icon" sizes="1024x1024" href="/icon/1024*1024.png" />
     <title>我是大厨</title>
+    <!--
+      开屏骨架（boot splash）。
+      为什么必须写在 index.html 里、而且写成内联 CSS：
+      首屏白屏发生在 JS bundle 还没下载/执行完的阶段，那时 React 根本没挂载，
+      任何 React 组件（包括 Spin / 页面级骨架屏）都渲染不出来。
+      只有内联在 HTML 里的静态内容能跟着 HTML 一起被解析、立刻绘制出来。
+    -->
+    <style>
+      #boot-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483647;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        /* 和 theme-color / 首页顶部渐变保持一致，React 接管时不会出现色块跳变 */
+        background: linear-gradient(160deg, #f7e2d5 0%, #fdf6f0 46%, #ffffff 100%);
+        /* iOS「添加到主屏幕」时状态栏是透明的，内容从 0,0 开始，必须自己避开 */
+        padding: calc(24px + env(safe-area-inset-top)) 24px
+          calc(24px + env(safe-area-inset-bottom));
+        box-sizing: border-box;
+        -webkit-font-smoothing: antialiased;
+        font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC',
+          'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+        transition: opacity 0.35s ease;
+      }
+
+      #boot-splash.is-hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .boot-logo {
+        width: 84px;
+        height: 84px;
+        border-radius: 22px;
+        box-shadow: 0 12px 32px rgba(191, 137, 96, 0.22);
+        animation: boot-breathe 2.2s ease-in-out infinite;
+      }
+
+      .boot-title {
+        font-size: 17px;
+        font-weight: 600;
+        letter-spacing: 2px;
+        color: #6b4f3a;
+      }
+
+      .boot-dots {
+        display: flex;
+        gap: 7px;
+        margin-top: -4px;
+      }
+
+      .boot-dots i {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #d9a583;
+        animation: boot-dot 1.2s ease-in-out infinite;
+      }
+
+      .boot-dots i:nth-child(2) {
+        animation-delay: 0.15s;
+      }
+
+      .boot-dots i:nth-child(3) {
+        animation-delay: 0.3s;
+      }
+
+      .boot-tip {
+        max-width: 260px;
+        margin-top: 6px;
+        font-size: 13px;
+        line-height: 1.6;
+        text-align: center;
+        color: #9a8674;
+        opacity: 0;
+        transition: opacity 0.4s ease;
+      }
+
+      .boot-tip.is-show {
+        opacity: 1;
+      }
+
+      .boot-retry {
+        display: none;
+        margin-top: 4px;
+        padding: 9px 22px;
+        border: 1px solid rgba(232, 116, 60, 0.35);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.9);
+        color: #e8743c;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .boot-retry.is-show {
+        display: block;
+      }
+
+      @keyframes boot-breathe {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(0.94);
+        }
+      }
+
+      @keyframes boot-dot {
+        0%,
+        100% {
+          opacity: 0.35;
+          transform: translateY(0);
+        }
+        50% {
+          opacity: 1;
+          transform: translateY(-3px);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .boot-logo,
+        .boot-dots i {
+          animation: none;
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+
+    <div id="boot-splash" role="status" aria-live="polite">
+      <img class="boot-logo" src="/icon/192*192.png" alt="" />
+      <div class="boot-title">我是大厨</div>
+      <div class="boot-dots"><i></i><i></i><i></i></div>
+      <div class="boot-tip" id="boot-tip"></div>
+      <button class="boot-retry" id="boot-retry" type="button">
+        重新加载
+      </button>
+    </div>
+
+    <script>
+      // 开屏文案分三段渐进：不催不吓，先把「慢」归因到网络，最后才给重试出口。
+      // 写成内联脚本是为了不依赖任何被打包的文件 —— 它要在 bundle 到达之前就能工作。
+      (function () {
+        var tip = document.getElementById('boot-tip');
+        var retry = document.getElementById('boot-retry');
+        if (!tip || !retry) return;
+
+        setTimeout(function () {
+          tip.textContent = '网络有点慢，正在为你准备厨房…';
+          tip.classList.add('is-show');
+        }, 2500);
+
+        setTimeout(function () {
+          tip.textContent = '加载时间比预期长，可以点下面重新加载';
+          retry.classList.add('is-show');
+        }, 8000);
+
+        setTimeout(function () {
+          tip.textContent = '请检查网络连接后重试';
+        }, 15000);
+
+        retry.addEventListener('click', function () {
+          retry.disabled = true;
+          retry.textContent = '正在重新加载…';
+          location.reload();
+        });
+      })();
+    </script>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
