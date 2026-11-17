@@ -496,9 +496,6 @@ export default function Ingredients() {
               marginLeft: -12,
               marginRight: -12,
               padding: 'calc(10px + env(safe-area-inset-top)) 12px 10px',
-              background: 'rgba(255, 255, 255, 0.92)',
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
             }}
           >
             <Input.Search
@@ -542,9 +539,6 @@ export default function Ingredients() {
               </SideBar>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ color: '#999', fontSize: 12, marginBottom: 8 }}>
-                {categoryFilter ?? '全部'} · {filtered.length} 种
-              </div>
               {filtered.length === 0 ? (
                 <Empty description="没有符合条件的食材" style={{ marginTop: 40 }} />
               ) : (

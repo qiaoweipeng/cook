@@ -220,7 +220,11 @@ export default function Profile() {
       </div>
 
       {/* 功能列表 */}
-      <List mode="card" style={{ borderRadius: 12 }}>
+      <List
+        mode="card"
+        // 按下/点击时的底色统一成暖米色，避免默认冷灰和页面背景突兀
+        style={{ borderRadius: 12, '--active-background-color': '#f9f7f2' } as React.CSSProperties}
+      >
         <List.Item
           prefix={<TeamOutline fontSize={20} style={{ color: '#E8743C' }} />}
           extra={
@@ -259,7 +263,10 @@ export default function Profile() {
         </List.Item>
       </List>
 
-      <List mode="card" style={{ marginTop: 12 }}>
+      <List
+        mode="card"
+        style={{ marginTop: 12, '--active-background-color': '#f9f7f2' } as React.CSSProperties}
+      >
         <List.Item
           prefix={<InformationCircleOutline fontSize={20} style={{ color: '#8C857E' }} />}
           extra={<span style={{ color: '#999', fontSize: 13 }}>{versionLabel()}</span>}

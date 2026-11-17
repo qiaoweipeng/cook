@@ -157,7 +157,7 @@ a {
 */
 .ing-side-bar {
   --width: 96px;
-  --background-color: #fdf7f2;
+  --background-color: #fff;
   /* 关掉选中项上下的圆角缺口：那两块装饰块会带着旧背景色露出色差 */
   --item-border-radius: 0px;
 }
@@ -175,7 +175,7 @@ a {
 .ing-side-bar .adm-side-bar-item-active {
   color: #e8743c;
   font-weight: 600;
-  background-color: #fff;
+  background-color: #f9f7f2;
 }
 
 /* 默认的橙色竖条在 left:-12px，会被 items 的 overflow:hidden 裁掉，挪到贴边并改短一点 */

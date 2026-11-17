@@ -305,7 +305,12 @@ export default function AppLayout() {
 
       <Content
         style={{
-          padding: mobileLayout ? '16px 12px' : '24px 24px 48px',
+          // 菜品详情页在移动端做成通栏（封面铺满），不要左右留白
+          padding: mobileLayout
+            ? isDishDetail
+              ? '16px 0'
+              : '16px 12px'
+            : '24px 24px 48px',
           // iOS PWA 下状态栏是透明的，内容从屏幕最顶端开始画，
           // 这里给状态栏让出高度，否则各页面顶部会被它压住。
           // env(safe-area-inset-top) 在 Android 和普通浏览器里是 0，所以不会影响那边的布局。

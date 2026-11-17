@@ -70,10 +70,21 @@ const iconCircleActive: React.CSSProperties = {
   color: '#fff',
 };
 
+/** 顶部返回 / 分享用中性灰，避免和底部收藏的橙色强调色抢注意力 */
+const topIconCircle: React.CSSProperties = {
+  ...iconCircle,
+  width: 36,
+  height: 36,
+  fontSize: 18,
+  background: 'rgba(0, 0, 0, 0.15)',
+  border: '1px solid rgba(0, 0, 0, 0.12)',
+  color: '#3d3d3d',
+};
+
 const placeholderStyle: React.CSSProperties = {
   height: COVER_HEIGHT,
   background: '#f0eee9',
-  borderRadius: '16px 16px 0 0',
+  borderRadius: 0,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -186,8 +197,8 @@ export default function DishDetail() {
               position: 'sticky',
               top: 0,
               zIndex: 20,
-              marginTop: 'calc(-16px - env(safe-area-inset-top))',
-              paddingTop: 'calc(16px + env(safe-area-inset-top))',
+              marginTop: 'calc(-24px - env(safe-area-inset-top))',
+              paddingTop: 'calc(8px + env(safe-area-inset-top))',
               borderLeft: 'none',
               borderRight: 'none',
               borderTop: 'none',
@@ -198,7 +209,7 @@ export default function DishDetail() {
             <NavBar
               onBack={() => navigate('/menu')}
               backArrow={
-                <span className="icon-btn" style={iconCircle}>
+                <span className="icon-btn" style={topIconCircle}>
                   <LeftOutlined />
                 </span>
               }
@@ -222,12 +233,19 @@ export default function DishDetail() {
                       /* 用户取消分享，不报错 */
                     }
                   }}
-                  style={iconCircle}
+                  style={topIconCircle}
                 >
                   <ShareAltOutlined />
                 </span>
               }
-              style={{ background: 'transparent' }}
+              // 左右留出同样的 16px，保证返回和分享两个圆形按钮对称
+              style={
+                {
+                  background: 'transparent',
+                  '--padding-left': '16px',
+                  '--padding-right': '16px',
+                } as React.CSSProperties
+              }
             >
               <div
                 role="button"
@@ -488,7 +506,8 @@ export default function DishDetail() {
                   )}
                 </div>
               }
-              style={{ borderRadius: 16 }}
+              variant="borderless"
+              style={{ borderRadius: 0, background: 'transparent' }}
               styles={{ body: { padding: '24px 20px 28px' } }}
             >
               <Space wrap size={6} style={{ marginBottom: 8 }}>
