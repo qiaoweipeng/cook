@@ -1,5 +1,5 @@
-import { useEffect, useRef, lazy, Suspense } from 'react';
-import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useLayoutEffect, useRef, lazy, Suspense } from 'react';
+import { Routes, Route, Navigate, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import { App as AntApp, Spin } from 'antd';
 import AppLayout from './components/AppLayout';
 import PwaUpdate from './components/PwaUpdate';
@@ -27,6 +27,7 @@ import { ensureAdminRow, getUserDisabledFlag, ADMIN_UID } from './lib/userAdmin'
 import { isCloudEnabled } from './lib/supabase';
 import { loadSession } from './lib/userAuth';
 import { logLogin } from './lib/clientInfo';
+import { clearScrollRestore, getPageScroll, markScrollRestore, savePageScroll } from './lib/pageScroll';
 import { isPcDevice } from './utils/device';
 
 // 管理后台布局用 ProLayout（@ant-design/pro-components），体积不小。
@@ -148,6 +149,78 @@ function useDisabledWatcher() {
   }, [uid]);
 }
 
+/*
+  路由切换时的滚动位置处理。
+
+  React Router v6 默认不帮你恢复滚动位置（也不滚到顶部），
+  所以这里自己记：滚动时把每个页面的 scrollY 存进内存，
+  跳转时再决定「回到顶部」还是「恢复原位置」。
+
+  - 从详情页返回列表页（如 /menu/xxx → /menu）、以及浏览器前进/后退（POP）→ 恢复原位置；
+    否则用户翻了很多屏点进详情，回来直接掉到顶部，体验很差。
+  - 其他跳转（切 Tab、点卡片进入）→ 滚到顶部。
+
+  注意：用 pathname 而不是完整 location —— 同一个菜品详情页 hash/query 变了不应该动滚动。
+*/
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  const navigationType = useNavigationType();
+  const prevPathRef = useRef(pathname);
+  // 监听器里永远写「当前」路径：换页瞬间浏览器会因页面变矮自动修正滚动位置并抛一次
+  // scroll 事件，如果用旧闭包里的 pathname，就会把上一条很长列表的正确位置覆盖成 0。
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
+
+  // 关掉浏览器自带的恢复，避免它和下面的手动恢复打架（刷新时也统一回到顶部）
+  useEffect(() => {
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  }, []);
+
+  // 滚动时持续记录当前页面的位置（rAF 节流，避免高频写）
+  useEffect(() => {
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        savePageScroll(pathnameRef.current, window.scrollY);
+        ticking = false;
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // 用 useLayoutEffect：在浏览器绘制前定位，避免先看到顶部再跳到原处的闪动
+  useLayoutEffect(() => {
+    const prev = prevPathRef.current;
+    prevPathRef.current = pathname;
+    if (prev === pathname) return;
+
+    // 父列表 → 子详情是进入；反过来（prev 是当前路径的子路由）就是返回
+    const isBackToList = prev.startsWith(`${pathname}/`);
+    const shouldRestore = isBackToList || navigationType === 'POP';
+    const y = shouldRestore ? getPageScroll(pathname) ?? 0 : 0;
+
+    // 返回类导航：交给目标页面自己还原（列表页要边补渲染边滚，这里盲目滚会被截断，
+    // 表现就是停在底部 loading 上）。这里只负责把目标位置告诉它。
+    if (shouldRestore) {
+      if (y > 0) {
+        markScrollRestore(pathname, y);
+      } else {
+        clearScrollRestore();
+      }
+      return;
+    }
+
+    // 其余情况（切 Tab、点卡片进入）→ 回到顶部
+    clearScrollRestore();
+    window.scrollTo(0, 0);
+  }, [pathname, navigationType]);
+
+  return null;
+}
+
 export default function App() {
   const userUid = useAuthStore((s) => s.user?.uid);
   useDisabledWatcher();
@@ -223,6 +296,8 @@ export default function App() {
 
   return (
     <>
+      {/* 路由切换时滚到顶部 */}
+      <ScrollToTop />
       {/* 检测到新版本时顶部弹提示（PWA） */}
       <PwaUpdate />
       {/* 手机横屏时盖全屏遮罩提示转回竖屏（PWA 锁竖屏之外的浏览器场景兜底） */}

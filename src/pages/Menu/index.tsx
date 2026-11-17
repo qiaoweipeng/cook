@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type TouchEvent } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type TouchEvent } from 'react';
 import { Input, Segmented, Empty, Row, Col, Switch, Space, Spin, Tag, App as AntApp } from 'antd';
 import { Dropdown, Tabs, PullToRefresh, Toast } from 'antd-mobile';
 import { CaretDownFilled, SearchOutlined } from '@ant-design/icons';
@@ -38,6 +38,7 @@ import DishManageTable from '@/components/DishManageTable';
 import { useIsAdmin } from '@/store/useAuthStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useIsPadPortrait } from '@/hooks/useIsPadPortrait';
+import { peekScrollRestore } from '@/lib/pageScroll';
 import type { Dish, DishCategory } from '@/types';
 import { TAG_GROUPS } from '@/types';
 
@@ -103,6 +104,34 @@ const MOBILE_TAG_PREVIEW = MOBILE_PREVIEW_TAGS.length;
 
 const PAGE_SIZE = 8;
 
+/*
+  记住本次运行里已经加载到第几批。
+  从详情页返回首页时组件会重新挂载，如果条数退回 8 条，页面高度变矮，
+  之前记住的滚动位置就恢复不了（会被裁到列表底部）。
+*/
+let rememberedDisplayCount = PAGE_SIZE;
+
+/*
+  首页随机排序的种子放在模块级：只要页面没被重新加载（= 没重新打开 App），
+  不管进出首页多少次都复用同一个种子，从其他页面返回时菜品顺序保持不变；
+  重新打开 App / 刷新页面时模块重新执行，种子重新生成，这次看到的顺序又和上次不同。
+*/
+let sessionSeed: number | null = null;
+const getSessionSeed = () => {
+  if (sessionSeed === null) sessionSeed = Math.random();
+  return sessionSeed;
+};
+
+/** FNV-1a 字符串哈希：把「种子 + 菜品 id」映射成一个稳定的排序分 */
+const hashString = (str: string) => {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+};
+
 export default function Menu() {
   const navigate = useNavigate();
   const { message } = AntApp.useApp();
@@ -117,24 +146,60 @@ export default function Menu() {
   const [category, setCategory] = useState<DishCategory | '全部'>('全部');
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [favOnly, setFavOnly] = useState(false);
-  // 每次进页面生成一个新 seed → 菜品列表随机打乱，避免每次打开都是添加顺序
-  const [sessionSeed] = useState(() => Math.random());
-  const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
+  // 复用模块级的「本次打开 App」种子，返回首页时不会换一批菜
+  const sessionSeed = getSessionSeed();
+  // 条数沿用本次运行里已加载的数量，返回首页时不会缩回第一屏
+  const [displayCount, setDisplayCount] = useState(rememberedDisplayCount);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Dish | null>(null);
   /** 从搜索框直接点「立即添加」时带入菜名 */
   const [editorInitialName, setEditorInitialName] = useState<string | undefined>(undefined);
   // 菜单管理表格的选中行 id（单选），保存成功后清空，跟食材库管理一致
   const [selectedRowKey, setSelectedRowKey] = useState<string | undefined>(undefined);
-  // 移动端吸顶栏（搜索框 + 分类 + 标签）滚动时收起/露出
-  const [hideStickyBar, setHideStickyBar] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   /*
-    移动端吸顶栏跟随滚动方向：
-    向下滚动（看列表）时收起，把屏幕让给菜品；向上滚动时立刻露出，方便换分类/搜索。
-    只在移动端绑定监听，桌面端保持原来的常驻吸顶。
+    移动端顶栏：首屏阶段是普通文档流元素，向上划时跟着页面被自然顶出去；
+    一旦滚过它自身高度就永久切到吸顶，之后不再切回文档流 ——
+    否则回顶时会出现「浮层消失 + 文档流顶栏同时出现」的突兀跳变。
+    切过来之后沿用方向感知：向下滚收起，向上滚缓慢滑回。
   */
+  const [stickyMode, setStickyMode] = useState(false);
+  const [hideStickyBar, setHideStickyBar] = useState(false);
+  // 切换定位的那一帧必须关掉过渡，否则栏会被拉回顶部再滑走，看起来就是闪一下
+  const [barTransition, setBarTransition] = useState(false);
+  const stickyModeRef = useRef(false);
+  const stickyBarRef = useRef<HTMLDivElement>(null);
+  const stickyBarHeightRef = useRef(0);
+
+  const enterStickyMode = () => {
+    if (stickyModeRef.current) return;
+    stickyModeRef.current = true;
+    setBarTransition(false);
+    setStickyMode(true);
+    // 栏此时已经被顶出视口，保持收起，避免切吸顶后突然弹回顶部
+    setHideStickyBar(true);
+    // 两帧后再开过渡，供之后的收起/滑回使用
+    requestAnimationFrame(() => requestAnimationFrame(() => setBarTransition(true)));
+  };
+
+  // 量一次顶栏高度（安全区/字号变化时跟着更新）
+  useLayoutEffect(() => {
+    if (!isMobile) return;
+    const el = stickyBarRef.current;
+    if (!el) return;
+    const measure = () => {
+      stickyBarHeightRef.current = el.offsetHeight;
+      // 进入页面时已经滚过顶栏（比如从详情返回并还原了位置）→ 直接吸顶
+      if (window.scrollY > stickyBarHeightRef.current) enterStickyMode();
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile]);
+
   useEffect(() => {
     if (!isMobile) return;
     let lastY = window.scrollY;
@@ -145,7 +210,18 @@ export default function Menu() {
       requestAnimationFrame(() => {
         const y = window.scrollY;
         const delta = y - lastY;
-        // 一屏顶端时永远露出，避免顶部出现「空白收起」的状态
+        // 真正回到最顶端时退回文档流模式：此时 sticky 与 relative 的视觉位置完全重合，
+        // 切换无感；之后再次上滑就又是被自然顶出，而不是一直是个浮动层。
+        if (y <= 0 && stickyModeRef.current) {
+          stickyModeRef.current = false;
+          setBarTransition(false);
+          setStickyMode(false);
+          setHideStickyBar(false);
+        }
+        if (!stickyModeRef.current && y > stickyBarHeightRef.current) {
+          enterStickyMode();
+        }
+        // 回到最顶端时始终露出
         if (y <= 40) {
           setHideStickyBar((prev) => (prev ? false : prev));
         } else if (Math.abs(delta) > 6) {
@@ -159,6 +235,7 @@ export default function Menu() {
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile]);
 
   /*
@@ -272,23 +349,75 @@ export default function Menu() {
     });
   }, [dishes, keyword, category, activeTags, favOnly, isAdmin]);
 
-  // Fisher-Yates 打乱：每次进页面 sessionSeed 不同 → 顺序不同；
-  // 筛选条件变了也会重新 shuffle（合理，因为列表本身变了）。
+  // 按「种子 + 菜品 id」的哈希值排序：同一种子下顺序恒定（返回首页不跳），
+  // 新开 App 换种子后顺序整体不同；筛选/搜索只是从这份稳定顺序里挑子集，不会额外打乱。
   const shuffled = useMemo(() => {
-    const arr = filtered.slice();
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-    // sessionSeed 进依赖数组确保每次进页面重新打乱
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const seedKey = Math.floor(sessionSeed * 2 ** 32);
+    return filtered
+      .map((d) => ({ d, score: hashString(`${seedKey}:${d.id}`) }))
+      .sort((a, b) => a.score - b.score)
+      .map((x) => x.d);
   }, [filtered, sessionSeed]);
 
-  // 筛选条件变了 → 把已加载的页数重置回 PAGE_SIZE
+  /*
+    筛选条件真的变了 → 把已加载的页数重置回 PAGE_SIZE。
+    不能简单写成「跳过首次挂载」：StrictMode 下 effect 会执行两次，
+    第二次会把刚恢复回来的条数又冲成 8 条（页码一缩，滚动位置就被夹到底部 loading）。
+    这里比较上一次的筛选快照，真的变了才重置。
+  */
+  const filterSnapshotRef = useRef({ keyword, category, activeTags, favOnly });
   useEffect(() => {
+    const prev = filterSnapshotRef.current;
+    const next = { keyword, category, activeTags, favOnly };
+    filterSnapshotRef.current = next;
+    if (
+      prev.keyword === next.keyword &&
+      prev.category === next.category &&
+      prev.activeTags === next.activeTags &&
+      prev.favOnly === next.favOnly
+    ) {
+      return;
+    }
     setDisplayCount(PAGE_SIZE);
   }, [keyword, category, activeTags, favOnly]);
+
+  // 记录当前条数，供下次进入首页时恢复
+  useEffect(() => {
+    rememberedDisplayCount = displayCount;
+  }, [displayCount]);
+
+  // 恢复循环里要读最新的条数/总数，不能依赖挂载时的闭包快照
+  const displayCountRef = useRef(displayCount);
+  displayCountRef.current = displayCount;
+  const totalRef = useRef(shuffled.length);
+  totalRef.current = shuffled.length;
+
+  /*
+    从详情页返回时还原滚动位置。
+    列表是分批渲染的，高度不够时 scrollTo 会被夹在底部（表现就是停在 loading 上），
+    所以这里先补渲染、够高了再滚，循环到真正到位为止。
+  */
+  useLayoutEffect(() => {
+    const target = peekScrollRestore('/menu');
+    if (target == null) return;
+    let tries = 0;
+    let raf = 0;
+    const step = () => {
+      if (Math.abs(window.scrollY - target) <= 4) return; // 已到位
+      if (tries++ >= 60) return; // 兜底：数据变短等情况下不至于无限循环
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      if (maxScroll >= target) {
+        window.scrollTo(0, target);
+      } else if (displayCountRef.current < totalRef.current) {
+        // 高度还不够：先多放几批出来，下一帧再试
+        setDisplayCount((c) => Math.min(c + PAGE_SIZE, totalRef.current));
+      }
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 滚到底（sentinel 进入视口）→ 加载下一页
   useEffect(() => {
@@ -354,10 +483,13 @@ export default function Menu() {
       */}
       {!showManageTable && (
         <div
+          ref={stickyBarRef}
           style={
             isMobile
               ? {
-                position: 'sticky',
+                // 首屏阶段是文档流元素（向上划被自然顶出），滚过之后永久吸顶，
+                // 回顶时不会再切回文档流，避免出现两套顶栏交接的跳变。
+                position: stickyMode ? 'sticky' : 'relative',
                 top: 0,
                 zIndex: 20,
                 // 负外边距抵消内容区的上下/左右内边距，让吸顶栏从屏幕最顶端开始、横贯全屏。
@@ -379,11 +511,10 @@ export default function Menu() {
                 backdropFilter: 'blur(12px)',
                 WebkitBackdropFilter: 'blur(12px)',
                 borderBottom: '1px solid rgba(45, 42, 38, 0.06)',
-                // 向下滚动收起（整块滑出屏幕顶部），向上滚动滑回来。
-                // 用 transform 而不是改 height/display，避免滚动过程中触发重排导致列表跳动。
-                transform: hideStickyBar ? 'translateY(-100%)' : 'translateY(0)',
-                transition: 'transform 240ms cubic-bezier(0.4, 0, 0.2, 1)',
-                willChange: 'transform',
+                // 吸顶之后才启用「向下滚收起、向上滚滑回」
+                transform: stickyMode && hideStickyBar ? 'translateY(-100%)' : 'translateY(0)',
+                transition: stickyMode && barTransition ? 'transform 240ms cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
+                willChange: stickyMode && barTransition ? 'transform' : 'auto',
               }
               : { margin: '20px 0 16px' }
           }
