@@ -22,6 +22,8 @@ export function dishToRow(d: Dish) {
     favorite: d.favorite ? 1 : 0,
     created_at: new Date(d.createdAt).toISOString(),
     tips: d.tips ?? null,
+    // undefined / 缺失时默认已发布（老数据兼容）
+    published: d.published === false ? 0 : 1,
   };
 }
 
@@ -41,6 +43,8 @@ export function rowToDish(r: any): Dish {
     tags: [],
     ingredients: [],
     steps: [],
+    // 老库兼容：published 列还没加时默认为 true
+    published: r.published == null ? true : !!r.published,
   };
 }
 

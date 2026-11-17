@@ -10,17 +10,22 @@ import { useIngredientStore } from '@/store/useIngredientStore';
 import { usePriceStore } from '@/store/usePriceStore';
 import { calcDishCost } from '@/utils/price';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useIsAdmin } from '@/store/useAuthStore';
 import DishCard from '@/components/DishCard';
 
 export default function Favorites() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const isAdmin = useIsAdmin();
   const dishes = useDishStore((s) => s.items);
   const ingredients = useIngredientStore((s) => s.items);
   // 订阅平台，切平台后卡片上的成本跟着变
   usePriceStore((s) => s.platform);
 
-  const favorites = useMemo(() => dishes.filter((d) => d.favorite), [dishes]);
+  const favorites = useMemo(
+    () => dishes.filter((d) => d.favorite && (isAdmin || d.published !== false)),
+    [dishes, isAdmin]
+  );
 
   const goBack = () => {
     if (window.history.length > 1) navigate(-1);

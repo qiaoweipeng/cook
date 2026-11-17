@@ -122,6 +122,8 @@ export default function Menu() {
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Dish | null>(null);
+  /** 从搜索框直接点「立即添加」时带入菜名 */
+  const [editorInitialName, setEditorInitialName] = useState<string | undefined>(undefined);
   // 菜单管理表格的选中行 id（单选），保存成功后清空，跟食材库管理一致
   const [selectedRowKey, setSelectedRowKey] = useState<string | undefined>(undefined);
   // 移动端吸顶栏（搜索框 + 分类 + 标签）滚动时收起/露出
@@ -255,6 +257,8 @@ export default function Menu() {
   const filtered = useMemo(() => {
     const k = keyword.trim().toLowerCase();
     return dishes.filter((d) => {
+      // 管理员可以看到未发布的菜，普通用户不行
+      if (!isAdmin && d.published === false) return false;
       if (category !== '全部' && d.category !== category) return false;
       // 属性 chips：多选时是「或」—— 只要菜挂上任意一个选中的属性就算命中
       if (activeTags.length > 0 && !d.tags.some((t) => activeTags.includes(t))) return false;
@@ -266,7 +270,7 @@ export default function Menu() {
       }
       return true;
     });
-  }, [dishes, keyword, category, activeTags, favOnly]);
+  }, [dishes, keyword, category, activeTags, favOnly, isAdmin]);
 
   // Fisher-Yates 打乱：每次进页面 sessionSeed 不同 → 顺序不同；
   // 筛选条件变了也会重新 shuffle（合理，因为列表本身变了）。
@@ -638,16 +642,23 @@ export default function Menu() {
               onSelectedRowKeyChange={setSelectedRowKey}
               onCreate={() => {
                 setEditing(null);
+                setEditorInitialName(undefined);
+                setEditorOpen(true);
+              }}
+              onCreateWithName={(name) => {
+                setEditing(null);
+                setEditorInitialName(name);
                 setEditorOpen(true);
               }}
               onEdit={(d) => {
                 setEditing(d);
+                setEditorInitialName(undefined);
                 setEditorOpen(true);
               }}
             />
           </div>
         ) : filtered.length === 0 ? (
-          <Empty description="没找到这道菜，换个关键词试试" style={{ marginTop: 48 }} />
+          <Empty description={keyword ? `没找到「${keyword}」` : '没找到这道菜，换个关键词试试'} style={{ marginTop: 48 }} />
         ) : (
           <>
             <Row gutter={isMobile ? [10, 10] : [16, 16]}>
@@ -694,9 +705,11 @@ export default function Menu() {
         dish={editing ?? undefined}
         open={editorOpen}
         container={showManageTable ? 'drawer' : 'modal'}
+        initialName={editing ? undefined : editorInitialName}
         onClose={() => {
           setEditorOpen(false);
           setEditing(null);
+          setEditorInitialName(undefined);
         }}
         onCreated={(d) => navigate('/menu/' + d.id)}
         onSaved={() => {

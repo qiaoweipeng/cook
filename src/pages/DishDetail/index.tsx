@@ -13,6 +13,7 @@ import {
   Col,
   Descriptions,
   Modal,
+  Breadcrumb,
   App as AntApp,
 } from 'antd';
 import { NavBar, Popup } from 'antd-mobile';
@@ -117,7 +118,7 @@ export default function DishDetail() {
   const myRole = useFamilyStore((s) => s.myRole);
   const myPermission = useFamilyStore((s) => s.myPermission);
 
-  if (!dish) {
+  if (!dish || (!isAdmin && dish.published === false)) {
     return (
       <Result
         status="404"
@@ -261,13 +262,19 @@ export default function DishDetail() {
         {/* 桌面端：整页一张卡片，上半部分是「左图 + 右信息」，下半部分是详细做法，中间用一条分隔线衔接 */}
         {!isMobile && (
           <>
-            <Button
-              type="link"
-              onClick={() => navigate('/menu')}
-              style={{ paddingLeft: 0, marginBottom: 12 }}
-            >
-              ← 返回菜单
-            </Button>
+            <Breadcrumb
+              style={{ marginBottom: 12 }}
+              items={[
+                {
+                  title: (
+                    <a onClick={(e) => { e.preventDefault(); navigate('/menu'); }}>
+                      菜单管理
+                    </a>
+                  ),
+                },
+                { title: dish.name },
+              ]}
+            />
 
             <div
               style={{

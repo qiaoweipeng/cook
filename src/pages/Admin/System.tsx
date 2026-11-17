@@ -18,11 +18,15 @@ import {
   Alert,
   Tabs,
   message,
+  Input,
+  Radio,
+  Segmented,
 } from "antd";
 import {
   ReloadOutlined,
   MobileOutlined,
   DesktopOutlined,
+  SendOutlined,
 } from "@ant-design/icons";
 import { getCloudHost, pgCount } from "@/lib/supabase";
 import { listLoginLogs, type LoginLogRow } from "@/lib/clientInfo";
@@ -33,6 +37,7 @@ import { seedIngredients } from "@/data/seedIngredients";
 import { missingSeedDishes, useDishStore } from "@/store/useDishStore";
 import { useIngredientStore } from "@/store/useIngredientStore";
 import type { Dish } from "@/types";
+import { sendPush, listPushSubscriptions, type PushSubRow } from "@/lib/push";
 
 const { Text } = Typography;
 
@@ -81,6 +86,76 @@ export default function AdminSystem() {
   const [ingOverwriteOpen, setIngOverwriteOpen] = useState(false);
   const seedMissingIngredients = useIngredientStore((s) => s.seedMissingToCloud);
   const overwriteIngredients = useIngredientStore((s) => s.overwriteFromSeed);
+
+  /* ===== 推送管理（管理员广播） ===== */
+  const [subs, setSubs] = useState<PushSubRow[]>([]);
+  const [subsLoading, setSubsLoading] = useState(false);
+  const [families, setFamilies] = useState<Array<{ id: string; admin_uid: string }>>([]);
+  const [familiesLoading, setFamiliesLoading] = useState(false);
+
+  const [pushTarget, setPushTarget] = useState<"all" | "family" | "uids">("all");
+  const [pushFamilyId, setPushFamilyId] = useState<string | undefined>(undefined);
+  const [pushUids, setPushUids] = useState<string>("");
+  const [pushTitle, setPushTitle] = useState("测试通知");
+  const [pushBody, setPushBody] = useState("这是一条从管理员后台发出的测试推送，如果你收到了，说明推送链路是通的 🎉");
+  const [pushSending, setPushSending] = useState(false);
+  const [pushResult, setPushResult] = useState<{ total: number; sent: number; removed: number } | null>(null);
+
+  const loadPushData = async () => {
+    setSubsLoading(true);
+    setFamiliesLoading(true);
+    try {
+      const [subRows, famRows] = await Promise.all([
+        listPushSubscriptions().catch(() => []),
+        cloudList<{ id: string; admin_uid: string }>("families").catch(() => []),
+      ]);
+      setSubs(subRows);
+      setFamilies(famRows.map((r) => r.data));
+    } finally {
+      setSubsLoading(false);
+      setFamiliesLoading(false);
+    }
+  };
+
+  const doSendPush = async () => {
+    setPushResult(null);
+    if (pushTarget === "family" && !pushFamilyId) {
+      message.warning("请选择目标家庭");
+      return;
+    }
+    if (pushTarget === "uids" && !pushUids.trim()) {
+      message.warning("请输入目标用户 uid，多个用逗号分隔");
+      return;
+    }
+    if (!pushTitle.trim() || !pushBody.trim()) {
+      message.warning("标题和内容都不能空");
+      return;
+    }
+    setPushSending(true);
+    try {
+      const payload: Parameters<typeof sendPush>[0] = {
+        title: pushTitle.trim(),
+        body: pushBody.trim(),
+        url: "/",
+      };
+      if (pushTarget === "family") payload.familyId = pushFamilyId;
+      else if (pushTarget === "uids")
+        payload.uids = pushUids
+          .split(/[,，\s]+/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+      const res = await sendPush(payload);
+      setPushResult(res);
+      message.success(
+        `推送完成：目标 ${res.total} 条，成功 ${res.sent}，失效 ${res.removed}（已清理）`
+      );
+      loadPushData(); // 重新拉订阅（失效的可能已经被 Edge Function 删掉了）
+    } catch (e) {
+      message.error(`推送失败：${(e as Error).message}`);
+    } finally {
+      setPushSending(false);
+    }
+  };
 
   const loadStatus = async () => {
     setCountsLoading(true);
@@ -245,6 +320,7 @@ export default function AdminSystem() {
 
   useEffect(() => {
     refreshAll();
+    loadPushData();
   }, []);
 
   return (
@@ -637,6 +713,186 @@ export default function AdminSystem() {
                       { title: "语言", dataIndex: "language", width: 100 },
                     ]}
                   />
+                </Card>
+              </>
+            ),
+          },
+          {
+            key: "push",
+            label: "推送管理",
+            children: (
+              <>
+                {/* 订阅概览 */}
+                <Card
+                  title={
+                    <Space>
+                      <SendOutlined />
+                      活跃订阅
+                      <Tag color="blue">{subs.length}</Tag>
+                    </Space>
+                  }
+                  extra={
+                    <Button
+                      size="small"
+                      icon={<ReloadOutlined />}
+                      loading={subsLoading || familiesLoading}
+                      onClick={loadPushData}
+                    >
+                      刷新
+                    </Button>
+                  }
+                  style={{ marginBottom: 16 }}
+                >
+                  <Text type="secondary" style={{ display: "block", marginBottom: 12 }}>
+                    下面是当前所有设备的推送订阅记录。在列表里选中一条，就能看到它属于哪个用户、哪个家庭、最后一次订阅时间。
+                  </Text>
+                  <Table<PushSubRow>
+                    rowKey="id"
+                    size="small"
+                    loading={subsLoading}
+                    dataSource={subs}
+                    pagination={{ pageSize: 10, showSizeChanger: false }}
+                    locale={{ emptyText: "暂无订阅 —— 让家人从桌面图标打开 App 并允许推送权限" }}
+                    columns={[
+                      {
+                        title: "用户 / 家庭",
+                        width: 220,
+                        render: (_, r) => (
+                          <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+                            <div>
+                              <code style={{ fontSize: 12 }}>{r.uid}</code>
+                            </div>
+                            {r.family_id && (
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                家庭: <code>{r.family_id}</code>
+                              </Text>
+                            )}
+                          </div>
+                        ),
+                      },
+                      {
+                        title: "设备 UA",
+                        ellipsis: true,
+                        render: (_, r) => (
+                          <Tooltip title={r.user_agent || "—"}>
+                            <span style={{ fontSize: 12 }}>{r.user_agent || "—"}</span>
+                          </Tooltip>
+                        ),
+                      },
+                      {
+                        title: "订阅时间",
+                        width: 170,
+                        dataIndex: "created_at",
+                        render: fmtTime,
+                      },
+                    ]}
+                  />
+                </Card>
+
+                {/* 发一条测试通知 */}
+                <Card title="发一条测试通知" style={{ marginBottom: 16 }}>
+                  <Alert
+                    type="info"
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                    message="推送链路"
+                    description={
+                      <>
+                        后端已经就绪：Edge Function <code>send-push</code> 按目标找到订阅 → 用
+                        WebPush 加密 → 调 APNs → 到达手机。这里发出后，可以用手机看能不能收到。
+                        如果收不到，先检查：① 手机是否从桌面图标打开 App（standalone 模式）② 是否允许了推送权限。
+                      </>
+                    }
+                  />
+
+                  <Row gutter={16}>
+                    <Col xs={24} md={8}>
+                      <div style={{ marginBottom: 12 }}>
+                        <Text strong>目标</Text>
+                      </div>
+                      <Segmented
+                        block
+                        value={pushTarget}
+                        onChange={(v) => {
+                          setPushTarget(v as "all" | "family" | "uids");
+                          setPushResult(null);
+                        }}
+                        options={[
+                          { value: "all", label: "全部订阅" },
+                          { value: "family", label: "指定家庭" },
+                          { value: "uids", label: "指定用户" },
+                        ]}
+                      />
+                      {pushTarget === "family" && (
+                        <Select
+                          style={{ width: "100%", marginTop: 12 }}
+                          placeholder={familiesLoading ? "加载中…" : "选择家庭"}
+                          loading={familiesLoading}
+                          value={pushFamilyId}
+                          onChange={setPushFamilyId}
+                          options={families.map((f) => ({
+                            value: f.id,
+                            label: (
+                              <span>
+                                <code style={{ fontSize: 12 }}>{f.id}</code>
+                                <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>
+                                  admin: {f.admin_uid}
+                                </Text>
+                              </span>
+                            ),
+                          }))}
+                        />
+                      )}
+                      {pushTarget === "uids" && (
+                        <Input
+                          style={{ marginTop: 12 }}
+                          placeholder="输入 uid，多个用逗号或空格分隔"
+                          value={pushUids}
+                          onChange={(e) => setPushUids(e.target.value)}
+                        />
+                      )}
+                    </Col>
+                    <Col xs={24} md={16}>
+                      <div style={{ marginBottom: 8 }}>
+                        <Text strong>标题</Text>
+                      </div>
+                      <Input
+                        value={pushTitle}
+                        onChange={(e) => setPushTitle(e.target.value)}
+                        maxLength={50}
+                        style={{ marginBottom: 12 }}
+                      />
+                      <div style={{ marginBottom: 8 }}>
+                        <Text strong>内容</Text>
+                      </div>
+                      <Input.TextArea
+                        value={pushBody}
+                        onChange={(e) => setPushBody(e.target.value)}
+                        rows={3}
+                        maxLength={150}
+                      />
+                    </Col>
+                  </Row>
+
+                  <div style={{ marginTop: 16, display: "flex", gap: 12, alignItems: "center" }}>
+                    <Button
+                      type="primary"
+                      icon={<SendOutlined />}
+                      loading={pushSending}
+                      onClick={doSendPush}
+                    >
+                      发送推送
+                    </Button>
+                    {pushResult && (
+                      <Space>
+                        <Tag color="blue">目标 {pushResult.total}</Tag>
+                        <Tag color="green">成功 {pushResult.sent}</Tag>
+                        {pushResult.removed > 0 && (
+                          <Tag color="orange">失效 {pushResult.removed}（已清理）</Tag>
+                        )}
+                      </Space>
+                    )}
+                  </div>
                 </Card>
               </>
             ),

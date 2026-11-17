@@ -59,6 +59,7 @@ export default function Search() {
   const results = useMemo(() => {
     const k = keyword.trim().toLowerCase();
     return dishes.filter((d) => {
+      if (d.published === false) return false;
       if (!k) return true;
       return d.name.toLowerCase().includes(k) || d.tags.some((t) => t.toLowerCase().includes(k));
     });

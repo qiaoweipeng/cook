@@ -241,3 +241,22 @@ export async function sendPush(payload: {
   if (!res.ok) throw new Error(`推送失败 ${res.status}: ${await res.text()}`);
   return res.json();
 }
+
+/** 一条活跃推送订阅（不含密钥，安全） */
+export interface PushSubRow {
+  id: string;
+  uid: string;
+  family_id: string | null;
+  user_agent: string | null;
+  created_at: string;
+}
+
+/** 列出所有订阅（管理员看概览用，最多 200 条） */
+export async function listPushSubscriptions(): Promise<PushSubRow[]> {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/push_subscriptions?select=id,uid,family_id,user_agent,created_at&order=created_at.desc&limit=200`,
+    { headers: authHeaders() }
+  );
+  if (!res.ok) throw new Error(`读取订阅失败 ${res.status}`);
+  return res.json();
+}

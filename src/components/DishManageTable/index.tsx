@@ -11,7 +11,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
-import { Button, Space, Typography, Image, Avatar, Tag, App as AntApp } from 'antd';
+import { Button, Space, Typography, Image, Avatar, Tag, Badge, App as AntApp } from 'antd';
 import {
   DownloadOutlined,
   EditOutlined,
@@ -60,6 +60,8 @@ interface Props {
   onSelectedRowKeyChange: (key: string | undefined) => void;
   onEdit: (d: Dish) => void;
   onCreate: () => void;
+  /** 搜索无结果时点「立即添加」：带上搜索词当菜名 */
+  onCreateWithName?: (name: string) => void;
 }
 
 export default function DishManageTable({
@@ -69,12 +71,17 @@ export default function DishManageTable({
   onSelectedRowKeyChange,
   onEdit,
   onCreate,
+  onCreateWithName,
 }: Props) {
   // 订阅当前平台：切换平台后成本列要跟着重算 → params 变化触发 ProTable 刷新
   const platform = usePriceStore((s) => s.platform);
   const navigate = useNavigate();
   const { message } = AntApp.useApp();
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  /** 当前搜索词（从 ProTable request 参数里同步，空结果时用在「没找到X？立即添加」里） */
+  const [keyword, setKeyword] = useState('');
+  /** 搜索是否命中：keyword 有值 + list 结果为空 → true */
+  const [noResults, setNoResults] = useState(false);
 
   const selectedDish = dishes.find((d) => d.id === selectedRowKey);
 
@@ -126,6 +133,27 @@ export default function DishManageTable({
             >
               {d.name}
             </Typography.Link>
+          </Space>
+        );
+      },
+    },
+    {
+      title: '状态',
+      dataIndex: 'published',
+      key: 'published',
+      width: 110,
+      valueType: 'select',
+      fieldProps: { mode: 'multiple', style: { width: 225 } },
+      valueEnum: {
+        true: { text: '已发布' },
+        false: { text: '未发布' },
+      },
+      render: (_, d) => {
+        const published = d.published !== false;
+        return (
+          <Space size={6}>
+            <Badge color={published ? 'green' : 'red'} />
+            <span>{published ? '已发布' : '未发布'}</span>
           </Space>
         );
       },
@@ -260,13 +288,23 @@ export default function DishManageTable({
    * ProTable 不会自动处理 tags 数组的"包含任意一个"逻辑，这里手动做。
    */
   const request = async (params: Record<string, any>, sort: Record<string, any>) => {
-    const { current = 1, pageSize = 20, name, category, tags, difficulty } = params;
+    const { current = 1, pageSize = 20, name, category, tags, difficulty, published } = params;
+    // 同步搜索词 + 是否无结果 —— 搜索框下方「没找到X？立即添加」用
+    const trimmedKeyword = String(name ?? '').trim();
+    setKeyword(trimmedKeyword);
     let list = [...dishes];
 
     if (name) list = list.filter((d) => d.name.toLowerCase().includes(name.toLowerCase()));
     if (category?.length) list = list.filter((d) => category.includes(d.category));
     if (tags?.length) list = list.filter((d) => tags.some((t: string) => d.tags.includes(t)));
     if (difficulty?.length) list = list.filter((d) => difficulty.includes(d.difficulty));
+    // 状态筛选：published 列是布尔值，valueEnum 的 key 是 'true'/'false' 字符串
+    if (published?.length) {
+      list = list.filter((d) => {
+        const p = d.published !== false;
+        return published.includes(String(p));
+      });
+    }
 
     // 排序：ProTable 传进来的 sort 对象形如 { cookTimeMin: 'ascend' }
     const sortKey = Object.keys(sort)[0];
@@ -290,6 +328,7 @@ export default function DishManageTable({
     }
 
     const total = list.length;
+    setNoResults(!!trimmedKeyword && total === 0);
     const paged = list.slice((current - 1) * pageSize, current * pageSize);
     return { data: paged, total, success: true };
   };
@@ -300,6 +339,16 @@ export default function DishManageTable({
         rowKey="id"
         bordered
         size="small"
+        tableExtraRender={() =>
+          noResults && onCreateWithName ? (
+            <div style={{ padding: '4px 0 8px' }}>
+              没找到「{keyword}」？
+              <Typography.Link style={{ marginLeft: 4 }} onClick={() => onCreateWithName(keyword)}>
+                立即添加「{keyword}」
+              </Typography.Link>
+            </div>
+          ) : null
+        }
         search={{
           labelWidth: 'auto',
           defaultCollapsed: false,

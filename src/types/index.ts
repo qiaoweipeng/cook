@@ -69,6 +69,8 @@ export interface Dish {
   tips?: string;
   favorite: boolean;
   createdAt: number;
+  /** 发布状态：true = 已发布（所有人可见），false = 未发布（仅管理员可见），默认已发布 */
+  published?: boolean;
 }
 
 /** 全站唯一计价单位：固体用 g / kg，液体用 ml / L，不再使用斤、公斤等写法 */

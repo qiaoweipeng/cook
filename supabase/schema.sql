@@ -36,12 +36,16 @@ create table if not exists public.dishes (
   cover_image    text,
   favorite       integer not null default 0,
   created_at     timestamptz default now(),
-  tips           text
+  tips           text,
+  -- 发布状态：1=已发布（所有人可见），0=未发布（仅管理员可见）
+  published      integer not null default 1
 );
 
 -- 老库升级：emoji / cover_color 已废弃（菜品全部改用 cover_image 真实封面），删除遗留列
 alter table public.dishes drop column if exists emoji;
 alter table public.dishes drop column if exists cover_color;
+-- 老库升级：发布状态列（已存在则跳过）
+alter table public.dishes add column if not exists published integer not null default 1;
 
 create table if not exists public.dish_tags (
   dish_id  text not null,

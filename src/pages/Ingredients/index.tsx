@@ -114,6 +114,8 @@ export default function Ingredients() {
   const [editing, setEditing] = useState<Ingredient | null>(null);
   const [form] = Form.useForm<FormValuesWithPrices>();
   const [keyword, setKeyword] = useState('');
+  /** PC ProTable 搜索是否命中 —— keyword 有值 + 结果为空 → 提示条出现 */
+  const [noResults, setNoResults] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<IngredientCategory | undefined>();
   const [selectedRowKey, setSelectedRowKey] = useState<string | undefined>(undefined);
   // 当前正在预览大图的食材图片地址；null = 没在预览
@@ -698,6 +700,24 @@ export default function Ingredients() {
           rowKey="id"
           bordered
           size="small"
+          tableExtraRender={() =>
+            isAdmin && noResults ? (
+              <div style={{ padding: '4px 0 8px' }}>
+                没找到「{keyword}」？
+                <Typography.Link
+                  style={{ marginLeft: 4 }}
+                  onClick={() => {
+                    setEditing(null);
+                    form.resetFields();
+                    form.setFieldsValue({ name: keyword, category: '其他', unit: 'g' });
+                    setEditorOpen(true);
+                  }}
+                >
+                  立即添加「{keyword}」
+                </Typography.Link>
+              </div>
+            ) : null
+          }
           search={{ labelWidth: 'auto', defaultCollapsed: false, span: 6 }}
           columns={[
             {
@@ -792,10 +812,14 @@ export default function Ingredients() {
           params={{ platformCount: platforms.length }}
           request={async (params) => {
             const { current = 1, pageSize = 20, name, category } = params;
+            // 同步搜索词 + 是否无结果 —— 搜索框下方「没找到X？立即添加」用
+            const trimmedKeyword = String(name ?? '').trim();
+            setKeyword(trimmedKeyword);
             let list = [...items];
             if (name) list = list.filter((it) => it.name.toLowerCase().includes(String(name).toLowerCase()));
             if (category?.length) list = list.filter((it) => category.includes(it.category));
             const total = list.length;
+            setNoResults(!!trimmedKeyword && total === 0);
             const paged = list.slice((current - 1) * pageSize, current * pageSize);
             return { data: paged, total, success: true };
           }}
