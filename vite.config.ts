@@ -77,7 +77,11 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.ts',
       injectManifest: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        // 只预缓存「小且必用」的资源（html/css/图标）。
+        // JS 不再进预缓存清单：sw 的 fetch 处理已经会在首次访问时把成功的 JS 顺手缓存，
+        // 而预缓存 28 个文件近 4MB 会在新版本发布后和页面本身抢带宽，
+        // 弱网下就是「一直转圈打不开」的直接原因。
+        globPatterns: ['**/*.{css,html,ico,png,svg,webmanifest}'],
         // 主 bundle 已超 2MB（antd 全家桶），workbox 默认单文件预缓存上限 2 MiB 会直接让构建失败。
         // 内网/家用场景首次加载慢一点可接受，先把上限放宽到 4 MiB；
         // 以后真要优化，应该走代码分割（manualChunks/动态导入）而不是继续放宽这里。

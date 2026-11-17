@@ -4,18 +4,7 @@ import { App as AntApp, Spin } from 'antd';
 import AppLayout from './components/AppLayout';
 import PwaUpdate from './components/PwaUpdate';
 import LandscapeGuard from './components/LandscapeGuard';
-import Menu from './pages/Menu';
-import DishDetail from './pages/DishDetail';
-import Ingredients from './pages/Ingredients';
 import Login from './pages/Login';
-import MenuPlan from './pages/MenuPlan';
-import Profile from './pages/Profile';
-import Shopping from './pages/Shopping';
-import Search from './pages/Search';
-import Favorites from './pages/Favorites';
-import AdminUsers from './pages/Admin/Users';
-import AdminSystem from './pages/Admin/System';
-import AdminHome from './pages/Admin/Home';
 import { useAuthStore, useIsAdmin } from './store/useAuthStore';
 import { useDishStore } from './store/useDishStore';
 import { useIngredientStore } from './store/useIngredientStore';
@@ -29,6 +18,20 @@ import { loadSession } from './lib/userAuth';
 import { logLogin } from './lib/clientInfo';
 import { clearScrollRestore, getPageScroll, markScrollRestore, savePageScroll } from './lib/pageScroll';
 import { isPcDevice } from './utils/device';
+
+// 页面按需加载：首屏只需要当前这一页，避免把管理后台的 @ant-design/pro、xlsx
+// 等重依赖全塞进首包（首包越大，弱网下越容易卡在开屏转圈）。
+const Menu = lazy(() => import('./pages/Menu'));
+const DishDetail = lazy(() => import('./pages/DishDetail'));
+const Ingredients = lazy(() => import('./pages/Ingredients'));
+const MenuPlan = lazy(() => import('./pages/MenuPlan'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Shopping = lazy(() => import('./pages/Shopping'));
+const Search = lazy(() => import('./pages/Search'));
+const Favorites = lazy(() => import('./pages/Favorites'));
+const AdminUsers = lazy(() => import('./pages/Admin/Users'));
+const AdminSystem = lazy(() => import('./pages/Admin/System'));
+const AdminHome = lazy(() => import('./pages/Admin/Home'));
 
 // 管理后台布局用 ProLayout（@ant-design/pro-components），体积不小。
 // 动态导入让普通用户永远不下载这部分代码，只有管理员进入后台时才加载。
@@ -87,6 +90,15 @@ function RoleLayout() {
 function IndexRedirect() {
   const isAdmin = useIsAdmin();
   return <Navigate to={isAdmin ? '/admin/home' : '/menu'} replace />;
+}
+
+/** 内容区级懒加载占位：只覆盖页面内容，不闪顶部导航 / TabBar */
+function PageSuspense({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<div style={{ padding: 96, textAlign: 'center' }}><Spin /></div>}>
+      {children}
+    </Suspense>
+  );
 }
 
 /** 路由守卫：开了 CloudBase 但没登录时跳 /login */
@@ -312,17 +324,17 @@ export default function App() {
           }
         >
           <Route path="/" element={<IndexRedirect />} />
-          <Route path="/menu" element={<Menu />} />
-          <Route path="/menu/:id" element={<DishDetail />} />
-          <Route path="/search" element={<Search />} />
-          <Route path="/favorites" element={<Favorites />} />
-          <Route path="/ingredients" element={<Ingredients />} />
-          <Route path="/menu-plan" element={<MenuPlan />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/shopping" element={<Shopping />} />
-          <Route path="/admin/home" element={<AdminHome />} />
-          <Route path="/admin/users" element={<AdminUsers />} />
-          <Route path="/admin/system" element={<AdminSystem />} />
+          <Route path="/menu" element={<PageSuspense><Menu /></PageSuspense>} />
+          <Route path="/menu/:id" element={<PageSuspense><DishDetail /></PageSuspense>} />
+          <Route path="/search" element={<PageSuspense><Search /></PageSuspense>} />
+          <Route path="/favorites" element={<PageSuspense><Favorites /></PageSuspense>} />
+          <Route path="/ingredients" element={<PageSuspense><Ingredients /></PageSuspense>} />
+          <Route path="/menu-plan" element={<PageSuspense><MenuPlan /></PageSuspense>} />
+          <Route path="/profile" element={<PageSuspense><Profile /></PageSuspense>} />
+          <Route path="/shopping" element={<PageSuspense><Shopping /></PageSuspense>} />
+          <Route path="/admin/home" element={<PageSuspense><AdminHome /></PageSuspense>} />
+          <Route path="/admin/users" element={<PageSuspense><AdminUsers /></PageSuspense>} />
+          <Route path="/admin/system" element={<PageSuspense><AdminSystem /></PageSuspense>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
