@@ -79,7 +79,7 @@ export default function MobileTabBar() {
       key: '/shopping',
       title: '采购清单',
       icon: '/svg/shopping.svg',
-      badge: dishCount > 0 ? <Badge content={dishCount} color="#E8743C" /> : undefined,
+      badge: dishCount > 0 ? <Badge content={dishCount} /> : undefined,
     },
     {
       key: '/profile',
@@ -87,7 +87,7 @@ export default function MobileTabBar() {
       icon: '/svg/user.svg',
       badge:
         familyIncomingCount > 0 ? (
-          <Badge content={familyIncomingCount} color="#E8743C" />
+          <Badge content={familyIncomingCount} />
         ) : undefined,
     },
   ];

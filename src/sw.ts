@@ -169,6 +169,19 @@ sw.addEventListener('fetch', (event: any) => {
 
 // ---------------------------------------------------------------------------
 // 推送
+//
+// ⚠️ iOS PWA 推送有几个已知限制（苹果文档和实测一致）：
+//
+//   1. 锁屏能看到 APNs alert 预览是 iOS 原生行为，和 SW 无关；解锁后这条预览会被 iOS 清除
+//      —— 只有 SW push 事件触发 showNotification 弹出的通知才会进入通知中心
+//
+//   2. iOS 上 SW push 事件不一定每次都能触发：如果解锁后 Safari 进程还没恢复、
+//      或者 App 正处于前台，iOS 可能跳过 SW 的 push 事件直接丢弃
+//
+//   3. iOS PWA 推送解锁后不会像原生 App 那样"自动留在通知中心"——
+//      用户要么点一下横幅、要么 iOS 设置里允许"横幅 + 通知中心"同时显示
+//      （设置 → Safari → 高级 → 网站数据 → 允许通知 → 横幅 + 通知中心）
+//
 // ---------------------------------------------------------------------------
 
 interface PushPayload {
@@ -182,18 +195,34 @@ sw.addEventListener('push', (event: any) => {
   try {
     if (event.data) data = event.data.json() as PushPayload;
   } catch {
-    // 不是 JSON（比如不带 payload 的裸推送）就当纯文本
     data = { body: event.data?.text?.() ?? '' };
   }
 
+  const title = data.title || '我是大厨';
+  const body = data.body || '';
+  const targetUrl = data.url || '/';
+
   event.waitUntil(
-    sw.registration.showNotification(data.title || '我是大厨', {
-      body: data.body || '',
-      icon: '/icon/192*192.png',
-      badge: '/icon/192*192.png',
-      // 点了通知要跳去哪，塞进 data 带到 notificationclick
-      data: { url: data.url || '/' },
-    } as NotificationOptions)
+    sw.registration
+      .showNotification(title, {
+        body,
+        icon: '/icon/192*192.png',
+        badge: '/icon/192*192.png',
+        // iOS 上 requireInteraction 不一定生效，但桌面端能让通知不自动消失
+        requireInteraction: true,
+        // 同一家庭的通知合并，避免堆一堆。新通知会替换旧的（iOS 默认行为）
+        tag: `push-${targetUrl}`,
+        // 震动反馈（Android 有效，iOS 忽略）
+        vibrate: [200, 100, 200],
+        // 点了通知要跳去哪，塞进 data 带到 notificationclick
+        data: { url: targetUrl },
+        // 关闭通知时也触发 notificationclose，方便以后记日志
+      } as NotificationOptions)
+      .catch((e) => {
+        // showNotification 在 iOS 上可能静默失败（比如权限被用户撤销了）
+        // catch 一下避免 SW 因为 unhandled rejection 被标记为 broken
+        console.warn('[sw] showNotification failed:', e);
+      })
   );
 });
 
@@ -203,7 +232,6 @@ sw.addEventListener('notificationclick', (event: any) => {
 
   event.waitUntil(
     sw.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list: any[]) => {
-      // App 已经开着就聚焦过去并跳转，没开才新开一个窗口
       for (const c of list) {
         if ('focus' in c) {
           void c.navigate(target);
@@ -213,4 +241,9 @@ sw.addEventListener('notificationclick', (event: any) => {
       return sw.clients.openWindow(target);
     })
   );
+});
+
+// iOS 上用户"清掉"通知（左滑删除）也会触发，留着方便以后扩展
+sw.addEventListener('notificationclose', (event: any) => {
+  void event; // 暂时不处理，留个钩子
 });
