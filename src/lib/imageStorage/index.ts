@@ -1,12 +1,12 @@
 // 图片存储统一入口 —— 业务代码只从这里导入。
 //
-// 当前实现：Supabase Storage（见 ./supabase.ts）。
-// 以后换腾讯 COS / 阿里 OSS：
-//   1. 新增 ./cos.ts 实现 ImageStorageProvider（上传走服务端签名/中转，密钥不进前端）
-//   2. 把适配器加进下面的 PROVIDERS
-//   3. 在 ./domains.ts 登记图片域名（否则 SW 不缓存）
-//   4. 改环境变量 VITE_IMAGE_PROVIDER + 把旧桶对象按相同 key 复制到新桶
-// 业务代码（上传、删除、<img src>）一行都不用改。
+// 设计原则：
+//   1. 数据库存「相对 key」（如 dishes/xxx.webp），不存完整 URL
+//   2. 换桶只改 VITE_IMAGE_PROVIDER，数据库一行不动
+//   3. 不允许外链（百度/微博/anywhere）——外链不稳、跨域可能挂、也不符合「统一存储」原则
+//      见 describeImageSource() 里的 EXTERNAL 分支
+//
+// 当前适配器：Supabase Storage + 腾讯云 COS（通过 VITE_IMAGE_PROVIDER 切）
 
 import { supabaseImageProvider } from './supabase';
 import { cosImageProvider } from './cos';
@@ -91,4 +91,46 @@ export async function deleteImage(value: string): Promise<void> {
   const key = parseImageKey(value);
   if (!key) throw new Error(`无法解析图片 key：${value.slice(0, 80)}`);
   await active.remove(key);
+}
+
+/**
+ * 判断一张图的存储来源，供 UI 显示来源标签。
+ *
+ * 返回：
+ *   - { kind: 'none' }                         — 无图
+ *   - { kind: 'local', label: '本地临时' }      — data:/blob:（截图粘贴、还没上传）
+ *   - { kind: 'cos', label: '腾讯云 COS' }      — COS 桶的完整 URL
+ *   - { kind: 'supabase', label: 'Supabase' }   — Supabase Storage 的完整 URL
+ *   - { kind: 'external', label: '外链（不推荐）' } — 任何其他 http(s) 域名
+ *   - { kind: 'key', label: '腾讯云 COS' | 'Supabase Storage', provider } — 相对 key
+ */
+export interface ImageSourceInfo {
+  kind: 'none' | 'local' | 'cos' | 'supabase' | 'external' | 'key';
+  /** UI 显示的可读标签 */
+  label: string;
+  /** 可选：相对 key 属于哪个 provider（用于区分 key 的来源） */
+  provider?: string;
+}
+
+export function describeImageSource(value?: string | null): ImageSourceInfo {
+  if (!value) return { kind: 'none', label: '无图' };
+  const v = value.trim();
+  if (!v) return { kind: 'none', label: '无图' };
+
+  if (v.startsWith('data:') || v.startsWith('blob:')) {
+    return { kind: 'local', label: '本地临时（尚未上传）' };
+  }
+
+  if (/^https?:\/\//i.test(v)) {
+    if (/\.cos\.[a-z0-9-]+\.myqcloud\.com\//i.test(v)) {
+      return { kind: 'cos', label: '腾讯云 COS' };
+    }
+    if (/supabase\.co\/storage\//i.test(v)) {
+      return { kind: 'supabase', label: 'Supabase Storage' };
+    }
+    return { kind: 'external', label: '外链（不推荐）' };
+  }
+
+  // 相对 key（如 dishes/xxx.webp）—— 存的是哪个 provider 由当前 active 决定
+  return { kind: 'key', label: active.id === 'cos' ? '腾讯云 COS' : 'Supabase Storage', provider: active.id };
 }

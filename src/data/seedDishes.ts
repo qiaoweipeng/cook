@@ -6,35 +6,10 @@ const baseTime = 1704067200000; // 2024-01-01
  * 已下架的菜（种子中移除，但旧数据/云端可能还有）：
  * - dish_tomato_egg「番茄炒蛋」：与 dish_fanqie_chao_egg「西红柿炒鸡蛋」重复
  */
-export const RETIRED_DISH_IDS = ['dish_tomato_egg'];
+export const RETIRED_DISH_IDS = ['dish_tomato_egg', 'dish_garlic_green', 'dish_home_tofu', 'dish_winter_melon_meatball_soup', 'dish_baby_cabbage_soup', 'diet_steamed_fish', 'diet_boiled_chicken_breast'];;
 
 export const seedDishes: Dish[] = [
-  {
-    id: 'dish_garlic_green',
-    name: '蒜蓉炒青菜',
-    coverImage: '/seeds/dish_garlic_green.webp',
-    category: '家常',
-    tags: ['快手', '素食'],
-    difficulty: 1,
-    cookTimeMin: 5,
-    servings: 2,
-    favorite: false,
-    createdAt: baseTime + 86400000,
-    ingredients: [
-      { ingredientId: 'ing_green_veg', amount: 300, unit: 'g' },
-      { ingredientId: 'ing_garlic', amount: 80, unit: 'g' },
-      { ingredientId: 'ing_salt', amount: 3, unit: 'g' },
-      { ingredientId: 'ing_oil', amount: 10, unit: 'ml' },
-    ],
-    steps: [
-      { order: 1, text: '青菜洗净控干，蒜头拍碎切末' },
-      { order: 2, text: '热锅冷油，下蒜末小火爆香' },
-      { order: 3, text: '开大火下青菜快炒至断生' },
-      { order: 4, text: '加盐调味翻匀出锅' },
-    ],
-    tips: '全程大火快炒 1 分钟内搞定，时间长了青菜会出水发黑。',
-  },
-  {
+    {
     id: 'dish_sour_potato',
     name: '酸辣土豆丝',
     coverImage: '/seeds/dish_sour_potato.webp',
@@ -1230,41 +1205,7 @@ export const seedDishes: Dish[] = [
     ],
     tips: '油麦菜微苦是正常的，苦味清火；大火快炒别超 2 分钟。',
   },
-  {
-    id: 'dish_home_tofu',
-    name: '家常豆腐',
-    coverImage: '/seeds/dish_home_tofu.webp',
-    category: '家常',
-    tags: ['下饭', '素食'],
-    difficulty: 1,
-    cookTimeMin: 15,
-    servings: 2,
-    favorite: false,
-    createdAt: baseTime + 86400000 * 42,
-    ingredients: [
-      { ingredientId: 'ing_tofu', amount: 500, unit: 'g' },
-      { ingredientId: 'ing_fungus', amount: 10, unit: 'g' },
-      { ingredientId: 'ing_pepper_green', amount: 70, unit: 'g' },
-      { ingredientId: 'ing_pepper_red', amount: 80, unit: 'g' },
-      { ingredientId: 'ing_garlic', amount: 80, unit: 'g' },
-      { ingredientId: 'ing_ginger', amount: 15, unit: 'g' },
-      { ingredientId: 'ing_scallion', amount: 30, unit: 'g' },
-      { ingredientId: 'ing_soy_sauce', amount: 15, unit: 'ml' },
-      { ingredientId: 'ing_oyster_sauce', amount: 10, unit: 'ml' },
-      { ingredientId: 'ing_salt', amount: 2, unit: 'g' },
-      { ingredientId: 'ing_starch', amount: 5, unit: 'g' },
-      { ingredientId: 'ing_oil', amount: 15, unit: 'ml' },
-    ],
-    steps: [
-      { order: 1, text: '豆腐切厚片，木耳提前泡发撕小朵，青红椒切块' },
-      { order: 2, text: '热油下豆腐煎到两面金黄盛出' },
-      { order: 3, text: '余油爆香姜蒜，下青红椒木耳翻炒' },
-      { order: 4, text: '倒回豆腐，加生抽、蚝油、盐和半碗水焖 2 分钟' },
-      { order: 5, text: '淀粉水勾芡撒葱花起锅' },
-    ],
-    tips: '豆腐先用淡盐水浸泡 5 分钟不易碎；煎过再炖更香。',
-  },
-  {
+    {
     id: 'dish_chive_bean_sprout',
     name: '韭菜炒豆芽',
     category: '家常',
@@ -1463,35 +1404,7 @@ export const seedDishes: Dish[] = [
     ],
     tips: '花菜要煸到边缘微焦才香；用五花肉的油润这道菜，比纯素版本好吃 3 倍。',
   },
-  {
-    id: 'dish_baby_cabbage_soup',
-    name: '上汤娃娃菜',
-    coverImage: '/seeds/dish_baby_cabbage_soup.webp',
-    category: '粤菜',
-    tags: ['粤菜', '汤羹', '清淡'],
-    difficulty: 1,
-    cookTimeMin: 15,
-    servings: 2,
-    favorite: false,
-    createdAt: baseTime + 86400000 * 50,
-    ingredients: [
-      { ingredientId: 'ing_chinese_cabbage', amount: 400, unit: 'g' },
-      { ingredientId: 'ing_preserved_egg', amount: 120, unit: 'g' },
-      { ingredientId: 'ing_garlic', amount: 80, unit: 'g' },
-      { ingredientId: 'ing_ginger', amount: 15, unit: 'g' },
-      { ingredientId: 'ing_scallion', amount: 30, unit: 'g' },
-      { ingredientId: 'ing_salt', amount: 3, unit: 'g' },
-      { ingredientId: 'ing_oil', amount: 10, unit: 'ml' },
-    ],
-    steps: [
-      { order: 1, text: '娃娃菜对半切开，皮蛋切丁，姜蒜切末' },
-      { order: 2, text: '热油爆香姜蒜，下皮蛋丁小火煸到起泡' },
-      { order: 3, text: '加两大碗水煮开，下娃娃菜中火煮 5 分钟到软' },
-      { order: 4, text: '加盐调味，撒葱花起锅' },
-    ],
-    tips: '皮蛋要先煸到起泡，这样汤才浓白；如果有咸鸭蛋黄加半个更香。',
-  },
-  {
+    {
     id: 'dish_garlic_water_spinach',
     name: '蒜蓉空心菜',
     category: '家常',
@@ -1568,35 +1481,7 @@ export const seedDishes: Dish[] = [
     ],
     tips: '白膜要刮干净，盐腌挤水是减苦关键；喜欢更不苦的可以提前焯水 1 分钟。',
   },
-  {
-    id: 'dish_winter_melon_meatball_soup',
-    name: '冬瓜肉丸汤',
-    coverImage: '/seeds/dish_winter_melon_meatball_soup.webp',
-    category: '家常',
-    tags: ['汤羹', '清淡', '暖胃'],
-    difficulty: 1,
-    cookTimeMin: 25,
-    servings: 3,
-    favorite: false,
-    createdAt: baseTime + 86400000 * 54,
-    ingredients: [
-      { ingredientId: 'ing_winter_melon', amount: 500, unit: 'g' },
-      { ingredientId: 'ing_pork_meatball', amount: 300, unit: 'g' },
-      { ingredientId: 'ing_ginger', amount: 30, unit: 'g' },
-      { ingredientId: 'ing_scallion', amount: 30, unit: 'g' },
-      { ingredientId: 'ing_salt', amount: 5, unit: 'g' },
-      { ingredientId: 'ing_white_pepper', amount: 2, unit: 'g' },
-      { ingredientId: 'ing_cooking_wine', amount: 10, unit: 'ml' },
-    ],
-    steps: [
-      { order: 1, text: '冬瓜去皮去瓤切 5mm 厚片，姜切丝葱切花' },
-      { order: 2, text: '肉丸室温解冻，冷水下锅加姜丝料酒煮开撇浮沫' },
-      { order: 3, text: '下冬瓜中火煮 10 分钟到半透明' },
-      { order: 4, text: '加盐、白胡椒调味，撒葱花起锅' },
-    ],
-    tips: '冬瓜煮到半透明最清甜，全透明就过了会化；白胡椒是冬瓜汤的灵魂。',
-  },
-  {
+    {
     id: 'dish_kou_shui_ji',
     name: '口水鸡',
     category: '川菜',
@@ -1691,60 +1576,7 @@ export const seedDishes: Dish[] = [
   // 统一标准：低油（用油压到 5ml 以内）、低糖、低盐、低碳水，高蛋白 + 高纤维。
   // 做法上能蒸就不炒、能拌就不红烧。
   // 注：「白灼虾」「凉拌黄瓜」菜单里本来就有，没有重复添加。
-  {
-    id: 'diet_steamed_fish',
-    name: '清蒸鱼',
-    category: '粤菜',
-    tags: ['减脂', '高蛋白'],
-    difficulty: 2,
-    cookTimeMin: 15,
-    servings: 2,
-    favorite: false,
-    createdAt: baseTime + 86400000 * 60,
-    ingredients: [
-      { ingredientId: 'ing_sea_bass', amount: 500, unit: 'g' },
-      { ingredientId: 'ing_ginger', amount: 15, unit: 'g' },
-      { ingredientId: 'ing_scallion', amount: 15, unit: 'g' },
-      { ingredientId: 'ing_cooking_wine', amount: 10, unit: 'ml' },
-      { ingredientId: 'ing_soy_sauce', amount: 15, unit: 'ml' },
-      { ingredientId: 'ing_oil', amount: 5, unit: 'ml' },
-    ],
-    steps: [
-      { order: 1, text: '鱼去鳞去内脏洗净，两面各划三刀，用厨房纸吸干水分' },
-      { order: 2, text: '鱼身抹少许料酒，盘底垫姜丝、鱼腹塞姜片和葱段' },
-      { order: 3, text: '水完全烧开后再上锅，大火蒸 8 分钟（一斤左右的鱼）' },
-      { order: 4, text: '端出倒掉盘里的腥水，捡掉旧姜葱，重新铺新鲜葱丝' },
-      { order: 5, text: '淋生抽，再把 5ml 油烧到冒烟浇在葱丝上' },
-    ],
-    tips: '水开了才能上锅，中途别揭盖。蒸完盘里那滩水一定要倒掉，腥味全在里面。',
-  },
-  {
-    id: 'diet_boiled_chicken_breast',
-    name: '水煮鸡胸肉',
-    coverImage: '/seeds/diet_boiled_chicken_breast.webp',
-    category: '家常',
-    tags: ['减脂', '高蛋白'],
-    difficulty: 1,
-    cookTimeMin: 20,
-    servings: 2,
-    favorite: false,
-    createdAt: baseTime + 86400000 * 61,
-    ingredients: [
-      { ingredientId: 'ing_chicken_breast', amount: 300, unit: 'g' },
-      { ingredientId: 'ing_ginger', amount: 15, unit: 'g' },
-      { ingredientId: 'ing_scallion', amount: 10, unit: 'g' },
-      { ingredientId: 'ing_cooking_wine', amount: 15, unit: 'ml' },
-      { ingredientId: 'ing_salt', amount: 2, unit: 'g' },
-    ],
-    steps: [
-      { order: 1, text: '鸡胸洗净，用刀背轻拍几下让厚度均匀' },
-      { order: 2, text: '冷水下锅，放姜片、葱段、料酒' },
-      { order: 3, text: '水开后转小火煮 8 分钟，关火加盖再焖 5 分钟' },
-      { order: 4, text: '捞出放凉，顺纹理撕成条' },
-    ],
-    tips: '关火后焖那 5 分钟是关键——直接煮够时间就捞出来必柴。一次多煮几块冷藏，能顶两天的蛋白质。',
-  },
-  {
+      {
     id: 'diet_stirfry_broccoli',
     name: '清炒西兰花',
     coverImage: '/seeds/diet_stirfry_broccoli.webp',

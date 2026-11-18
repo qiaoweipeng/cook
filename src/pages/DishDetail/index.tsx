@@ -8,7 +8,6 @@ import {
   Button,
   Result,
   Empty,
-  List,
   Row,
   Col,
   Descriptions,
@@ -20,6 +19,7 @@ import { NavBar, Popup } from 'antd-mobile';
 import {
   CalendarOutlined,
   CheckOutlined,
+  EditOutlined,
   LeftOutlined,
   SearchOutlined,
   ShareAltOutlined,
@@ -35,12 +35,13 @@ import { useWeeklyStore } from '@/store/useWeeklyStore';
 import { useFamilyStore } from '@/store/useFamilyStore';
 import { useIsAdmin } from '@/store/useAuthStore';
 import { dayKey, today } from '@/utils/week';
-import { calcDishCost, lineCost, priceSpec, displayUnitPrice, cheapestPlatform } from '@/utils/price';
+import { calcDishCost, lineCost, priceSpec, displayUnitPrice, cheapestPlatform, calcDishNutrition } from '@/utils/price';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { resolveImageUrl } from '@/lib/imageStorage';
 import PriceTag from '@/components/PriceTag';
+import DishEditor from '@/components/DishEditor';
 import { CATEGORY_COLOR, NUTRI_FIELDS } from '@/types';
-import type { Ingredient } from '@/types';
+import type { Dish, Ingredient } from '@/types';
 
 const { Title, Text } = Typography;
 
@@ -93,6 +94,123 @@ const placeholderStyle: React.CSSProperties = {
   userSelect: 'none',
 };
 
+/**
+ * 营养成分区块：PC / 移动端共用，放在顶部菜品信息区里。
+ * 数值是整道菜的合计（食材库口径是每 100g / 100ml，按菜谱用量折算累加），
+ * 底下再补一行每份热量，方便直接判断「一个人吃多少」。
+ */
+function NutritionSection({ dish, ingredients }: { dish: Dish; ingredients: Ingredient[] }) {
+  const total = calcDishNutrition(dish, ingredients);
+
+  if (!total) {
+    return (
+      <Text type="secondary" style={{ fontSize: 12 }}>
+        营养成分：食材还没录入营养成分，暂时算不出来
+      </Text>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: '#999', marginBottom: 4 }}>营养成分 · 整道菜合计</div>
+      {NUTRI_FIELDS.map((f, index) => (
+        <div
+          key={f.key}
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '6px 0',
+            fontSize: 13,
+            borderBottom: index < NUTRI_FIELDS.length - 1 ? '1px solid #F0EEE9' : 'none',
+          }}
+        >
+          <span style={{ color: '#8c857e' }}>{f.label}</span>
+          <span style={{ color: '#2D2A26', fontWeight: 500 }}>
+            {total[f.key]}
+            <span style={{ color: '#b0aaa3', fontWeight: 400 }}> {f.unit}</span>
+          </span>
+        </div>
+      ))}
+      <div style={{ marginTop: 6, fontSize: 12, color: '#b0aaa3' }}>
+        {dish.servings} 人份，平均每份约 {Math.round(total.calories / dish.servings)} kcal
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 食材清单：按「食材 / 调料」分组展示，PC 和移动端共用。
+ * 全部混在一列里时，用户分不清哪些是主料、哪些只是调味的，
+ * 这里按食材库的 category 拆成两组，组头带上数量。
+ */
+function IngredientList({
+  dish,
+  ingredients,
+  onSelect,
+  mobile,
+}: {
+  dish: Dish;
+  ingredients: Ingredient[];
+  onSelect: (ing: Ingredient) => void;
+  mobile?: boolean;
+}) {
+  const rows = dish.ingredients.map((di) => ({
+    di,
+    ing: ingredients.find((i) => i.id === di.ingredientId)!,
+  }));
+  const main = rows.filter((r) => r.ing.category !== '调料');
+  const seasoning = rows.filter((r) => r.ing.category === '调料');
+
+  const renderGroup = (title: string, list: typeof rows) => {
+    if (list.length === 0) return null;
+    return (
+      <div style={{ marginBottom: 10 }}>
+        <div style={{ fontSize: 12, color: '#b0aaa3', marginBottom: 6 }}>
+          {title} · {list.length}
+        </div>
+        {list.map(({ di, ing }, index) => {
+          const cost = lineCost(di, ingredients);
+          return (
+            <div
+              key={`${di.ingredientId}-${index}`}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: mobile ? '10px 14px' : '8px 12px',
+                background: '#FAF7F2',
+                borderRadius: mobile ? 10 : 8,
+                marginBottom: mobile ? 6 : 4,
+              }}
+            >
+              <Space>
+                <Typography.Link strong onClick={() => onSelect(ing)} style={{ color: '#E8743C' }}>
+                  {ing.name}
+                </Typography.Link>
+                {ing.note && <Text type="secondary">（{ing.note}）</Text>}
+              </Space>
+              <Space size={16}>
+                <span>
+                  {di.amount} {di.unit}
+                </span>
+                <Text type="secondary">≈ {cost.toFixed(2)} 元</Text>
+              </Space>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <>
+      {renderGroup('食材', main)}
+      {renderGroup('调料', seasoning)}
+    </>
+  );
+}
+
 export default function DishDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -113,6 +231,8 @@ export default function DishDetail() {
 
   // 食材详情弹窗：点食材清单里的菜名打开，和食材库页面那一套完全一样
   const [selectedIng, setSelectedIng] = useState<Ingredient | null>(null);
+  // PC 管理员在详情页直接编辑：保存后 store 更新，页面数据自动刷新
+  const [editorOpen, setEditorOpen] = useState(false);
 
   /*
     今日菜单：只认「今天」这一天，不能加到明天/前天，所以 day 一律用 dayKey(today())，
@@ -280,19 +400,26 @@ export default function DishDetail() {
         {/* 桌面端：整页一张卡片，上半部分是「左图 + 右信息」，下半部分是详细做法，中间用一条分隔线衔接 */}
         {!isMobile && (
           <>
-            <Breadcrumb
-              style={{ marginBottom: 12 }}
-              items={[
-                {
-                  title: (
-                    <a onClick={(e) => { e.preventDefault(); navigate('/menu'); }}>
-                      菜单管理
-                    </a>
-                  ),
-                },
-                { title: dish.name },
-              ]}
-            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <Breadcrumb
+                style={{ flex: 1, minWidth: 0 }}
+                items={[
+                  {
+                    title: (
+                      <a onClick={(e) => { e.preventDefault(); navigate('/menu'); }}>
+                        菜单管理
+                      </a>
+                    ),
+                  },
+                  { title: dish.name },
+                ]}
+              />
+              {isAdmin && (
+                <Button icon={<EditOutlined />} onClick={() => setEditorOpen(true)}>
+                  编辑菜品
+                </Button>
+              )}
+            </div>
 
             <div
               style={{
@@ -370,7 +497,9 @@ export default function DishDetail() {
                     </Descriptions.Item>
                   </Descriptions>
 
-                  {/* 操作区：管理员在菜品详情页不需要编辑入口，这里只给普通用户 */}
+                  <NutritionSection dish={dish} ingredients={ingredients} />
+
+                  {/* 采购 / 收藏是日常使用动作；管理员进详情页主要是维护数据，编辑入口在面包屑右侧，这里只给普通用户 */}
                   {!isAdmin && (
                     <Space size={12} wrap>
                       <Button
@@ -420,43 +549,7 @@ export default function DishDetail() {
               ) : missing.length > 0 ? (
                 <Empty description={`有 ${missing.length} 项食材未在食材库中`} />
               ) : (
-                <List
-                  size="small"
-                  dataSource={dish.ingredients}
-                  split={false}
-                  renderItem={(di) => {
-                    const ing = ingredients.find((i) => i.id === di.ingredientId)!;
-                    const cost = lineCost(di, ingredients);
-                    return (
-                      <List.Item
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          padding: '8px 12px',
-                          background: '#FAF7F2',
-                          borderRadius: 8,
-                          marginBottom: 4,
-                        }}
-                      >
-                        <Space>
-                          <Typography.Link
-                            strong
-                            onClick={() => setSelectedIng(ing)}
-                            style={{ color: '#E8743C' }}
-                          >
-                            {ing.name}
-                          </Typography.Link>
-                          {ing.note && <Text type="secondary">（{ing.note}）</Text>}
-                        </Space>
-                        <Space size={16}>
-                          <span>{di.amount} {di.unit}</span>
-                          <Text type="secondary">≈ {cost.toFixed(2)} 元</Text>
-                        </Space>
-                      </List.Item>
-                    );
-                  }}
-                />
+                <IngredientList dish={dish} ingredients={ingredients} onSelect={setSelectedIng} />
               )}
 
               <div className="section-title">烹饪步骤</div>
@@ -540,51 +633,17 @@ export default function DishDetail() {
                 </Col>
               </Row>
 
+              <div style={{ margin: '4px 0 16px' }}>
+                <NutritionSection dish={dish} ingredients={ingredients} />
+              </div>
+
               <div className="section-title">食材清单</div>
               {dish.ingredients.length === 0 ? (
                 <Empty description="还没填食材" />
               ) : missing.length > 0 ? (
                 <Empty description={`有 ${missing.length} 项食材未在食材库中`} />
               ) : (
-                <List
-                  size="small"
-                  dataSource={dish.ingredients}
-                  split={false}
-                  renderItem={(di) => {
-                    const ing = ingredients.find((i) => i.id === di.ingredientId)!;
-                    const cost = lineCost(di, ingredients);
-                    return (
-                      <List.Item
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          padding: '10px 14px',
-                          background: '#FAF7F2',
-                          borderRadius: 10,
-                          marginBottom: 6,
-                        }}
-                      >
-                        <Space>
-                          <Typography.Link
-                            strong
-                            onClick={() => setSelectedIng(ing)}
-                            style={{ color: '#E8743C' }}
-                          >
-                            {ing.name}
-                          </Typography.Link>
-                          {ing.note && <Text type="secondary">（{ing.note}）</Text>}
-                        </Space>
-                        <Space size={16}>
-                          <span>
-                            {di.amount} {di.unit}
-                          </span>
-                          <Text type="secondary">≈ {cost.toFixed(2)} 元</Text>
-                        </Space>
-                      </List.Item>
-                    );
-                  }}
-                />
+                <IngredientList dish={dish} ingredients={ingredients} onSelect={setSelectedIng} mobile />
               )}
 
               <div className="section-title">烹饪步骤</div>
@@ -906,6 +965,21 @@ export default function DishDetail() {
           </Popup>
         )
       }
+
+      {/* PC 管理员的编辑入口：用抽屉而不是弹框，和「菜单管理」表格里的编辑体验保持一致 */}
+      {!isMobile && isAdmin && (
+        <DishEditor
+          mode="edit"
+          dish={dish}
+          open={editorOpen}
+          container="drawer"
+          onClose={() => setEditorOpen(false)}
+          onSaved={() => {
+            message.success('已保存');
+            setEditorOpen(false);
+          }}
+        />
+      )}
     </>
   );
 }

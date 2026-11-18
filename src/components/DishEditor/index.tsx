@@ -27,10 +27,11 @@ import { DeleteOutlined, PictureOutlined, PlusOutlined } from '@ant-design/icons
 import { useDishStore } from '@/store/useDishStore';
 import { useIngredientStore } from '@/store/useIngredientStore';
 import { pickImage, formatSize, IMAGE_ACCEPT } from '@/lib/imageUpload';
-import { resolveImageUrl, deleteImage } from '@/lib/imageStorage';
+import { resolveImageUrl, deleteImage, describeImageSource } from '@/lib/imageStorage';
 import { usePasteImage } from '@/hooks/usePasteImage';
-import type { Dish, DishCategory, DishIngredient, Ingredient, IngredientCategory, IngredientUnit, Step } from '@/types';
+import type { Dish, DishCategory, DishIngredient, IngredientUnit, Step } from '@/types';
 import { TAG_GROUPS } from '@/types';
+import IngredientEditor from '@/components/IngredientEditor';
 
 const { Text } = Typography;
 
@@ -38,11 +39,6 @@ const { Text } = Typography;
 // 只按地域流派分 7 类，汤羹/凉菜/烘焙/减脂/快手都是形态/属性，走 tags 不放这里
 const CATEGORIES: DishCategory[] = [
   '家常', '川菜', '粤菜', '湘菜', '鲁菜', '江浙', '其他',
-];
-
-/** 食材分类（跟 Ingredients 页面里的 categories 完全一致） */
-const ING_CATEGORIES: IngredientCategory[] = [
-  '蔬菜', '肉类', '海鲜', '调料', '主食', '蛋奶', '水果', '其他',
 ];
 
 /** 配料单位：固体用 g / kg，液体用 ml / L（跟食材库的计价单位保持一致） */
@@ -117,7 +113,6 @@ export default function DishEditor({
   const updateDish = useDishStore((s) => s.update);
   const removeDish = useDishStore((s) => s.remove);
   const ingredients = useIngredientStore((s) => s.items);
-  const addIngredient = useIngredientStore((s) => s.add);
   const [form] = Form.useForm<FormValues>();
 
   const [rows, setRows] = useState<RowIngredient[]>([]);
@@ -125,15 +120,12 @@ export default function DishEditor({
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [imgProcessing, setImgProcessing] = useState(false);
-  /** 快速添加食材弹窗 */
-  const [quickAdd, setQuickAdd] = useState<{
-    open: boolean;
-    rowIndex: number;
-    name: string;
-    category: IngredientCategory;
-    unit: IngredientUnit;
-    saving: boolean;
-  }>({ open: false, rowIndex: -1, name: '', category: '调料', unit: 'g', saving: false });
+  /** 没找到食材时打开的新增抽屉：保存后自动选中到 rowIndex 那一行 */
+  const [quickAdd, setQuickAdd] = useState<{ open: boolean; rowIndex: number; name: string }>({
+    open: false,
+    rowIndex: -1,
+    name: '',
+  });
   /**
    * 本次上传的结果：体积 + 走的是对象存储还是本地压缩。
    * 单独存一份是为了在编辑区**常驻显示**大小 ——
@@ -563,14 +555,28 @@ export default function DishEditor({
                     {imgInfo.viaStorage ? ' · 已存云端' : ' · 压缩后存本地'}
                   </Text>
                 )}
+                {coverImage && (() => {
+                  const src = describeImageSource(coverImage);
+                  const color =
+                    src.kind === 'external' ? 'red' :
+                    src.kind === 'local' ? 'orange' :
+                    src.kind === 'cos' ? 'blue' :
+                    src.kind === 'supabase' ? 'geekblue' : 'default';
+                  return (
+                    <Tag color={color} style={{ margin: 0 }}>
+                      来源：{src.label}
+                      {src.kind === 'external' && ' — 外链随时可能失效'}
+                    </Tag>
+                  );
+                })()}
               </Space>
 
               <Form.Item name="coverImage" noStyle>
-                <Input placeholder="或粘贴图片链接（如 /dishes/xxx.jpg 或 http://…）" allowClear />
+                <Input placeholder="或输入相对路径（如 dishes/xxx.webp）" allowClear />
               </Form.Item>
 
               <Text type="secondary" style={{ fontSize: 12 }}>
-                支持 JPG / PNG / WebP 静态图，建议 3:4 竖图（上传前会自动压缩）；也可以直接 Ctrl+V / ⌘V 粘贴截图
+                只允许本地上传到对象存储（当前：腾讯云 COS），不支持外链；支持 JPG / PNG / WebP，建议 3:4 竖图
               </Text>
             </div>
           </div>
@@ -636,17 +642,10 @@ export default function DishEditor({
                     style={{ padding: 0, height: 'auto' }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setQuickAdd({
-                        open: true,
-                        rowIndex: i,
-                        name: '',
-                        category: '调料',
-                        unit: 'g',
-                        saving: false,
-                      });
+                      setQuickAdd({ open: true, rowIndex: i, name: '' });
                     }}
                   >
-                    快速添加
+                    新增食材
                   </Button>
                 </span>
               }
@@ -746,82 +745,18 @@ export default function DishEditor({
     </Form>
   );
 
-  // —— 快速添加食材 ——
-  const saveQuickAdd = async () => {
-    const name = quickAdd.name.trim();
-    if (!name) {
-      message.warning('请输入食材名');
-      return;
-    }
-    setQuickAdd((s) => ({ ...s, saving: true }));
-    try {
-      const newIng: Ingredient = {
-        id: 'ing_' + Date.now().toString(36),
-        name,
-        category: quickAdd.category,
-        unit: quickAdd.unit,
-        prices: {},
-      };
-      await addIngredient(newIng);
-      // 自动选中到当前行
-      updateRow(quickAdd.rowIndex, {
-        ingredientId: newIng.id,
-        unit: newIng.unit,
-      });
-      message.success(`已添加「${name}」`);
-      setQuickAdd({ open: false, rowIndex: -1, name: '', category: '调料', unit: 'g', saving: false });
-    } catch (e) {
-      message.error((e as Error).message || '添加失败');
-      setQuickAdd((s) => ({ ...s, saving: false }));
-    }
-  };
-
-  const quickAddModal = (
-    <Modal
-      title="快速添加食材"
+  // —— 没找到食材时的新增：直接复用食材库那套完整表单（图片 / 平台价格 / 营养都能填） ——
+  const quickAddEditor = (
+    <IngredientEditor
       open={quickAdd.open}
-      onCancel={() => setQuickAdd((s) => ({ ...s, open: false }))}
-      onOk={saveQuickAdd}
-      confirmLoading={quickAdd.saving}
-      okText="添加并选中"
-      cancelText="取消"
-      width={420}
-      destroyOnClose
-    >
-      <div style={{ marginBottom: 4, color: '#999', fontSize: 12 }}>
-        添加后会自动选中到当前菜品的这一行食材里
-      </div>
-      <Form layout="vertical" preserve={false}>
-        <Form.Item label="食材名称" required>
-          <Input
-            value={quickAdd.name}
-            onChange={(e) => setQuickAdd((s) => ({ ...s, name: e.target.value }))}
-            placeholder="如：十三香"
-            autoFocus
-          />
-        </Form.Item>
-        <Row gutter={12}>
-          <Col span={12}>
-            <Form.Item label="分类">
-              <Select
-                value={quickAdd.category}
-                onChange={(v) => setQuickAdd((s) => ({ ...s, category: v }))}
-                options={ING_CATEGORIES.map((c) => ({ value: c, label: c }))}
-              />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item label="计价单位">
-              <Select
-                value={quickAdd.unit}
-                onChange={(v) => setQuickAdd((s) => ({ ...s, unit: v }))}
-                options={UNIT_OPTIONS}
-              />
-            </Form.Item>
-          </Col>
-        </Row>
-      </Form>
-    </Modal>
+      initialName={quickAdd.name}
+      onClose={() => setQuickAdd((s) => ({ ...s, open: false }))}
+      onSaved={(ing) => {
+        // 新增完自动选中到当前这一行，单位也跟着食材的计价单位走
+        updateRow(quickAdd.rowIndex, { ingredientId: ing.id, unit: ing.unit });
+        message.success(`已把「${ing.name}」加入这一行`);
+      }}
+    />
   );
 
   if (container === 'drawer') {
@@ -838,7 +773,7 @@ export default function DishEditor({
         >
           {formBody}
         </Drawer>
-        {quickAddModal}
+        {quickAddEditor}
       </>
     );
   }
@@ -855,7 +790,7 @@ export default function DishEditor({
       >
         {formBody}
       </Modal>
-      {quickAddModal}
+      {quickAddEditor}
     </>
   );
 }
